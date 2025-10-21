@@ -239,7 +239,37 @@ std::shared_ptr<Node> div_cudaops(const std::shared_ptr<Node>& a,
     return n;
     }
 
+    std::shared_ptr<Node> relu_cudaops(const std::shared_ptr<Node>& x){ 
+                           const Tensor& xin = x->value;
+        auto X = x->d_array;
 
+    auto [M, K]  = x->value.shape();
+
+    auto* fn = ag::kernels::cpu().relu;
+    if (!fn)
+        throw std::runtime_error("No CUDA RELU kernel registered");
+
+    Tensor C({M, K});
+    auto n = std::make_shared<Node>(C, (x->requires_grad),
+                                    Op::Relu, "relu", true);
+
+                    
+
+    fn(X, n->d_array, M * K);
+     n->siz = M*K;
+
+    // cudaMemcpy(n->value.data(), n->d_array, M * K * sizeof(float),
+    //            cudaMemcpyDeviceToHost);
+
+    // std::cout << "[CUDA Sigmoidiff output preview]: ";
+    // for (int i = 0; i < std::min(10, M * K); ++i)
+    //     std::cout << n->value.data()[i] << " ";
+    // std::cout << "\n";
+
+
+        n->inputs = { x };
+        return n;
+    }
 
 
 

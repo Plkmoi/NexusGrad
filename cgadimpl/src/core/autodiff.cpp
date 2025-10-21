@@ -45,37 +45,26 @@ void backward(const Value& root, const Tensor* grad_seed){
     }
 }
 
-
-void valsend(const Value& root){
+void valsend(const Value& root) {
     auto order = topo_from(root.node.get());
+    cudaDeviceSynchronize(); // Wait for all GPU ops to finish
 
-
-
-    // reverse topo
     for (auto it = order.rbegin(); it != order.rend(); ++it) {
         Node* n = *it;
         if (!n->requires_grad || !(n->cuda_device)) continue;
-        const Tensor& gy = n->grad;
 
-        cudaMemcpy(n->value.data(), n->d_array, (n->siz) * sizeof(float),
-               cudaMemcpyDeviceToHost);
+        if (n->d_array && n->siz > 0) {
+            cudaMemcpy(n->value.data(), n->d_array,
+                       n->siz * sizeof(float), cudaMemcpyDeviceToHost);
+        }
 
-        ag::debug::on_backprop_step(n, gy); // (optional) prints one line per node
-
-    //        std::cout << "[CUDA SUB output preview]: ";
-    // for (int i = 0; i < 10; ++i)
-    //     std::cout << n->value.data()[i] << " ";
-    // std::cout << "\n";
-
-        // if (n->is_checkpoint && n->value.size() == 0) {
-        // if (!ag::checkpoint_impl::recompute_subgraph(n->shared_from_this())) {
-        //     throw std::runtime_error("autodiff: failed to recompute checkpointed node during backward");
-        // }
-        // }
-        // VjpFn fn = vjp_lookup(n->op);
-        // if (fn) fn(n, gy); // handler accumulates into parents
+        std::cout << "[CUDA VALSEND output]: ";
+        for (int i = 0; i < std::min(10, int(n->siz)); ++i)
+          {  std::cout << n->value.data()[i] << " ";
+        std::cout << "(" << n->debug_name << ")\n";}
     }
 }
+
 
 Tensor jvp(const Value& root, const std::unordered_map<Node*, Tensor>& seed){
     auto order = topo_from(root.node.get());

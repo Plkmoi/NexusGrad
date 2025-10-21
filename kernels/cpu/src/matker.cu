@@ -150,7 +150,9 @@ __global__ void relu_thread(const float* A, float* B, int width)
 
     // Accumulate into existing C value instead of overwriting
     if(row<width)
-                B[row] = A[row] > 0.0f ? A[row] : 0.0f;
+              {  B[row] = A[row] > 0.0f ? A[row] : 0.0f;
+                    printf("Block %d Thread %d active for row %d WITH VALUE %f and input %f\n", blockIdx.x, threadIdx.x, row, B[row], A[row]);
+            }
 }
 
 
@@ -203,28 +205,18 @@ void run_cuda_exp(const float* A, float* B, int width)
 
 void run_cuda_relu(const float* A, float* B, int width)
 {
-    float *d_A, *d_B;
-    int size = width * sizeof(float);
+    int threads = 256;
+    int blocks = (width + threads - 1) / threads;
 
-    cudaMalloc(&d_A, size);
-    cudaMalloc(&d_B, size);
+    relu_thread<<<blocks, threads>>>(A, B, width);
 
-    cudaMemcpy(d_A, A, size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_B, B, size, cudaMemcpyHostToDevice);
-    int threads = 1024;
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        std::cerr << "CUDA sigmoid launch error: "
+                  << cudaGetErrorString(err) << std::endl;
+    }
 
-    dim3 threadsPerBlock(threads);
-    dim3 numBlocks((width + threads - 1) / threads);
-
-    relu_thread<<<numBlocks, threadsPerBlock>>>(d_A, d_B, width);
     cudaDeviceSynchronize();
-
-        cudaMemcpy(B, d_B, size, cudaMemcpyDeviceToHost);
-
-
-
-    cudaFree(d_A);
-    cudaFree(d_B);
 }
 
 
@@ -243,7 +235,8 @@ __global__ void relumask_thread(const float* A, float* B, int width)
     // Accumulate into existing C value instead of overwriting
     if(row<width)
                { B[row] = A[row] > 0.0f ? 1.0f : 0.0f;
-                printf("Block %d Thread %d active for row %d\n", blockIdx.x, threadIdx.x, row);}
+             //   printf("Block %d Thread %d active for row %d\n", blockIdx.x, threadIdx.x, row);
+            }
 }
 
 

@@ -62,7 +62,7 @@ namespace ag {
 
     Value relu(const Value& x){ 
       
-        return Value(detail::relu_nodeops(x.node));
+        return Value(detail::relu_cudaops(x.node));
     }
 
     Value reci(const Value& x){ 
