@@ -206,11 +206,11 @@ namespace ag {
 
 
     Value rowsum(const Value& x){ 
-        return Value(detail::rowsum_nodeops(x.node));
+        return Value(detail::rowsum_cudaops(x.node));
     }
     
     Value rowmax(const Value& x){ 
-        return Value(detail::rowmax_nodeops(x.node));
+        return Value(detail::rowmax_cudaops(x.node));
     }
 
     Value rms(const Value& x){ 

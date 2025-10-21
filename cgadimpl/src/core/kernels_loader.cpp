@@ -57,6 +57,9 @@ void load_cpu_plugin(const char* path) {
   g_cpu.gelu         = table.gelu;
   g_cpu.log          = table.log;
   g_cpu.tanh         = table.tanh;
+  g_cpu.rowsum = table.rowsum;
+  g_cpu.rowmax = table.rowmax;
+
 }
 
 #ifndef AG_NO_AUTOLOAD_KERNELS

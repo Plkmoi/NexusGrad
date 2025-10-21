@@ -42,6 +42,8 @@ typedef void (*ag_silu_fn)(const float* x, float* y, int64_t n);
 typedef void (*ag_gelu_fn)(const float* x, float* y, int64_t n);
 typedef void (*ag_log_fn)(const float* x, float* y, int64_t n);
 typedef void (*ag_tanh_fn)(const float* x, float* y, int64_t n);
+typedef void (*ag_rowsum_fn)(const float* X, float* Y, int rows, int cols);
+typedef void (*ag_rowmax_fn)(const float* X, float* Y, int rows, int cols);
 
 
 
@@ -70,6 +72,8 @@ struct ag_cpu_v1 {
   ag_gelu_fn gelu;
   ag_log_fn log;
   ag_tanh_fn tanh;
+  ag_rowsum_fn rowsum;
+  ag_rowmax_fn rowmax;
 
 };
 
@@ -104,6 +108,8 @@ ag_sig_fn sigmoid = nullptr;
   ag_gelu_fn gelu = nullptr;
   ag_log_fn log = nullptr;
   ag_tanh_fn tanh = nullptr;
+  ag_rowsum_fn rowsum = nullptr;
+  ag_rowmax_fn rowmax = nullptr;
 
 };
 

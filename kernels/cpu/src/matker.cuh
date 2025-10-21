@@ -21,3 +21,5 @@ void run_cuda_silu(const float*, float*, int);
 void run_cuda_gelu(const float*, float*, int);
 void run_cuda_log(const float*, float*, int);
 void run_cuda_tanh(const float*, float*, int);
+void run_cuda_rowsum(const float* X, float* Y, int rows, int cols);
+void run_cuda_rowmax(const float* X, float* Y, int rows, int cols);

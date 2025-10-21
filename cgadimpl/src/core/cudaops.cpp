@@ -464,10 +464,48 @@ std::shared_ptr<Node> tanh_cudaops(const std::shared_ptr<Node>& x) {
 
 
 
+std::shared_ptr<Node> rowsum_cudaops(const std::shared_ptr<Node>& x) { 
+    const Tensor& xin = x->value;
+    auto X = x->d_array;
+
+    auto [M, K] = x->value.shape();
+
+    auto* fn = ag::kernels::cpu().rowsum;
+    if (!fn)
+        throw std::runtime_error("No CUDA RowSum kernel registered");
+
+    Tensor C({M, 1});
+    auto n = std::make_shared<Node>(C, x->requires_grad, Op::RowSum, "rowsum", true);
+
+    fn(X, n->d_array, M, K);
+    n->siz = M;
+
+    n->inputs = { x };
+    return n;
+}
 
 
 
 
+std::shared_ptr<Node> rowmax_cudaops(const std::shared_ptr<Node>& x) {
+    const Tensor& xin = x->value;
+    auto X = x->d_array;
+
+    auto [M, K] = xin.shape();
+
+    auto* fn = ag::kernels::cpu().rowmax;
+    if (!fn)
+        throw std::runtime_error("No CUDA RowMax kernel registered");
+
+    Tensor C({M, 1});
+    auto n = std::make_shared<Node>(C, x->requires_grad, Op::RowMax, "rowmax", true);
+
+    fn(X, n->d_array, M, K);
+    n->siz = M;
+
+    n->inputs = {x};
+    return n;
+}
 
 
 

@@ -987,6 +987,100 @@ void run_cuda_tanh(const float* A, float* B, int width)
     cudaDeviceSynchronize();
 }
 
+__global__ void rowsum_parallel(const float* __restrict__ X, float* __restrict__ Y,
+                                int rows, int cols) {
+    extern __shared__ float sdata[];
+
+    int row = blockIdx.x;
+    int tid = threadIdx.x;
+    int index = row * cols + tid;
+
+    float sum = 0.0f;
+
+    // Each thread sums part of the row
+    for (int j = tid; j < cols; j += blockDim.x) {
+        sum += X[row * cols + j];
+    }
+
+    sdata[tid] = sum;
+    __syncthreads();
+
+    // Parallel reduction in shared memory
+    for (int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (tid < s)
+            sdata[tid] += sdata[tid + s];
+        __syncthreads();
+    }
+
+    // Write result
+    if (tid == 0)
+        Y[row] = sdata[0];
+}
+
+
+void run_cuda_rowsum(const float* X, float* Y, int rows, int cols) {
+    int threads = 256;  // one block per row
+    int blocks = rows;
+    size_t shared = threads * sizeof(float);
+
+    rowsum_parallel<<<blocks, threads, shared>>>(X, Y, rows, cols);
+
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess)
+        std::cerr << "CUDA RowSum launch error: " << cudaGetErrorString(err) << std::endl;
+
+    cudaDeviceSynchronize();
+}
+
+
+
+__global__ void rowmax_parallel(const float* __restrict__ X, float* __restrict__ Y,
+                                int rows, int cols) {
+extern __shared__ float sdata[];
+
+    int row = blockIdx.x;
+    int tid = threadIdx.x;
+
+    // Each thread processes parts of a row
+    float local_max = -3.402823466e+38F;
+    for (int j = tid; j < cols; j += blockDim.x) {
+        float val = X[row * cols + j];
+        if (val > local_max)
+            local_max = val;
+    }
+
+    // Write local maxima to shared memory
+    sdata[tid] = local_max;
+    __syncthreads();
+
+    // Parallel reduction for maximum
+    for (int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (tid < s) {
+            sdata[tid] = fmaxf(sdata[tid], sdata[tid + s]);
+        }
+        __syncthreads();
+    }
+
+    // Thread 0 writes the final max
+    if (tid == 0)
+        Y[row] = sdata[0];
+
+}
+
+void run_cuda_rowmax(const float* X, float* Y, int rows, int cols) {
+    int threads = 256;  // one block per row
+    int blocks = rows;
+    size_t shared = threads * sizeof(float);
+
+    rowmax_parallel<<<blocks, threads, shared>>>(X, Y, rows, cols);
+
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess)
+        std::cerr << "CUDA RowMax launch error: " << cudaGetErrorString(err) << std::endl;
+
+    cudaDeviceSynchronize();
+}
+
 
 
 

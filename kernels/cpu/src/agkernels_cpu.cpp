@@ -240,6 +240,14 @@ void tanh_cuda(const float* x, float* y, int64_t n) {
     run_cuda_tanh(x, y, static_cast<int>(n));
 }
 
+void rowsum_cuda(const float* x, float* y, int n, int q) {
+    run_cuda_rowsum(x, y, n, q);
+}
+
+void rowmax_cuda(const float* X, float* Y, int rows, int cols) {
+    run_cuda_rowmax(X, Y, rows, cols);
+}
+
 
 void matmul_impl_cudatile(const float* A, const float* B, float* C, int M, int K, int N) {
     // This is a placeholder for a CUDA-tiled implementation.
@@ -285,6 +293,9 @@ AG_EXPORT int ag_get_cpu_kernels_v1(struct ag_cpu_v1* out){
   out->gelu      = &gelu_cuda;
   out->log       = &log_cuda;
   out->tanh      = &tanh_cuda;
+  out->rowsum = &rowsum_cuda;
+  out->rowmax = &rowmax_cuda;
+
   return 0;
 }
 
