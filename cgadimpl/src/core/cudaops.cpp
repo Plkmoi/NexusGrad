@@ -273,6 +273,211 @@ std::shared_ptr<Node> div_cudaops(const std::shared_ptr<Node>& a,
 
 
 
+std::shared_ptr<Node> log_cudaops(const std::shared_ptr<Node>& x){ 
+                           const Tensor& xin = x->value;
+        auto X = x->d_array;
+
+    auto [M, K]  = x->value.shape();
+
+    auto* fn = ag::kernels::cpu().log;
+    if (!fn)
+        throw std::runtime_error("No CUDA Log kernel registered");
+
+    Tensor C({M, K});
+    auto n = std::make_shared<Node>(C, (x->requires_grad),
+                                    Op::Log, "log", true);
+
+                    
+
+    fn(X, n->d_array, M * K);
+     n->siz = M*K;
+
+    // cudaMemcpy(n->value.data(), n->d_array, M * K * sizeof(float),
+    //            cudaMemcpyDeviceToHost);
+
+    // std::cout << "[CUDA Sigmoidiff output preview]: ";
+    // for (int i = 0; i < std::min(10, M * K); ++i)
+    //     std::cout << n->value.data()[i] << " ";
+    // std::cout << "\n";
+
+
+        n->inputs = { x };
+        return n;
+    }
+
+std::shared_ptr<Node> gcu_cudaops(const std::shared_ptr<Node>& x) { 
+    const Tensor& xin = x->value;
+    auto X = x->d_array;
+
+    auto [M, K] = x->value.shape();
+    auto* fn = ag::kernels::cpu().gcu;
+    if (!fn)
+        throw std::runtime_error("No CUDA GCU kernel registered");
+
+    Tensor C({M, K});
+    auto n = std::make_shared<Node>(C, x->requires_grad, Op::GCU, "gcu", true);
+    fn(X, n->d_array, M * K);
+    n->siz = M * K;
+    n->inputs = { x };
+    return n;
+}
+
+std::shared_ptr<Node> mish_cudaops(const std::shared_ptr<Node>& x) { 
+    const Tensor& xin = x->value;
+    auto X = x->d_array;
+
+    auto [M, K] = x->value.shape();
+    auto* fn = ag::kernels::cpu().mish;
+    if (!fn)
+        throw std::runtime_error("No CUDA Mish kernel registered");
+
+    Tensor C({M, K});
+    auto n = std::make_shared<Node>(C, x->requires_grad, Op::Mish, "mish", true);
+    fn(X, n->d_array, M * K);
+    n->siz = M * K;
+    n->inputs = { x };
+    return n;
+}
+
+std::shared_ptr<Node> gaus_cudaops(const std::shared_ptr<Node>& x) { 
+    const Tensor& xin = x->value;
+    auto X = x->d_array;
+
+    auto [M, K] = x->value.shape();
+    auto* fn = ag::kernels::cpu().gaus;
+    if (!fn)
+        throw std::runtime_error("No CUDA Gaussian kernel registered");
+
+    Tensor C({M, K});
+    auto n = std::make_shared<Node>(C, x->requires_grad, Op::Gaus, "gaus", true);
+    fn(X, n->d_array, M * K);
+    n->siz = M * K;
+    n->inputs = { x };
+    return n;
+}
+
+std::shared_ptr<Node> parcon_cudaops(const std::shared_ptr<Node>& x) { 
+    const Tensor& xin = x->value;
+    auto X = x->d_array;
+
+    auto [M, K] = x->value.shape();
+    auto* fn = ag::kernels::cpu().parcon;
+    if (!fn)
+        throw std::runtime_error("No CUDA Parcon kernel registered");
+
+    Tensor C({M, K});
+    auto n = std::make_shared<Node>(C, x->requires_grad, Op::Parcon, "parcon", true);
+    fn(X, n->d_array, M * K);
+    n->siz = M * K;
+    n->inputs = { x };
+    return n;
+}
+
+std::shared_ptr<Node> lisht_cudaops(const std::shared_ptr<Node>& x) { 
+    const Tensor& xin = x->value;
+    auto X = x->d_array;
+
+    auto [M, K] = x->value.shape();
+    auto* fn = ag::kernels::cpu().lisht;
+    if (!fn)
+        throw std::runtime_error("No CUDA LiSHT kernel registered");
+
+    Tensor C({M, K});
+    auto n = std::make_shared<Node>(C, x->requires_grad, Op::LiSHT, "lisht", true);
+    fn(X, n->d_array, M * K);
+    n->siz = M * K;
+    n->inputs = { x };
+    return n;
+}
+
+std::shared_ptr<Node> softplus_cudaops(const std::shared_ptr<Node>& x) { 
+    const Tensor& xin = x->value;
+    auto X = x->d_array;
+
+    auto [M, K] = x->value.shape();
+    auto* fn = ag::kernels::cpu().softplus;
+    if (!fn)
+        throw std::runtime_error("No CUDA Softplus kernel registered");
+
+    Tensor C({M, K});
+    auto n = std::make_shared<Node>(C, x->requires_grad, Op::Softplus, "softplus", true);
+    fn(X, n->d_array, M * K);
+    n->siz = M * K;
+    n->inputs = { x };
+    return n;
+}
+
+std::shared_ptr<Node> silu_cudaops(const std::shared_ptr<Node>& x) { 
+    const Tensor& xin = x->value;
+    auto X = x->d_array;
+
+    auto [M, K] = x->value.shape();
+    auto* fn = ag::kernels::cpu().silu;
+    if (!fn)
+        throw std::runtime_error("No CUDA SiLU kernel registered");
+
+    Tensor C({M, K});
+    auto n = std::make_shared<Node>(C, x->requires_grad, Op::SiLU, "silu", true);
+    fn(X, n->d_array, M * K);
+    n->siz = M * K;
+    n->inputs = { x };
+    return n;
+}
+
+std::shared_ptr<Node> gelu_cudaops(const std::shared_ptr<Node>& x) { 
+    const Tensor& xin = x->value;
+    auto X = x->d_array;
+
+    auto [M, K] = x->value.shape();
+    auto* fn = ag::kernels::cpu().gelu;
+    if (!fn)
+        throw std::runtime_error("No CUDA GELU kernel registered");
+
+    Tensor C({M, K});
+    auto n = std::make_shared<Node>(C, x->requires_grad, Op::GELU, "gelu", true);
+    fn(X, n->d_array, M * K);
+    n->siz = M * K;
+    n->inputs = { x };
+    return n;
+}
+
+std::shared_ptr<Node> tanh_cudaops(const std::shared_ptr<Node>& x) { 
+    const Tensor& xin = x->value;
+    auto X = x->d_array;
+
+    auto [M, K] = x->value.shape();
+    auto* fn = ag::kernels::cpu().tanh;
+    if (!fn)
+        throw std::runtime_error("No CUDA Tanh kernel registered");
+
+    Tensor C({M, K});
+    auto n = std::make_shared<Node>(C, x->requires_grad, Op::Tanh, "tanh", true);
+    fn(X, n->d_array, M * K);
+    n->siz = M * K;
+    n->inputs = { x };
+    return n;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 }
 

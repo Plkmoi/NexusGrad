@@ -26,5 +26,17 @@ std::shared_ptr<Node> div_cudaops(const std::shared_ptr<Node>& a, const std::sha
 std::shared_ptr<Node> sigmoidiff_cudaops(const std::shared_ptr<Node>& x);
 std::shared_ptr<Node> sigmoid_cudaops(const std::shared_ptr<Node>& x);
 std::shared_ptr<Node> relu_cudaops(const std::shared_ptr<Node>& x);
+std::shared_ptr<Node> log_cudaops(const std::shared_ptr<Node>& x);
+std::shared_ptr<Node> tanh_cudaops(const std::shared_ptr<Node>& x);
+std::shared_ptr<Node> gcu_cudaops(const std::shared_ptr<Node>& x);
+std::shared_ptr<Node> mish_cudaops(const std::shared_ptr<Node>& x);
+std::shared_ptr<Node> gaus_cudaops(const std::shared_ptr<Node>& x);
+std::shared_ptr<Node> parcon_cudaops(const std::shared_ptr<Node>& x);
+std::shared_ptr<Node> lisht_cudaops(const std::shared_ptr<Node>& x);
+std::shared_ptr<Node> softplus_cudaops(const std::shared_ptr<Node>& x);
+std::shared_ptr<Node> silu_cudaops(const std::shared_ptr<Node>& x);
+std::shared_ptr<Node> gelu_cudaops(const std::shared_ptr<Node>& x);
+
+
 }
 }

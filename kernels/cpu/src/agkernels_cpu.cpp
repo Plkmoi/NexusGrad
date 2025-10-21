@@ -195,6 +195,52 @@ void flashattention_cuda(const float* Q, const float* K, const float* V,
     run_flash_forward(Q, K, V, O, B, nh, N, d);
 }
 
+// ==================== Activation Function Wrappers ====================
+// Each calls the corresponding CUDA kernel launcher (same as add_cuda style)
+
+
+
+void gcu_cuda(const float* x, float* y, int64_t n) {
+    run_cuda_gcu(x, y, static_cast<int>(n));
+}
+
+void mish_cuda(const float* x, float* y, int64_t n) {
+    run_cuda_mish(x, y, static_cast<int>(n));
+}
+
+void gaus_cuda(const float* x, float* y, int64_t n) {
+    run_cuda_gaus(x, y, static_cast<int>(n));
+}
+
+void parcon_cuda(const float* x, float* y, int64_t n) {
+    run_cuda_parcon(x, y, static_cast<int>(n));
+}
+
+void lisht_cuda(const float* x, float* y, int64_t n) {
+    run_cuda_lisht(x, y, static_cast<int>(n));
+}
+
+void softplus_cuda(const float* x, float* y, int64_t n) {
+    run_cuda_softplus(x, y, static_cast<int>(n));
+}
+
+void silu_cuda(const float* x, float* y, int64_t n) {
+    run_cuda_silu(x, y, static_cast<int>(n));
+}
+
+void gelu_cuda(const float* x, float* y, int64_t n) {
+    run_cuda_gelu(x, y, static_cast<int>(n));
+}
+
+void log_cuda(const float* x, float* y, int64_t n) {
+    run_cuda_log(x, y, static_cast<int>(n));
+}
+
+void tanh_cuda(const float* x, float* y, int64_t n) {
+    run_cuda_tanh(x, y, static_cast<int>(n));
+}
+
+
 void matmul_impl_cudatile(const float* A, const float* B, float* C, int M, int K, int N) {
     // This is a placeholder for a CUDA-tiled implementation.
     // In a real scenario, this function would offload computation to a GPU.
@@ -207,6 +253,8 @@ void matmul_impl_cudatile(const float* A, const float* B, float* C, int M, int K
     run_cuda_matrix(A, B, C,  M,  K,  N);
     }
 }
+
+
 
 
 // ---------------- required export ----------------
@@ -225,8 +273,18 @@ AG_EXPORT int ag_get_cpu_kernels_v1(struct ag_cpu_v1* out){
   out->sub = &sub_cuda;
   out->hadmul = &hadmul_cuda;
   out->flasha = &flashattention_cuda;
-    out->div = &div_cuda;
-
+  out->div = &div_cuda;
+  out->relu      = &relu_cuda;
+  out->gcu       = &gcu_cuda;
+  out->mish      = &mish_cuda;
+  out->gaus      = &gaus_cuda;
+  out->parcon    = &parcon_cuda;
+  out->lisht     = &lisht_cuda;
+  out->softplus  = &softplus_cuda;
+  out->silu      = &silu_cuda;
+  out->gelu      = &gelu_cuda;
+  out->log       = &log_cuda;
+  out->tanh      = &tanh_cuda;
   return 0;
 }
 

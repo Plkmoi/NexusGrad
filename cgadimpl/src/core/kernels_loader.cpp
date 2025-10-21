@@ -47,6 +47,16 @@ void load_cpu_plugin(const char* path) {
   g_cpu.sigmoidiff = table.sigmoidiff;
   g_cpu.flasha = table.flasha;
   g_cpu.div = table.div;
+  g_cpu.gcu          = table.gcu;
+  g_cpu.mish         = table.mish;
+  g_cpu.gaus         = table.gaus;
+  g_cpu.parcon       = table.parcon;
+  g_cpu.lisht        = table.lisht;
+  g_cpu.softplus     = table.softplus;
+  g_cpu.silu         = table.silu;
+  g_cpu.gelu         = table.gelu;
+  g_cpu.log          = table.log;
+  g_cpu.tanh         = table.tanh;
 }
 
 #ifndef AG_NO_AUTOLOAD_KERNELS

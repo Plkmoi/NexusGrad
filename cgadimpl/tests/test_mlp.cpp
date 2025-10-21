@@ -107,9 +107,9 @@ Tensor Yt(8, 8);
 
 auto bias = param(Tensor::zeros(8,8), "bias");
 
-    auto q =   relu(a); // [2,2]
+    auto q =   log(a); // [2,2]
     //auto m=q*c;
-    auto y=q+b;
+    auto y=q;
     valsend(y);
 
 std::cout << "y = " << y.val()

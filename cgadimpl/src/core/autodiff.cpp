@@ -59,7 +59,7 @@ void valsend(const Value& root) {
         }
 
         std::cout << "[CUDA VALSEND output]: ";
-        for (int i = 0; i < std::min(10, int(n->siz)); ++i)
+        for (int i = 0; i < 10; ++i)
           {  std::cout << n->value.data()[i] << " ";
         std::cout << "(" << n->debug_name << ")\n";}
     }

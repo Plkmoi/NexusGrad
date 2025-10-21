@@ -32,6 +32,16 @@ typedef void (*ag_hadmul_fn)(const float* x, const float* z, float* y, int64_t n
 typedef void (*ag_flashatt_fn)(const float* Q, const float* K, const float* V,
     float* O, int B, int nh, int N, int d);
 typedef void (*ag_div_fn)(const float* x, const float* z, float* y, int64_t n);
+typedef void (*ag_gcu_fn)(const float* x, float* y, int64_t n);
+typedef void (*ag_mish_fn)(const float* x, float* y, int64_t n);
+typedef void (*ag_gaus_fn)(const float* x, float* y, int64_t n);
+typedef void (*ag_parcon_fn)(const float* x, float* y, int64_t n);
+typedef void (*ag_lisht_fn)(const float* x, float* y, int64_t n);
+typedef void (*ag_softplus_fn)(const float* x, float* y, int64_t n);
+typedef void (*ag_silu_fn)(const float* x, float* y, int64_t n);
+typedef void (*ag_gelu_fn)(const float* x, float* y, int64_t n);
+typedef void (*ag_log_fn)(const float* x, float* y, int64_t n);
+typedef void (*ag_tanh_fn)(const float* x, float* y, int64_t n);
 
 
 
@@ -50,6 +60,16 @@ struct ag_cpu_v1 {
   ag_hadmul_fn hadmul;
     ag_flashatt_fn flasha;
       ag_div_fn div;
+  ag_gcu_fn gcu;
+  ag_mish_fn mish;
+  ag_gaus_fn gaus;
+  ag_parcon_fn parcon;
+  ag_lisht_fn lisht;
+  ag_softplus_fn softplus;
+  ag_silu_fn silu;
+  ag_gelu_fn gelu;
+  ag_log_fn log;
+  ag_tanh_fn tanh;
 
 };
 
@@ -74,6 +94,17 @@ ag_sig_fn sigmoid = nullptr;
   ag_hadmul_fn hadmul = nullptr;
     ag_flashatt_fn flasha = nullptr;
     ag_div_fn div=nullptr;
+      ag_gcu_fn gcu = nullptr;
+  ag_mish_fn mish = nullptr;
+  ag_gaus_fn gaus = nullptr;
+  ag_parcon_fn parcon = nullptr;
+  ag_lisht_fn lisht = nullptr;
+  ag_softplus_fn softplus = nullptr;
+  ag_silu_fn silu = nullptr;
+  ag_gelu_fn gelu = nullptr;
+  ag_log_fn log = nullptr;
+  ag_tanh_fn tanh = nullptr;
+
 };
 
 // Global registry accessor

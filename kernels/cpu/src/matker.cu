@@ -136,26 +136,6 @@ void run_cuda_gemm(const float* A, const float* B,  const float* C, float* E, in
 }
 
 
-__global__ void relu_thread(const float* A, float* B, int width)
-{
-
-    int bx = blockIdx.x;
-    int tx = threadIdx.x;
-
-    int row = bx * blockDim.x + tx;
-
-    float acc = 0.0f;
-
-    
-
-    // Accumulate into existing C value instead of overwriting
-    if(row<width)
-              {  B[row] = A[row] > 0.0f ? A[row] : 0.0f;
-                    printf("Block %d Thread %d active for row %d WITH VALUE %f and input %f\n", blockIdx.x, threadIdx.x, row, B[row], A[row]);
-            }
-}
-
-
 
 __global__ void exp_thread(const float* A, float* B, int width)
 {
@@ -202,22 +182,6 @@ void run_cuda_exp(const float* A, float* B, int width)
     cudaFree(d_B);
 }
 
-
-void run_cuda_relu(const float* A, float* B, int width)
-{
-    int threads = 256;
-    int blocks = (width + threads - 1) / threads;
-
-    relu_thread<<<blocks, threads>>>(A, B, width);
-
-    cudaError_t err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        std::cerr << "CUDA sigmoid launch error: "
-                  << cudaGetErrorString(err) << std::endl;
-    }
-
-    cudaDeviceSynchronize();
-}
 
 
 __global__ void relumask_thread(const float* A, float* B, int width)
@@ -782,6 +746,246 @@ void run_flash_forward(const float* Q, const float* K, const float* V, float* O,
 }
 
 
+
+
+
+#define PI 3.14159265358979323846f
+
+// ============================================================
+// ReLU
+// ============================================================
+__global__ void relu_thread(const float* A, float* B, int width)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < width) {
+        B[idx] = A[idx] > 0.0f ? A[idx] : 0.0f;
+        printf("[ReLU] Block %d Thread %d -> %f (in: %f)\n", blockIdx.x, threadIdx.x, B[idx], A[idx]);
+    }
+}
+
+void run_cuda_relu(const float* A, float* B, int width)
+{
+    int threads = 256;
+    int blocks = (width + threads - 1) / threads;
+    relu_thread<<<blocks, threads>>>(A, B, width);
+    cudaDeviceSynchronize();
+}
+
+// ============================================================
+// GCU (Growing Cosine Unit)
+// y = x * cos(pi * x)
+// ============================================================
+__global__ void gcu_thread(const float* A, float* B, int width)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < width) {
+        B[idx] = A[idx] * cosf(PI * A[idx]);
+        printf("[GCU] Block %d Thread %d -> %f\n", blockIdx.x, threadIdx.x, B[idx]);
+    }
+}
+
+void run_cuda_gcu(const float* A, float* B, int width)
+{
+    int threads = 256;
+    int blocks = (width + threads - 1) / threads;
+    gcu_thread<<<blocks, threads>>>(A, B, width);
+    cudaDeviceSynchronize();
+}
+
+// ============================================================
+// Mish
+// y = x * tanh(ln(1 + e^x))
+// ============================================================
+__global__ void mish_thread(const float* A, float* B, int width)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < width) {
+        float v = A[idx];
+        B[idx] = v * tanhf(log1pf(expf(v)));
+        printf("[Mish] Block %d Thread %d -> %f\n", blockIdx.x, threadIdx.x, B[idx]);
+    }
+}
+
+void run_cuda_mish(const float* A, float* B, int width)
+{
+    int threads = 256;
+    int blocks = (width + threads - 1) / threads;
+    mish_thread<<<blocks, threads>>>(A, B, width);
+    cudaDeviceSynchronize();
+}
+
+// ============================================================
+// Gaussian (Gaus)
+// y = exp(-x^2)
+// ============================================================
+__global__ void gaus_thread(const float* A, float* B, int width)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < width) {
+        B[idx] = expf(-A[idx] * A[idx]);
+        printf("[Gaus] Block %d Thread %d -> %f\n", blockIdx.x, threadIdx.x, B[idx]);
+    }
+}
+
+void run_cuda_gaus(const float* A, float* B, int width)
+{
+    int threads = 256;
+    int blocks = (width + threads - 1) / threads;
+    gaus_thread<<<blocks, threads>>>(A, B, width);
+    cudaDeviceSynchronize();
+}
+
+// ============================================================
+// Parcon (Smooth form: x / (1 + |x|))
+// ============================================================
+__global__ void parcon_thread(const float* A, float* B, int width)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < width) {
+        float v = A[idx];
+        B[idx] = v / (1.0f + fabsf(v));
+        printf("[Parcon] Block %d Thread %d -> %f\n", blockIdx.x, threadIdx.x, B[idx]);
+    }
+}
+
+void run_cuda_parcon(const float* A, float* B, int width)
+{
+    int threads = 256;
+    int blocks = (width + threads - 1) / threads;
+    parcon_thread<<<blocks, threads>>>(A, B, width);
+    cudaDeviceSynchronize();
+}
+
+// ============================================================
+// LiSHT (Linearly Scaled Tanh)
+// y = x * tanh(x)
+// ============================================================
+__global__ void lisht_thread(const float* A, float* B, int width)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < width) {
+        float v = A[idx];
+        B[idx] = v * tanhf(v);
+        printf("[LiSHT] Block %d Thread %d -> %f\n", blockIdx.x, threadIdx.x, B[idx]);
+    }
+}
+
+void run_cuda_lisht(const float* A, float* B, int width)
+{
+    int threads = 256;
+    int blocks = (width + threads - 1) / threads;
+    lisht_thread<<<blocks, threads>>>(A, B, width);
+    cudaDeviceSynchronize();
+}
+
+// ============================================================
+// Softplus
+// y = log(1 + e^x)
+// ============================================================
+__global__ void softplus_thread(const float* A, float* B, int width)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < width) {
+        B[idx] = log1pf(expf(A[idx]));
+        printf("[Softplus] Block %d Thread %d -> %f\n", blockIdx.x, threadIdx.x, B[idx]);
+    }
+}
+
+void run_cuda_softplus(const float* A, float* B, int width)
+{
+    int threads = 256;
+    int blocks = (width + threads - 1) / threads;
+    softplus_thread<<<blocks, threads>>>(A, B, width);
+    cudaDeviceSynchronize();
+}
+
+// ============================================================
+// SiLU (Swish)
+// y = x * sigmoid(x)
+// ============================================================
+__global__ void silu_thread(const float* A, float* B, int width)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < width) {
+        float v = A[idx];
+        float sig = 1.0f / (1.0f + expf(-v));
+        B[idx] = v * sig;
+        printf("[SiLU] Block %d Thread %d -> %f\n", blockIdx.x, threadIdx.x, B[idx]);
+    }
+}
+
+void run_cuda_silu(const float* A, float* B, int width)
+{
+    int threads = 256;
+    int blocks = (width + threads - 1) / threads;
+    silu_thread<<<blocks, threads>>>(A, B, width);
+    cudaDeviceSynchronize();
+}
+
+// ============================================================
+// GELU
+// y = 0.5 * x * (1 + tanh(√(2/π) * (x + 0.044715x^3)))
+// ============================================================
+__global__ void gelu_thread(const float* A, float* B, int width)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < width) {
+        float v = A[idx];
+        float inner = 0.79788456f * (v + 0.044715f * v * v * v);
+        B[idx] = 0.5f * v * (1.0f + tanhf(inner));
+        printf("[GELU] Block %d Thread %d -> %f\n", blockIdx.x, threadIdx.x, B[idx]);
+    }
+}
+
+void run_cuda_gelu(const float* A, float* B, int width)
+{
+    int threads = 256;
+    int blocks = (width + threads - 1) / threads;
+    gelu_thread<<<blocks, threads>>>(A, B, width);
+    cudaDeviceSynchronize();
+}
+
+// ============================================================
+// Log
+// y = log(x)
+// ============================================================
+__global__ void log_thread(const float* A, float* B, int width)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < width) {
+        B[idx] = logf(fmaxf(A[idx], 1e-8f));
+        printf("[Log] Block %d Thread %d -> %f\n", blockIdx.x, threadIdx.x, B[idx]);
+    }
+}
+
+void run_cuda_log(const float* A, float* B, int width)
+{
+    int threads = 256;
+    int blocks = (width + threads - 1) / threads;
+    log_thread<<<blocks, threads>>>(A, B, width);
+    cudaDeviceSynchronize();
+}
+
+// ============================================================
+// Tanh
+// y = tanh(x)
+// ============================================================
+__global__ void tanh_thread(const float* A, float* B, int width)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < width) {
+        B[idx] = tanhf(A[idx]);
+        printf("[Tanh] Block %d Thread %d -> %f\n", blockIdx.x, threadIdx.x, B[idx]);
+    }
+}
+
+void run_cuda_tanh(const float* A, float* B, int width)
+{
+    int threads = 256;
+    int blocks = (width + threads - 1) / threads;
+    tanh_thread<<<blocks, threads>>>(A, B, width);
+    cudaDeviceSynchronize();
+}
 
 
 
