@@ -38,5 +38,6 @@ std::shared_ptr<Node> silu_cudaops(const std::shared_ptr<Node>& x);
 std::shared_ptr<Node> gelu_cudaops(const std::shared_ptr<Node>& x);
 std::shared_ptr<Node> rowsum_cudaops(const std::shared_ptr<Node>& x);
 std::shared_ptr<Node> rowmax_cudaops(const std::shared_ptr<Node>& x);
+std::shared_ptr<Node> leaky_relu_cudaops(const std::shared_ptr<Node>& x, float alpha);
 }
 }

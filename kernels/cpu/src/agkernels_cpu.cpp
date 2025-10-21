@@ -248,6 +248,10 @@ void rowmax_cuda(const float* X, float* Y, int rows, int cols) {
     run_cuda_rowmax(X, Y, rows, cols);
 }
 
+void leakyrelu_cuda(const float* X, float* H, float* Y, int64_t n) {
+    run_cuda_leakyrelu(X, H, Y, n);
+}
+
 
 void matmul_impl_cudatile(const float* A, const float* B, float* C, int M, int K, int N) {
     // This is a placeholder for a CUDA-tiled implementation.
@@ -295,7 +299,7 @@ AG_EXPORT int ag_get_cpu_kernels_v1(struct ag_cpu_v1* out){
   out->tanh      = &tanh_cuda;
   out->rowsum = &rowsum_cuda;
   out->rowmax = &rowmax_cuda;
-
+  out->leakyrelu = &leakyrelu_cuda;
   return 0;
 }
 

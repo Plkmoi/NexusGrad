@@ -509,7 +509,40 @@ std::shared_ptr<Node> rowmax_cudaops(const std::shared_ptr<Node>& x) {
 
 
 
+    std::shared_ptr<Node> leaky_relu_cudaops(const std::shared_ptr<Node>& x, float alpha){ 
+        Tensor aT(1,1); aT(0,0)=alpha; 
 
+auto aC = constant(aT, "alpha"); 
+          auto X = x->d_array;
+
+    auto [M, K]  = x->value.shape();
+
+    auto* fn = ag::kernels::cpu().leakyrelu;
+    if (!fn)
+        throw std::runtime_error("No CUDA RELU kernel registered");
+
+    Tensor C({M, K});
+    auto n = std::make_shared<Node>(C, (x->requires_grad),
+                                    Op::Relu, "relu", true);
+
+                    
+
+    fn(X, &alpha, n->d_array, M * K);
+     n->siz = M*K;
+
+    // cudaMemcpy(n->value.data(), n->d_array, M * K * sizeof(float),
+    //            cudaMemcpyDeviceToHost);
+
+    // std::cout << "[CUDA Sigmoidiff output preview]: ";
+    // for (int i = 0; i < std::min(10, M * K); ++i)
+    //     std::cout << n->value.data()[i] << " ";
+    // std::cout << "\n";
+
+
+        n->inputs={x, aC.node}; 
+        return n;
+
+    }
 
 
 

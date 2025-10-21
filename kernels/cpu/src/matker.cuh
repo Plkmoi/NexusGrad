@@ -23,3 +23,4 @@ void run_cuda_log(const float*, float*, int);
 void run_cuda_tanh(const float*, float*, int);
 void run_cuda_rowsum(const float* X, float* Y, int rows, int cols);
 void run_cuda_rowmax(const float* X, float* Y, int rows, int cols);
+void run_cuda_leakyrelu(const float* A, const float* H, float* B, int N);

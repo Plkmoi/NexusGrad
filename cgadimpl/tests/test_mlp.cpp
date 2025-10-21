@@ -107,7 +107,7 @@ Tensor Yt(8, 8);
 
 auto bias = param(Tensor::zeros(8,8), "bias");
 
-    auto q =   rowmax(a); // [2,2]
+    auto q =   leaky_relu(a, 0.1); // [2,2]
     //auto m=q*c;
     auto y=q;
     valsend(y);

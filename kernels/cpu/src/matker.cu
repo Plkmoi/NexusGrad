@@ -746,7 +746,25 @@ void run_flash_forward(const float* Q, const float* K, const float* V, float* O,
 }
 
 
+// ============================================================
+// LeakyReLU
+// ============================================================
+__global__ void leakyrelu_thread(const float* A, const float* H, float* B, int width)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < width) {
+        B[idx] = A[idx] > 0.0f ? A[idx] : (*H)*A[idx];
+        printf("[ReLU] Block %d Thread %d -> %f (in: %f)\n", blockIdx.x, threadIdx.x, B[idx], A[idx]);
+    }
+}
 
+void run_cuda_leakyrelu(const float* A, const float* H, float* B, int width)
+{
+    int threads = 256;
+    int blocks = (width + threads - 1) / threads;
+    leakyrelu_thread<<<blocks, threads>>>(A, H, B, width);
+    cudaDeviceSynchronize();
+}
 
 
 #define PI 3.14159265358979323846f

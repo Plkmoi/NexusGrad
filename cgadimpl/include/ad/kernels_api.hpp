@@ -44,6 +44,7 @@ typedef void (*ag_log_fn)(const float* x, float* y, int64_t n);
 typedef void (*ag_tanh_fn)(const float* x, float* y, int64_t n);
 typedef void (*ag_rowsum_fn)(const float* X, float* Y, int rows, int cols);
 typedef void (*ag_rowmax_fn)(const float* X, float* Y, int rows, int cols);
+typedef void (*ag_leakyrelu_fn)(const float* x, float* h, float* y, int64_t n);
 
 
 
@@ -74,7 +75,7 @@ struct ag_cpu_v1 {
   ag_tanh_fn tanh;
   ag_rowsum_fn rowsum;
   ag_rowmax_fn rowmax;
-
+  ag_leakyrelu_fn leakyrelu;
 };
 
 // Every CPU plugin must export this symbol.
@@ -110,7 +111,7 @@ ag_sig_fn sigmoid = nullptr;
   ag_tanh_fn tanh = nullptr;
   ag_rowsum_fn rowsum = nullptr;
   ag_rowmax_fn rowmax = nullptr;
-
+  ag_leakyrelu_fn leakyrelu = nullptr;
 };
 
 // Global registry accessor

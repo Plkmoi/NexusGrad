@@ -201,7 +201,7 @@ namespace ag {
     }
     
     Value leaky_relu(const Value& x, float alpha){ 
-        return Value(detail::leaky_relu_nodeops(x.node, alpha));
+        return Value(detail::leaky_relu_cudaops(x.node, alpha));
     }
 
 
