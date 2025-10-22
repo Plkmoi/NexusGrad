@@ -94,6 +94,8 @@ Tensor C = Tensor::randn(8,8);
 Tensor D = Tensor::randn(8,8);
 auto c = paramcuda(C, "C");
 auto d = paramcuda(D, "D");
+Tensor E = Tensor::randn(8,8);
+auto e = paramcuda(E, "E");
 
 Tensor Yt(8, 8);
     std::mt19937 gen(42);
@@ -107,9 +109,9 @@ Tensor Yt(8, 8);
 
 auto bias = param(Tensor::zeros(8,8), "bias");
 
-    auto q =   leaky_relu(a, 0.1); // [2,2]
+    auto q =   attention(a,b,c,d); // [2,2]
     //auto m=q*c;
-    auto y=q;
+    auto y=q+e;
     valsend(y);
 
 std::cout << "y = " << y.val()

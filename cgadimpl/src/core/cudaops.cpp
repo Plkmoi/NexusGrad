@@ -523,7 +523,7 @@ auto aC = constant(aT, "alpha");
 
     Tensor C({M, K});
     auto n = std::make_shared<Node>(C, (x->requires_grad),
-                                    Op::Relu, "relu", true);
+                                    Op::LeakyRelu, "leakyrelu", true);
 
                     
 
@@ -547,6 +547,64 @@ auto aC = constant(aT, "alpha");
 
 
 
+
+
+        std::shared_ptr<Node> attention_cudaops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d){ 
+    Tensor q = Tensor::matmul(a->value, b->value); 
+    Tensor k = Tensor::matmul(a->value, c->value); 
+    Tensor v = Tensor::matmul(a->value, d->value);
+    Tensor g = Tensor::matmul(q, Tensor::transpose(k)*(1.f/sqrt(float(k.cols())))) ;
+    Tensor s = Tensor::softmax_row(g);
+
+
+
+
+
+
+
+
+
+ int B = 1;                  // or a->value.batch() if batched
+int nh = 1;         // defined in your model config
+int N = a->value.rows();    // sequence length
+int x = b->value.cols();    // per-head hidden dim
+
+// Allocate output tensor (same shape as q)
+Tensor o({q.shape().first,q.shape().second});  
+
+
+// Call the CUDA flash kernel
+std::cout<<"Functionalaaa";
+
+
+
+
+// Now wrap it in a Node as usual
+auto n = std::make_shared<Node>(
+    o,
+    a->requires_grad || b->requires_grad || c->requires_grad || d->requires_grad,
+    Op::Attention,
+    "attention", true
+);        
+    
+    
+    auto* fn = ag::kernels::cpu().flashae;
+         if (!fn) throw std::runtime_error("No CPU Flash Attention kernel registered now only");
+
+
+fn(q.data(), k.data(), v.data(), n->d_array,
+                  B, nh, N, x);
+                      auto [M, K]  = a->value.shape();
+
+                       n->siz = M*K;
+
+    
+    n->inputs = {a, b, c, d};
+    n->tape.resize(4);
+    n->tape={std::make_shared<Tensor>(q), std::make_shared<Tensor>(k), std::make_shared<Tensor>(v), std::make_shared<Tensor>(s)};
+    ag::debug::on_node_created(n); 
+    return n; 
+    }
 
 
 

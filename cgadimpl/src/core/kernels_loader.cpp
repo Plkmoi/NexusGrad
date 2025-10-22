@@ -60,6 +60,8 @@ void load_cpu_plugin(const char* path) {
   g_cpu.rowsum = table.rowsum;
   g_cpu.rowmax = table.rowmax;
   g_cpu.leakyrelu = table.leakyrelu;
+    g_cpu.flashae = table.flashae;
+
 }
 
 #ifndef AG_NO_AUTOLOAD_KERNELS

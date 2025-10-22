@@ -252,6 +252,11 @@ void leakyrelu_cuda(const float* X, float* H, float* Y, int64_t n) {
     run_cuda_leakyrelu(X, H, Y, n);
 }
 
+void flashattentione_cuda(const float* Q, const float* K, const float* V,
+    float* O, int B, int nh, int N, int d) {
+    run_flash_forwarde(Q, K, V, O, B, nh, N, d);
+}
+
 
 void matmul_impl_cudatile(const float* A, const float* B, float* C, int M, int K, int N) {
     // This is a placeholder for a CUDA-tiled implementation.
@@ -300,6 +305,8 @@ AG_EXPORT int ag_get_cpu_kernels_v1(struct ag_cpu_v1* out){
   out->rowsum = &rowsum_cuda;
   out->rowmax = &rowmax_cuda;
   out->leakyrelu = &leakyrelu_cuda;
+  out->flashae = &flashattentione_cuda;
+
   return 0;
 }
 

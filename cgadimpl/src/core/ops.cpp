@@ -113,7 +113,7 @@ namespace ag {
 
 
     Value attention(const Value& a, const Value& b, const Value& c, const Value& d){ 
-    return Value(detail::attention_nodeops(a.node, b.node, c.node, d.node));
+    return Value(detail::attention_cudaops(a.node, b.node, c.node, d.node));
     }
 
 

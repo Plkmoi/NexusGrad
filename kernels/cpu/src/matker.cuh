@@ -24,3 +24,5 @@ void run_cuda_tanh(const float*, float*, int);
 void run_cuda_rowsum(const float* X, float* Y, int rows, int cols);
 void run_cuda_rowmax(const float* X, float* Y, int rows, int cols);
 void run_cuda_leakyrelu(const float* A, const float* H, float* B, int N);
+void run_flash_forwarde(const float* Q, const float* K, const float* V, float* O, int B, int nh, int N, int d);
+
