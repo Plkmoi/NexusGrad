@@ -28,6 +28,33 @@ void backward(const Value& root, const Tensor* grad_seed){
     }
 
     // reverse topo
+    if(order.back()->cuda_device)
+
+    {
+
+for (auto it = order.rbegin(); it != order.rend(); ++it) {
+        Node* n = *it;
+        if (!n->requires_grad) continue;
+        auto gy = n;
+
+     //   ag::debug::on_backprop_step(n, gy); // (optional) prints one line per node
+
+   //
+        VjpFn fn = vjp_lookup(n->op);
+        if (fn) fn(n, gy->shared_from_this()); // handler accumulates into parents
+    }
+
+
+
+
+
+
+
+
+
+
+    }
+    else{
     for (auto it = order.rbegin(); it != order.rend(); ++it) {
         Node* n = *it;
         if (!n->requires_grad) continue;
@@ -44,6 +71,38 @@ void backward(const Value& root, const Tensor* grad_seed){
         if (fn) fn(n, gy); // handler accumulates into parents
     }
 }
+}
+
+
+// void gpubackward(const Value& root, const Tensor* grad_seed){
+//     auto order = topo_from(root.node.get());
+
+//     // seed
+//     if (root.node->requires_grad) {
+//         root.node->grad = grad_seed ? *grad_seed
+//                                     : (root.node->value.size()==1 ? Tensor::ones(1,1)
+//                                                                   : Tensor::ones_like(root.node->value));
+//     }
+
+//     // reverse topo
+//     for (auto it = order.rbegin(); it != order.rend(); ++it) {
+//         Node* n = *it;
+//         if (!n->requires_grad) continue;
+//         const Tensor& gy = n->grad;
+
+//         auto ny = std::make_shared<Node(  );
+
+//         ag::debug::on_backprop_step(n, gy); // (optional) prints one line per node
+
+//         if (n->is_checkpoint && n->value.size() == 0) {
+//         if (!ag::checkpoint_impl::recompute_subgraph(n->shared_from_this())) {
+//             throw std::runtime_error("autodiff: failed to recompute checkpointed node during backward");
+//         }
+//         }
+//         VjpFn fn = vjp_lookup(n->op);
+//         if (fn) fn(n, gy); // handler accumulates into parents
+//     }
+// }
 
 void valsend(const Value& root) {
     auto order = topo_from(root.node.get());

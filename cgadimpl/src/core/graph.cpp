@@ -23,6 +23,8 @@ Node::Node(const Tensor& v, bool rg, Op op_, const char* nm, bool device)
     if (cuda_device) {
         cudaMalloc(&d_array, v.size() * sizeof(float));
         cudaMemcpy(d_array, v.data(), v.size() * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMalloc(&c_array, v.size() * sizeof(float));
+        cudaMemcpy(c_array, v.data(), v.size() * sizeof(float), cudaMemcpyHostToDevice);
     } else {
         d_array = nullptr;
     }

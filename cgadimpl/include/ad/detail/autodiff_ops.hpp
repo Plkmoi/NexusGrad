@@ -11,7 +11,7 @@
 namespace ag {
 
 // VJP: given node n and its output upstream grad gy, accumulate grads into parents.
-using VjpFn = void(*)(Node* n, const Tensor& gy);
+using VjpFn = void(*)(Node* n, const std::shared_ptr<Node>& gy);
 
 // JVP: compute tangent for node n given a way to read parent tangents.
 // tangent_of(p) must return the tangent T[p] (same shape as p->value).
@@ -21,7 +21,7 @@ using JvpFn = Tensor(*)(Node* n, const std::function<const Tensor&(Node*)>& tang
 VjpFn vjp_lookup(Op op);
 JvpFn jvp_lookup(Op op);
 // Optional: expose per-op rule symbols to tests only.
-
+float* gradacc(float* a, float*b, float misiz);
 
 } // namespace ag
 #ifdef AG_EXPOSE_AUTODIFF_RULES
