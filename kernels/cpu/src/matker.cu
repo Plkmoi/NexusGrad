@@ -46,31 +46,21 @@ __global__ void tile_matrix_multiply(const float* __restrict__ A,
 
 void run_cuda_matrix(const float* A, const float* B, float* C, int M, int K, int N)
 {
-    float *d_A, *d_B, *d_C;
 
-    cudaMalloc(&d_A, M*K*sizeof(float));
-    cudaMalloc(&d_B, N*K*sizeof(float));
-    cudaMalloc(&d_C, M*N*sizeof(float));
-
-    cudaMemcpy(d_A, A, M*K*sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_B, B, N*K*sizeof(float), cudaMemcpyHostToDevice);
 
     dim3 threadsPerBlock(TILE, TILE);
     dim3 numBlocks((N + TILE - 1) / TILE, (M + TILE - 1) / TILE);
 
-    tile_matrix_multiply<<<numBlocks, threadsPerBlock>>>(d_A, d_B, d_C, M, N, K);
+    tile_matrix_multiply<<<numBlocks, threadsPerBlock>>>(A, B, C, M, N, K);
     cudaDeviceSynchronize();
 
-    cudaMemcpy(C, d_C, M*N*sizeof(float), cudaMemcpyDeviceToHost);
 
-    cudaFree(d_A);
-    cudaFree(d_B);
-    cudaFree(d_C);
+
 }
 
 
 
-__global__ void tile_gemm(float* A, float* B, float* C, int M, int K, int N)
+__global__ void tile_gemm(const float* A, const float* B, const float* C, float* E, int M, int K, int N)
 {
    __shared__ float As[TILE][TILE];
     __shared__ float Bs[TILE][TILE];
@@ -102,36 +92,36 @@ __global__ void tile_gemm(float* A, float* B, float* C, int M, int K, int N)
     }
 
     if (row < M && col < N)
-        C[row * N + col] = fmaf(1.0f, acc, C[row * N + col]);
+        E[row * N + col] = fmaf(1.0f, acc, C[row * N + col]);
 
 
 
 }
 
 
-void run_cuda_gemm(const float* A, const float* B,  const float* C, float* E, int M, int K, int N)
+void run_cuda_gemm(const float* A, const float* B, const float* C, float* E, int M, int K, int N)
 {
     float *d_A, *d_B, *d_C;
 
-    cudaMalloc(&d_A, M * K * sizeof(float));
-    cudaMalloc(&d_B, K * N * sizeof(float));
-    cudaMalloc(&d_C, M * N * sizeof(float));
+    // cudaMalloc(&d_A, M * K * sizeof(float));
+    // cudaMalloc(&d_B, K * N * sizeof(float));
+    // cudaMalloc(&d_C, M * N * sizeof(float));
 
-    cudaMemcpy(d_A, A, M * K * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_B, B, K * N * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_C, C, M * N * sizeof(float), cudaMemcpyHostToDevice);
+    // cudaMemcpy(d_A, A, M * K * sizeof(float), cudaMemcpyHostToDevice);
+    // cudaMemcpy(d_B, B, K * N * sizeof(float), cudaMemcpyHostToDevice);
+    // cudaMemcpy(d_C, C, M * N * sizeof(float), cudaMemcpyHostToDevice);
 
     dim3 threadsPerBlock(TILE, TILE);
     dim3 numBlocks((N + TILE - 1) / TILE, (M + TILE - 1) / TILE);
 
-    tile_gemm<<<numBlocks, threadsPerBlock>>>(d_A, d_B, d_C, M, K, N);
+    tile_gemm<<<numBlocks, threadsPerBlock>>>(A, B, C, E, M, K, N);
     cudaDeviceSynchronize();
 
-    cudaMemcpy(E, d_C, M * N * sizeof(float), cudaMemcpyDeviceToHost);
+    // cudaMemcpy(E, d_C, M * N * sizeof(float), cudaMemcpyDeviceToHost);
 
-    cudaFree(d_A);
-    cudaFree(d_B);
-    cudaFree(d_C);
+    // cudaFree(d_A);
+    // cudaFree(d_B);
+    // cudaFree(d_C);
 
 }
 
@@ -158,28 +148,28 @@ __global__ void exp_thread(const float* A, float* B, int width)
 
 void run_cuda_exp(const float* A, float* B, int width)
 {
-    float *d_A, *d_B;
+    // float *d_A, *d_B;
     int size = width * sizeof(float);
 
-    cudaMalloc(&d_A, size);
-    cudaMalloc(&d_B, size);
+    // cudaMalloc(&d_A, size);
+    // cudaMalloc(&d_B, size);
 
-    cudaMemcpy(d_A, A, size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_B, B, size, cudaMemcpyHostToDevice);
+    // cudaMemcpy(d_A, A, size, cudaMemcpyHostToDevice);
+    // cudaMemcpy(d_B, B, size, cudaMemcpyHostToDevice);
     int threads = 1024;
 
     dim3 threadsPerBlock(threads);
     dim3 numBlocks((width + threads - 1) / threads);
 
-    exp_thread<<<numBlocks, threadsPerBlock>>>(d_A, d_B, width);
+    exp_thread<<<numBlocks, threadsPerBlock>>>(A, B, width);
     cudaDeviceSynchronize();
 
-        cudaMemcpy(B, d_B, size, cudaMemcpyDeviceToHost);
+    //     cudaMemcpy(B, d_B, size, cudaMemcpyDeviceToHost);
 
 
 
-    cudaFree(d_A);
-    cudaFree(d_B);
+    // cudaFree(d_A);
+    // cudaFree(d_B);
 }
 
 
@@ -206,28 +196,28 @@ __global__ void relumask_thread(const float* A, float* B, int width)
 
 void run_cuda_relumask(const float* A, float* B, int width)
 {
-    float *d_A, *d_B;
+    // float *d_A, *d_B;
     int size = width * sizeof(float);
 
-    cudaMalloc(&d_A, size);
-    cudaMalloc(&d_B, size);
+    // cudaMalloc(&d_A, size);
+    // cudaMalloc(&d_B, size);
 
-    cudaMemcpy(d_A, A, size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_B, B, size, cudaMemcpyHostToDevice);
+    // cudaMemcpy(d_A, A, size, cudaMemcpyHostToDevice);
+    // cudaMemcpy(d_B, B, size, cudaMemcpyHostToDevice);
     int threads = 1024;
 
     dim3 threadsPerBlock(threads);
     dim3 numBlocks((width + threads - 1) / threads);
 
-    relumask_thread<<<numBlocks, threadsPerBlock>>>(d_A, d_B, width);
+    relumask_thread<<<numBlocks, threadsPerBlock>>>(A, B, width);
     cudaDeviceSynchronize();
 
-        cudaMemcpy(B, d_B, size, cudaMemcpyDeviceToHost);
+    //     cudaMemcpy(B, d_B, size, cudaMemcpyDeviceToHost);
 
 
 
-    cudaFree(d_A);
-    cudaFree(d_B);
+    // cudaFree(d_A);
+    // cudaFree(d_B);
 }
 
 __global__ void sigmoid_thread(const float* A, float* B, int width)
@@ -251,28 +241,28 @@ __global__ void sigmoid_thread(const float* A, float* B, int width)
 
 void run_cuda_sigmoid(const float* A, float* B, int width)
 {
-    float *d_A, *d_B;
+    // float *d_A, *d_B;
     int size = width * sizeof(float);
 
-    cudaMalloc(&d_A, size);
-    cudaMalloc(&d_B, size);
+    // cudaMalloc(&d_A, size);
+    // cudaMalloc(&d_B, size);
 
-    cudaMemcpy(d_A, A, size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_B, B, size, cudaMemcpyHostToDevice);
+    // cudaMemcpy(d_A, A, size, cudaMemcpyHostToDevice);
+    // cudaMemcpy(d_B, B, size, cudaMemcpyHostToDevice);
     int threads = 1024;
 
     dim3 threadsPerBlock(threads);
     dim3 numBlocks((width + threads - 1) / threads);
 
-    sigmoid_thread<<<numBlocks, threadsPerBlock>>>(d_A, d_B, width);
+    sigmoid_thread<<<numBlocks, threadsPerBlock>>>(A, B, width);
     cudaDeviceSynchronize();
 
-        cudaMemcpy(B, d_B, size, cudaMemcpyDeviceToHost);
+    //     cudaMemcpy(B, d_B, size, cudaMemcpyDeviceToHost);
 
 
 
-    cudaFree(d_A);
-    cudaFree(d_B);
+    // cudaFree(d_A);
+    // cudaFree(d_B);
 }
 
 
@@ -301,28 +291,28 @@ B[row] = 0.25f * (1.0f -( t * t));
 
 void run_cuda_sigmoidiff(const float* A, float* B, int width)
 {
-    float *d_A, *d_B;
+    // float *d_A, *d_B;
     int size = width * sizeof(float);
 
-    cudaMalloc(&d_A, size);
-    cudaMalloc(&d_B, size);
+    // cudaMalloc(&d_A, size);
+    // cudaMalloc(&d_B, size);
 
-    cudaMemcpy(d_A, A, size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_B, B, size, cudaMemcpyHostToDevice);
+    // cudaMemcpy(d_A, A, size, cudaMemcpyHostToDevice);
+    // cudaMemcpy(d_B, B, size, cudaMemcpyHostToDevice);
     int threads = 1024;
 
     dim3 threadsPerBlock(threads);
     dim3 numBlocks((width + threads - 1) / threads);
 
-    sigmoidiff_thread<<<numBlocks, threadsPerBlock>>>(d_A, d_B, width);
+    sigmoidiff_thread<<<numBlocks, threadsPerBlock>>>(A, B, width);
     cudaDeviceSynchronize();
 
-        cudaMemcpy(B, d_B, size, cudaMemcpyDeviceToHost);
+    //     cudaMemcpy(B, d_B, size, cudaMemcpyDeviceToHost);
 
 
 
-    cudaFree(d_A);
-    cudaFree(d_B);
+    // cudaFree(d_A);
+    // cudaFree(d_B);
 }
 
 
@@ -363,27 +353,18 @@ void run_cuda_add(const float* A, const float* B, float* C, int width)
     float *d_A, *d_B, *d_C;
     int size = width * sizeof(float);
 
-    cudaMalloc(&d_A, size);
-    cudaMalloc(&d_B, size);
-    cudaMalloc(&d_C, size);
 
-    cudaMemcpy(d_A, A, size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_B, B, size, cudaMemcpyHostToDevice);
     int threads = 1024;
 
     dim3 threadsPerBlock(threads);
     dim3 numBlocks((width + threads - 1) / threads);
 
-    adding_cuda<<<numBlocks, threadsPerBlock>>>(d_A, d_B, d_C, width);
+    adding_cuda<<<numBlocks, threadsPerBlock>>>(A, B, C, width);
     cudaDeviceSynchronize();
 
-        cudaMemcpy(C, d_C, size, cudaMemcpyDeviceToHost);
 
 
 
-    cudaFree(d_A);
-    cudaFree(d_B);
-    cudaFree(d_C);
 }
 
 
@@ -423,30 +404,21 @@ __global__ void subbing_cuda(const float* A, const float* B, float* C, int width
 
 void run_cuda_sub(const float* A, const float* B, float* C, int width)
 {
-    float *d_A, *d_B, *d_C;
     int size = width * sizeof(float);
 
-    cudaMalloc(&d_A, size);
-    cudaMalloc(&d_B, size);
-    cudaMalloc(&d_C, size);
 
-    cudaMemcpy(d_A, A, size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_B, B, size, cudaMemcpyHostToDevice);
     int threads = 1024;
 
     dim3 threadsPerBlock(threads);
     dim3 numBlocks((width + threads - 1) / threads);
 
-    subbing_cuda<<<numBlocks, threadsPerBlock>>>(d_A, d_B, d_C, width);
+    subbing_cuda<<<numBlocks, threadsPerBlock>>>(A, B, C, width);
     cudaDeviceSynchronize();
 
-        cudaMemcpy(C, d_C, size, cudaMemcpyDeviceToHost);
 
 
 
-    cudaFree(d_A);
-    cudaFree(d_B);
-    cudaFree(d_C);
+
 }
 
 
@@ -484,30 +456,17 @@ __global__ void diving_cuda(const float* A, const float* B, float* C, int width)
 
 void run_cuda_div(const float* A, const float* B, float* C, int width)
 {
-    float *d_A, *d_B, *d_C;
     int size = width * sizeof(float);
 
-    cudaMalloc(&d_A, size);
-    cudaMalloc(&d_B, size);
-    cudaMalloc(&d_C, size);
-
-    cudaMemcpy(d_A, A, size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_B, B, size, cudaMemcpyHostToDevice);
     int threads = 1024;
 
     dim3 threadsPerBlock(threads);
     dim3 numBlocks((width + threads - 1) / threads);
 
-    diving_cuda<<<numBlocks, threadsPerBlock>>>(d_A, d_B, d_C, width);
+    diving_cuda<<<numBlocks, threadsPerBlock>>>(A, B, C, width);
     cudaDeviceSynchronize();
 
-        cudaMemcpy(C, d_C, size, cudaMemcpyDeviceToHost);
 
-
-
-    cudaFree(d_A);
-    cudaFree(d_B);
-    cudaFree(d_C);
 }
 
 
@@ -549,30 +508,18 @@ __global__ void muling_cuda(const float* A, const float* B, float* C, int width)
 
 void run_cuda_hadmul(const float* A, const float* B, float* C, int width)
 {
-    float *d_A, *d_B, *d_C;
     int size = width * sizeof(float);
 
-    cudaMalloc(&d_A, size);
-    cudaMalloc(&d_B, size);
-    cudaMalloc(&d_C, size);
 
-    cudaMemcpy(d_A, A, size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_B, B, size, cudaMemcpyHostToDevice);
     int threads = 1024;
 
     dim3 threadsPerBlock(threads);
     dim3 numBlocks((width + threads - 1) / threads);
 
-    muling_cuda<<<numBlocks, threadsPerBlock>>>(d_A, d_B, d_C, width);
+    muling_cuda<<<numBlocks, threadsPerBlock>>>(A, B, C, width);
     cudaDeviceSynchronize();
 
-        cudaMemcpy(C, d_C, size, cudaMemcpyDeviceToHost);
 
-
-
-    cudaFree(d_A);
-    cudaFree(d_B);
-    cudaFree(d_C);
 }
 
 

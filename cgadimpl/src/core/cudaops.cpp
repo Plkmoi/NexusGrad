@@ -107,8 +107,6 @@ std::shared_ptr<Node> mul_cudaops(const std::shared_ptr<Node>& a,
     fn(A, B, n->d_array, M * K);
        n->siz = M*K;
 
-    cudaMemcpy(n->value.data(), n->d_array, M * N * sizeof(float),
-               cudaMemcpyDeviceToHost);
 
     // std::cout << "[CUDA MUL output preview]: ";
     // for (int i = 0; i < std::min(10, M * N); ++i)
@@ -143,8 +141,7 @@ std::shared_ptr<Node> div_cudaops(const std::shared_ptr<Node>& a,
     fn(A, B, n->d_array, M * K);
        n->siz = M*K;
 
-    cudaMemcpy(n->value.data(), n->d_array, M * N * sizeof(float),
-               cudaMemcpyDeviceToHost);
+
 
     std::cout << "[CUDA DIV output preview]: ";
     for (int i = 0; i < std::min(10, M * N); ++i)
@@ -173,18 +170,18 @@ std::shared_ptr<Node> div_cudaops(const std::shared_ptr<Node>& a,
 
     Tensor C({M, K});
     auto n = std::make_shared<Node>(C, (x->requires_grad),
-                                    Op::Sigmoid, "/", true);
+                                    Op::Sigmoid, "sigmoid", true);
 
     fn(X, n->d_array, M * K);
 
-    cudaMemcpy(n->value.data(), n->d_array, M * K * sizeof(float),
-               cudaMemcpyDeviceToHost);
+    // cudaMemcpy(n->value.data(), n->d_array, M * K * sizeof(float),
+    //            cudaMemcpyDeviceToHost);
        n->siz = M*K;
 
-    std::cout << "[CUDA Sigmoid output preview]: ";
-    for (int i = 0; i < std::min(10, M * K); ++i)
-        std::cout << n->value.data()[i] << " ";
-    std::cout << "\n";
+    // std::cout << "[CUDA Sigmoid output preview]: ";
+    // for (int i = 0; i < std::min(10, M * K); ++i)
+    //     std::cout << n->value.data()[i] << " ";
+    // std::cout << "\n";
 
     n->inputs = {x};
     return n;
@@ -227,13 +224,13 @@ std::shared_ptr<Node> div_cudaops(const std::shared_ptr<Node>& a,
     fn(X, n->d_array, M * K);
        n->siz = M*K;
 
-    cudaMemcpy(n->value.data(), n->d_array, M * K * sizeof(float),
-               cudaMemcpyDeviceToHost);
+    // cudaMemcpy(n->value.data(), n->d_array, M * K * sizeof(float),
+    //            cudaMemcpyDeviceToHost);
 
-    std::cout << "[CUDA Sigmoidiff output preview]: ";
-    for (int i = 0; i < std::min(10, M * K); ++i)
-        std::cout << n->value.data()[i] << " ";
-    std::cout << "\n";
+    // std::cout << "[CUDA Sigmoidiff output preview]: ";
+    // for (int i = 0; i < std::min(10, M * K); ++i)
+    //     std::cout << n->value.data()[i] << " ";
+    // std::cout << "\n";
 
     n->inputs = {x};
     return n;
@@ -424,6 +421,58 @@ std::shared_ptr<Node> silu_cudaops(const std::shared_ptr<Node>& x) {
     return n;
 }
 
+std::shared_ptr<Node> exp_cudaops(const std::shared_ptr<Node>& x) { 
+    const Tensor& xin = x->value;
+    auto X = x->d_array;
+
+    auto [M, K] = x->value.shape();
+    auto* fn = ag::kernels::cpu().exp;
+    if (!fn)
+        throw std::runtime_error("No CUDA SiLU kernel registered");
+
+    Tensor C({M, K});
+    auto n = std::make_shared<Node>(C, x->requires_grad, Op::Exp, "exp", true);
+    fn(X, n->d_array, M * K);
+    n->siz = M * K;
+    n->inputs = { x };
+    return n;
+}
+
+
+    std::shared_ptr<Node> fmab_cudaops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c){ 
+        auto A = a->d_array;
+         auto B = b->d_array;
+
+         auto [M,K]  = a->value.shape();
+         auto [K2,N] = b->value.shape();
+         if (K != K2) throw std::runtime_error("gemm: inner dims mismatch");
+
+         auto C = c->d_array; 
+
+                 Tensor E({M,N});
+
+                          auto n = std::make_shared<Node>(E,
+             (a->requires_grad || b->requires_grad || c->requires_grad),
+             Op::FMA, "fmab", true);
+ 
+
+         auto* fn = ag::kernels::cpu().fmab;
+
+
+
+
+
+         if (!fn) throw std::runtime_error("No CPU GEMM kernel registered now only");
+
+         fn(A, B, C, n->d_array, M, K, N);
+         n->siz = M * N;
+
+         n->inputs = { a, b , c};
+         return n;
+    }
+
+    
+
 std::shared_ptr<Node> gelu_cudaops(const std::shared_ptr<Node>& x) { 
     const Tensor& xin = x->value;
     auto X = x->d_array;
@@ -546,6 +595,33 @@ auto aC = constant(aT, "alpha");
 
 
 
+    std::shared_ptr<Node> matmul_cudaops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){ 
+         auto A = a->d_array;
+         auto B = b->d_array;
+
+         auto [M,K]  = a->value.shape();
+         auto [K2,N] = b->value.shape();
+         if (K != K2) throw std::runtime_error("matmul: inner dims mismatch");
+
+         Tensor C({M,N});
+
+         auto* fn = ag::kernels::cpu().matmul;
+
+                  if (!fn) throw std::runtime_error("No CPU MatMul kernel registered");
+
+                  auto n = std::make_shared<Node>(C, (a->requires_grad || b->requires_grad), Op::MatMul, "matmul", true);
+
+
+
+             n->siz = M*K;
+         fn(A, B, n->d_array, M, K, N);
+         
+
+
+         n->inputs = { a, b };
+         return n;
+    }
+
 
 
 
@@ -594,9 +670,8 @@ auto n = std::make_shared<Node>(
 
 fn(q.data(), k.data(), v.data(), n->d_array,
                   B, nh, N, x);
-                      auto [M, K]  = a->value.shape();
 
-                       n->siz = M*K;
+                       n->siz = s.rows()*s.cols();
 
     
     n->inputs = {a, b, c, d};

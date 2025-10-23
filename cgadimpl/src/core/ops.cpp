@@ -104,11 +104,11 @@ namespace ag {
 
 
     Value matmul(const Value& a, const Value& b){ 
-         return Value(detail::matmul_nodeops(a.node, b.node)); 
+         return Value(detail::matmul_cudaops(a.node, b.node)); 
     }
 
     Value fmab(const Value& a, const Value& b, const Value& c){ 
-        return Value(detail::fmab_nodeops(a.node, b.node, c.node)); 
+        return Value(detail::fmab_cudaops(a.node, b.node, c.node)); 
     }
 
 
@@ -137,7 +137,7 @@ namespace ag {
     }
 
     Value exp(const Value& x){ 
-        return Value(detail::exp_nodeops(x.node));
+        return Value(detail::exp_cudaops(x.node));
     }
     
     Value log(const Value& x){ 

@@ -23,6 +23,7 @@ std::shared_ptr<Node> add_cudaops(const std::shared_ptr<Node>& a, const std::sha
 std::shared_ptr<Node> sub_cudaops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b);
 std::shared_ptr<Node> mul_cudaops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b);
 std::shared_ptr<Node> div_cudaops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b);
+std::shared_ptr<Node> matmul_cudaops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b);
 std::shared_ptr<Node> sigmoidiff_cudaops(const std::shared_ptr<Node>& x);
 std::shared_ptr<Node> sigmoid_cudaops(const std::shared_ptr<Node>& x);
 std::shared_ptr<Node> relu_cudaops(const std::shared_ptr<Node>& x);
@@ -39,6 +40,8 @@ std::shared_ptr<Node> gelu_cudaops(const std::shared_ptr<Node>& x);
 std::shared_ptr<Node> rowsum_cudaops(const std::shared_ptr<Node>& x);
 std::shared_ptr<Node> rowmax_cudaops(const std::shared_ptr<Node>& x);
 std::shared_ptr<Node> leaky_relu_cudaops(const std::shared_ptr<Node>& x, float alpha);
+std::shared_ptr<Node> exp_cudaops(const std::shared_ptr<Node>& x);
 std::shared_ptr<Node> attention_cudaops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d);
+std::shared_ptr<Node> fmab_cudaops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c);
 }
 }

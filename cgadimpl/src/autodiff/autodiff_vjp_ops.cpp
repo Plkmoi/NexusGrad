@@ -372,26 +372,26 @@ void vjp_Relu(Node* n, const Tensor& gy){
 
 void vjp_Exp(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
+    // if (!X->requires_grad) return;
 
-        auto* mm = ag::kernels::cpu().exp;
-            auto [K2, N] = (X->value).shape();
+    //     auto* mm = ag::kernels::cpu().exp;
+    //         auto [K2, N] = (X->value).shape();
 
-                Tensor dA(K2, N);                   // temp buffer
+    //             Tensor dA(K2, N);                   // temp buffer
 
-        if(mm)
-            mm((X->value).data(), dA.data(), dA.numel());
+    //     if(mm)
+    //         mm((X->value).data(), dA.data(), dA.numel());
 
-        else
+    //     else
 
-        {
-            std::cout<<"CUDA is unused";
-    dA = Tensor::relu_mask(X->value);
+    //     {
+    //         std::cout<<"CUDA is unused";
+    // dA = Tensor::relu_mask(X->value);
 
-        }
+    //     }
 
 
-    X->grad.add_( rt( gy * dA, X->value) );
+    X->grad.add_( rt( gy * Tensor::exp(X->value), X->value) );
 }
 void vjp_Log(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
@@ -423,7 +423,7 @@ void vjp_Sigmoid(Node* n, const Tensor& gy){
 
 
     auto X = n->inputs[0]; if (!X->requires_grad) return;
-    X->grad.add_( rt( gy * ((sigmoidiff_cudaops(X))->value), X->value) );
+    X->grad.add_( rt( gy * (Tensor::sigmoid(X->value)*(Tensor::ones_like(X->value)-Tensor::sigmoid(X->value))), X->value) );
 
 
 }
