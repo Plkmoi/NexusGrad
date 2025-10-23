@@ -13,5 +13,6 @@ void zero_grad(const Value& root);
 void backward (const Value& root, const Tensor* grad_seed=nullptr);
 Tensor jvp (const Value& root, const std::unordered_map<Node*, Tensor>& seed);
 void valsend(const Value& root);
+void grasend(const Value& root);
 
 } // namespace ag

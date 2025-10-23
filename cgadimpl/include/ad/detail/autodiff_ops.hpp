@@ -3,6 +3,7 @@
 #include "ad/graph.hpp"
 #include "ad/schema.hpp"
 #include "ad/kernels_api.hpp"
+#include "ad/cudaops.hpp"
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <iostream>
@@ -11,7 +12,7 @@
 namespace ag {
 
 // VJP: given node n and its output upstream grad gy, accumulate grads into parents.
-using VjpFn = void(*)(Node* n, const Tensor& gy);
+using VjpFn = void(*)(Node* n);
 
 // JVP: compute tangent for node n given a way to read parent tangents.
 // tangent_of(p) must return the tangent T[p] (same shape as p->value).

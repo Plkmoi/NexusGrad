@@ -28,22 +28,26 @@ void backward(const Value& root, const Tensor* grad_seed){
     }
 
     // reverse topo
-    for (auto it = order.rbegin(); it != order.rend(); ++it) {
+
+
+for (auto it = order.rbegin(); it != order.rend(); ++it) {
         Node* n = *it;
         if (!n->requires_grad) continue;
-        const Tensor& gy = n->grad;
 
-        ag::debug::on_backprop_step(n, gy); // (optional) prints one line per node
+     //   ag::debug::on_backprop_step(n, gy); // (optional) prints one line per node
 
-        if (n->is_checkpoint && n->value.size() == 0) {
-        if (!ag::checkpoint_impl::recompute_subgraph(n->shared_from_this())) {
-            throw std::runtime_error("autodiff: failed to recompute checkpointed node during backward");
-        }
-        }
+   //
         VjpFn fn = vjp_lookup(n->op);
-        if (fn) fn(n, gy); // handler accumulates into parents
+        if (fn) fn(n); // handler accumulates into parents
     }
+
+
+
+
+
+
 }
+
 
 void valsend(const Value& root) {
     auto order = topo_from(root.node.get());
@@ -56,9 +60,31 @@ void valsend(const Value& root) {
         if (n->d_array && n->siz > 0) {
             cudaMemcpy(n->value.data(), n->d_array,
                        n->siz * sizeof(float), cudaMemcpyDeviceToHost);
+
         }
 
         std::cout << "[CUDA VALSEND output]: ";
+        for (int i = 0; i < 10; ++i)
+          {  std::cout << n->value.data()[i] << " ";
+        std::cout << "(" << n->debug_name << ")\n";}
+    }
+}
+
+void grasend(const Value& root) {
+    auto order = topo_from(root.node.get());
+    cudaDeviceSynchronize(); // Wait for all GPU ops to finish
+
+    for (auto it = order.rbegin(); it != order.rend(); ++it) {
+        Node* n = *it;
+        if (!n->requires_grad || !(n->cuda_device)) continue;
+
+        if (n->d_array && n->siz > 0) {
+            cudaMemcpy(n->grad.data(), n->c_array,
+                       n->siz * sizeof(float), cudaMemcpyDeviceToHost);
+
+        }
+
+        std::cout << "[CUDA GRASEND output]: ";
         for (int i = 0; i < 10; ++i)
           {  std::cout << n->value.data()[i] << " ";
         std::cout << "(" << n->debug_name << ")\n";}

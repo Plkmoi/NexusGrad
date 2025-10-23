@@ -1,7 +1,9 @@
 #include "ad/detail/autodiff_ops.hpp"
-
+#include "ad/cudaops.hpp"
+#include <cuda.h>
 #include <cmath>
 #include "ad/nodeops.hpp"
+#include "ad/cudarray.hpp"
 
 namespace ag {
 namespace detail{
@@ -9,25 +11,63 @@ namespace detail{
 // helper: reduce a gradient to a parent's shape (broadcast-aware)
 inline Tensor rt(const Tensor& g, const Tensor& like){ return Tensor::reduce_to(g, like); }
 
+
+float* gradacc(float* a, float*b, float misiz)
+{
+
+
+    auto* fn = run_cuda_add;
+    if (!fn)
+        throw std::runtime_error("No CUDA Add kernel registered");
+
+float* c = nullptr;
+
+    fn(a, b, c, misiz);
+
+
+
+
+    return c;
+
+
+}
+
 // ----- elementwise binary -----
-void vjp_Add(Node* n, const Tensor& gy){
+void vjp_Add(Node* n){
+
+    if(n->cuda_device)
+    {
+
+    auto A = n->inputs[0]; auto B = n->inputs[1];
+    if (A->requires_grad) A->c_array = gradacc(A->c_array, n->c_array, A->siz);
+    if (B->requires_grad) B->c_array = gradacc(B->c_array, n->c_array, B->siz);
+
+    }
+    else{
+
+
     Node* A = n->inputs[0].get(); Node* B = n->inputs[1].get();
-    if (A->requires_grad) A->grad.add_( rt(gy, A->value) );
-    if (B->requires_grad) B->grad.add_( rt(gy, B->value) );
+    if (A->requires_grad) A->grad.add_( rt(n->grad, A->value) );
+    if (B->requires_grad) B->grad.add_( rt(-n->grad, B->value) );
+
+
+
+    }
+
 }
-void vjp_Sub(Node* n, const Tensor& gy){
+void vjp_Sub(Node* n){
     Node* A = n->inputs[0].get(); Node* B = n->inputs[1].get();
-    if (A->requires_grad) A->grad.add_( rt(gy, A->value) );
-    if (B->requires_grad) B->grad.add_( rt(-gy, B->value) );
+    if (A->requires_grad) A->grad.add_( rt(n->grad, A->value) );
+    if (B->requires_grad) B->grad.add_( rt(-n->grad, B->value) );
 }
-void vjp_Mul(Node* n, const Tensor& gy){
+void vjp_Mul(Node* n){
     Node* A = n->inputs[0].get(); Node* B = n->inputs[1].get();
-    if (A->requires_grad) A->grad.add_( rt( gy * B->value, A->value) );
-    if (B->requires_grad) B->grad.add_( rt( gy * A->value, B->value) );
+    if (A->requires_grad) A->grad.add_( rt( n->grad * B->value, A->value) );
+    if (B->requires_grad) B->grad.add_( rt( n->grad * A->value, B->value) );
 }
 
 // ----- elementwise trinary -----
-void vjp_FMA(Node* n, const Tensor& gy){
+void vjp_FMA(Node* n){
     Node* A = n->inputs[0].get();
     Node* B = n->inputs[1].get();
     Node* C = n->inputs[2].get();
@@ -47,10 +87,10 @@ void vjp_FMA(Node* n, const Tensor& gy){
         Tensor dA(M, K);                   // temp buffer
 
         if (mm) {
-            // dA = gy (MxN) * BT (NxK)
-            mm(gy.data(), BT.data(), dA.data(), M, N, K);
+            // dA = n->grad (MxN) * BT (NxK)
+            mm(n->grad.data(), BT.data(), dA.data(), M, N, K);
         } else {
-            dA = Tensor::matmul(gy, BT);
+            dA = Tensor::matmul(n->grad, BT);
         }
         A->grad.add_(dA);
     }
@@ -60,22 +100,22 @@ void vjp_FMA(Node* n, const Tensor& gy){
         Tensor dB(K, N);                   // temp buffer
 
         if (mm) {
-            // dB = AT (KxM) * gy (MxN)
-            mm(AT.data(), gy.data(), dB.data(), K, M, N);
+            // dB = AT (KxM) * n->grad (MxN)
+            mm(AT.data(), n->grad.data(), dB.data(), K, M, N);
         } else {
-            dB = Tensor::matmul(AT, gy);
+            dB = Tensor::matmul(AT, n->grad);
         }
         B->grad.add_(dB);
     }
-    if (C->requires_grad) C->grad.add_( rt(gy, C->value) );
+    if (C->requires_grad) C->grad.add_( rt(n->grad, C->value) );
 }
 
-void vjp_LayerNorm(Node* n, const Tensor& gy){
+void vjp_LayerNorm(Node* n){
 
     Node* x = n->inputs[0].get();
      int N = x->value.cols(); // normalize over last dim (row-wise)
 
-   //  debug::print_tensor("gy",gy);
+   //  debug::print_tensor("n->grad",n->grad);
      
     
     // stddev [2x1] - float
@@ -87,15 +127,15 @@ void vjp_LayerNorm(Node* n, const Tensor& gy){
  //   debug::print_tensor("xmu",xmu);
 
     // sum of grad_out along row
-    Tensor grad_sum = Tensor::row_sum(gy);
+    Tensor grad_sum = Tensor::row_sum(n->grad);
   //  debug::print_tensor("grad_sum",grad_sum);
 
     // dot(grad_out, x - mean) along row
-    Tensor grad_dot_xmu = Tensor::row_sum(gy * xmu);
+    Tensor grad_dot_xmu = Tensor::row_sum(n->grad * xmu);
    // debug::print_tensor("grad_dot_xmu",grad_dot_xmu);
 
     // term: N * grad_out
-    Tensor term1 = gy * float(N);
+    Tensor term1 = n->grad * float(N);
  //   debug::print_tensor("term1",term1);
 
     // term: subtract sum of grad_out
@@ -115,14 +155,14 @@ void vjp_LayerNorm(Node* n, const Tensor& gy){
 }
 
 
-void vjp_RealLayerNorm(Node* n, const Tensor& gy){
+void vjp_RealLayerNorm(Node* n){
 
     Node* x = n->inputs[0].get();
     Node* b = n->inputs[1].get();
     Node* g = n->inputs[2].get();
      int N = x->value.cols(); // normalize over last dim (row-wise)
 
-   //  debug::print_tensor("gy",gy);
+   //  debug::print_tensor("n->grad",n->grad);
      
     
     // stddev [2x1] - float
@@ -134,15 +174,15 @@ void vjp_RealLayerNorm(Node* n, const Tensor& gy){
  //   debug::print_tensor("xmu",xmu);
 
     // sum of grad_out along row
-    Tensor grad_sum = Tensor::row_sum(gy);
+    Tensor grad_sum = Tensor::row_sum(n->grad);
   //  debug::print_tensor("grad_sum",grad_sum);
 
     // dot(grad_out, x - mean) along row
-    Tensor grad_dot_xmu = Tensor::row_sum(gy * xmu);
+    Tensor grad_dot_xmu = Tensor::row_sum(n->grad * xmu);
    // debug::print_tensor("grad_dot_xmu",grad_dot_xmu);
 
     // term: N * grad_out
-    Tensor term1 = gy * float(N);
+    Tensor term1 = n->grad * float(N);
  //   debug::print_tensor("term1",term1);
 
     // term: subtract sum of grad_out
@@ -159,22 +199,22 @@ void vjp_RealLayerNorm(Node* n, const Tensor& gy){
 // debug::print_tensor("g",g->value);
 
     if (x->requires_grad) x->grad.add_( dx);
-if (b->requires_grad) b->grad.add_( Tensor::row_sum(gy) );   // db = sum over batch
-if (g->requires_grad) g->grad.add_( Tensor::row_sum(gy * (*(n->tape[2]))) );
+if (b->requires_grad) b->grad.add_( Tensor::row_sum(n->grad) );   // db = sum over batch
+if (g->requires_grad) g->grad.add_( Tensor::row_sum(n->grad * (*(n->tape[2]))) );
 
 }
 
 
-void vjp_RMSNorm(Node* n, const Tensor& gy){
+void vjp_RMSNorm(Node* n){
 
     Node* x = n->inputs[0].get();
     Tensor rms = *n->tape[0];
     Tensor y   = *n->tape[1];   // normalized x
 
     // upstream dot
-    Tensor dot = Tensor::row_sum(gy * y);  // [batch x 1]
+    Tensor dot = Tensor::row_sum(n->grad * y);  // [batch x 1]
 
-    Tensor grad_x = (gy / rms) - (y * dot / (rms*x->value.cols()));
+    Tensor grad_x = (n->grad / rms) - (y * dot / (rms*x->value.cols()));
 
     if (x->requires_grad) x->grad.add_(grad_x);
 
@@ -182,7 +222,7 @@ void vjp_RMSNorm(Node* n, const Tensor& gy){
 }
 
 
-void vjp_RealRMSNorm(Node* n, const Tensor& gy){
+void vjp_RealRMSNorm(Node* n){
 
     Node* x = n->inputs[0].get();
     Node* g = n->inputs[1].get();
@@ -191,20 +231,20 @@ void vjp_RealRMSNorm(Node* n, const Tensor& gy){
 
 
     // upstream dot
-    Tensor dot = Tensor::row_sum(gy * y);  // [batch x 1]
+    Tensor dot = Tensor::row_sum(n->grad * y);  // [batch x 1]
 
-    Tensor grad_x = g->value*((gy / rms) - (y * dot / (rms*x->value.cols())));
+    Tensor grad_x = g->value*((n->grad / rms) - (y * dot / (rms*x->value.cols())));
 
 
     if (x->requires_grad) x->grad.add_(grad_x);
-    if (g->requires_grad) g->grad.add_( gy * (x->value / rms));
+    if (g->requires_grad) g->grad.add_( n->grad * (x->value / rms));
 
 
 }
 
 
 // ----- elementwise quarternary -----
-void vjp_Attention(Node* n, const Tensor& gy){
+void vjp_Attention(Node* n){
     Node* A = n->inputs[0].get();
     Node* B = n->inputs[1].get();
     Node* C = n->inputs[2].get();
@@ -219,8 +259,8 @@ void vjp_Attention(Node* n, const Tensor& gy){
     // ---- Backprop chain ----
 
     // y = s v
-    Tensor dL_ds = Tensor::matmul(gy, Tensor::transpose(v));   // [B x B]
-    Tensor dL_dv = Tensor::matmul(Tensor::transpose(s), gy);   // [A x D]
+    Tensor dL_ds = Tensor::matmul(n->grad, Tensor::transpose(v));   // [B x B]
+    Tensor dL_dv = Tensor::matmul(Tensor::transpose(s), n->grad);   // [A x D]
 
     // s = softmax(g)
     Tensor dL_dg; 
@@ -257,7 +297,7 @@ void vjp_Attention(Node* n, const Tensor& gy){
 }
 
 
-void vjp_AlibiAttention(Node* n, const Tensor& gy){
+void vjp_AlibiAttention(Node* n){
     Node* A = n->inputs[0].get();
     Node* B = n->inputs[1].get();
     Node* C = n->inputs[2].get();
@@ -272,8 +312,8 @@ void vjp_AlibiAttention(Node* n, const Tensor& gy){
     // ---- Backprop chain ----
 
     // y = s v
-    Tensor dL_ds = Tensor::matmul(gy, Tensor::transpose(v));   // [B x B]
-    Tensor dL_dv = Tensor::matmul(Tensor::transpose(s), gy);   // [A x D]
+    Tensor dL_ds = Tensor::matmul(n->grad, Tensor::transpose(v));   // [B x B]
+    Tensor dL_dv = Tensor::matmul(Tensor::transpose(s), n->grad);   // [A x D]
 
     // s = softmax(g)
     Tensor dL_dg; 
@@ -310,7 +350,7 @@ void vjp_AlibiAttention(Node* n, const Tensor& gy){
 }
 
 
-void vjp_SWIGLU(Node* n, const Tensor& gy){
+void vjp_SWIGLU(Node* n){
     Node* X = n->inputs[0].get();
     Node* A = n->inputs[1].get();
     Node* B = n->inputs[2].get();
@@ -325,14 +365,14 @@ void vjp_SWIGLU(Node* n, const Tensor& gy){
     // derivatives
     Tensor Swishdif = Tensor::sigmoid(y) + y * (Tensor::sigmoid(y) * (Tensor::ones_like(y) - Tensor::sigmoid(y)));
 
-    Tensor dL_dB = Swishdif * h * gy;
-    Tensor dL_dA = Tensor::matmul(Tensor::transpose(Swishdif * h * gy), X->value);
+    Tensor dL_dB = Swishdif * h * n->grad;
+    Tensor dL_dA = Tensor::matmul(Tensor::transpose(Swishdif * h * n->grad), X->value);
 
-    Tensor dL_dD = q*gy;
-    Tensor dL_dC = Tensor::matmul(Tensor::transpose(q * gy), X->value);
+    Tensor dL_dD = q*n->grad;
+    Tensor dL_dC = Tensor::matmul(Tensor::transpose(q * n->grad), X->value);
 
-    Tensor dL_dX = Tensor::matmul(Swishdif * h * gy, A->value)
-                 + Tensor::matmul(q * gy, C->value);
+    Tensor dL_dX = Tensor::matmul(Swishdif * h * n->grad, A->value)
+                 + Tensor::matmul(q * n->grad, C->value);
 
     // accumulate grads
     if (X->requires_grad) X->grad.add_(dL_dX);
@@ -345,7 +385,7 @@ void vjp_SWIGLU(Node* n, const Tensor& gy){
 
 
 // ----- unary activations -----
-void vjp_Relu(Node* n, const Tensor& gy){
+void vjp_Relu(Node* n){
     Node* X = n->inputs[0].get();
     if (!X->requires_grad) return;
 
@@ -366,11 +406,11 @@ void vjp_Relu(Node* n, const Tensor& gy){
         }
 
 
-    X->grad.add_( rt( gy * dA, X->value) );
+    X->grad.add_( rt( n->grad * dA, X->value) );
 
 }
 
-void vjp_Exp(Node* n, const Tensor& gy){
+void vjp_Exp(Node* n){
     Node* X = n->inputs[0].get();
     // if (!X->requires_grad) return;
 
@@ -391,94 +431,94 @@ void vjp_Exp(Node* n, const Tensor& gy){
     //     }
 
 
-    X->grad.add_( rt( gy * Tensor::exp(X->value), X->value) );
+    X->grad.add_( rt( n->grad * Tensor::exp(X->value), X->value) );
 }
-void vjp_Log(Node* n, const Tensor& gy){
+void vjp_Log(Node* n){
     Node* X = n->inputs[0].get();
-    if (X->requires_grad) X->grad.add_( rt( gy / X->value, X->value) );
+    if (X->requires_grad) X->grad.add_( rt( n->grad / X->value, X->value) );
 }
 
-void vjp_GCU(Node* n, const Tensor& gy){
+void vjp_GCU(Node* n){
     Node* X = n->inputs[0].get();
-    if (X->requires_grad) X->grad.add_( rt( gy * (Tensor::cos(X->value)-(X->value*Tensor::sin(X->value))), X->value) );
+    if (X->requires_grad) X->grad.add_( rt( n->grad * (Tensor::cos(X->value)-(X->value*Tensor::sin(X->value))), X->value) );
 }
 
-void vjp_Mish(Node* n, const Tensor& gy){
+void vjp_Mish(Node* n){
     Node* X = n->inputs[0].get();
-    if (X->requires_grad) X->grad.add_( rt( gy * (Tensor::tanh( Tensor::softplus(X->value) )-(  (X->value*Tensor::sigmoid(X->value))  / (Tensor::cosh( Tensor::softplus(X->value)*Tensor::cosh( Tensor::softplus(X->value) ))    )            )), X->value) );
+    if (X->requires_grad) X->grad.add_( rt( n->grad * (Tensor::tanh( Tensor::softplus(X->value) )-(  (X->value*Tensor::sigmoid(X->value))  / (Tensor::cosh( Tensor::softplus(X->value)*Tensor::cosh( Tensor::softplus(X->value) ))    )            )), X->value) );
 }
 
 
-void vjp_Tanh(Node* n, const Tensor& gy){
+void vjp_Tanh(Node* n){
     Node* X = n->inputs[0].get();
     if (!X->requires_grad) return;
     Tensor th = n->value, one = Tensor::ones_like(th);
     
-    X->grad.add_( rt( gy * (one - th*th), X->value) );
+    X->grad.add_( rt( n->grad * (one - th*th), X->value) );
 }
-void vjp_Sigmoid(Node* n, const Tensor& gy){
+void vjp_Sigmoid(Node* n){
 
 
 
 
 
     auto X = n->inputs[0]; if (!X->requires_grad) return;
-    X->grad.add_( rt( gy * (Tensor::sigmoid(X->value)*(Tensor::ones_like(X->value)-Tensor::sigmoid(X->value))), X->value) );
+    X->grad.add_( rt( n->grad * (Tensor::sigmoid(X->value)*(Tensor::ones_like(X->value)-Tensor::sigmoid(X->value))), X->value) );
 
 
 }
 
-void vjp_Sigmoidiff(Node* n, const Tensor& gy){
+void vjp_Sigmoidiff(Node* n){
 
 
 
 
 
     auto X = n->inputs[0]; if (!X->requires_grad) return;
-    X->grad.add_( rt( gy * (Tensor::sigmoid(X->value)*(Tensor::ones_like(X->value)-Tensor::sigmoid(X->value))*(Tensor::ones_like(X->value)-(2.0*Tensor::sigmoid(X->value)))), X->value) );
+    X->grad.add_( rt( n->grad * (Tensor::sigmoid(X->value)*(Tensor::ones_like(X->value)-Tensor::sigmoid(X->value))*(Tensor::ones_like(X->value)-(2.0*Tensor::sigmoid(X->value)))), X->value) );
 
 
 }
 
 
-void vjp_Softplus(Node* n, const Tensor& gy){
+void vjp_Softplus(Node* n){
     Node* X = n->inputs[0].get(); if (!X->requires_grad) return;
-    X->grad.add_( rt( gy * Tensor::sigmoid(X->value), X->value) );
+    X->grad.add_( rt( n->grad * Tensor::sigmoid(X->value), X->value) );
 }
 
-void vjp_Gaus(Node* n, const Tensor& gy){
+void vjp_Gaus(Node* n){
     Node* X = n->inputs[0].get(); if (!X->requires_grad) return;
-    X->grad.add_( rt( gy * -2*X->value*Tensor::exp(-1*X->value*X->value), X->value) );
+    X->grad.add_( rt( n->grad * -2*X->value*Tensor::exp(-1*X->value*X->value), X->value) );
 }
 
-void vjp_Transpose(Node* n, const Tensor& gy){
+void vjp_Transpose(Node* n){
     Node* X = n->inputs[0].get(); if (!X->requires_grad) return;
 
-    X->grad.add_( rt( Tensor::transpose(gy) , X->value) );
+    X->grad.add_( rt( Tensor::transpose(n->grad) , X->value) );
 }
 
 
 
-void vjp_SiLU(Node* n, const Tensor& gy){
+void vjp_SiLU(Node* n){
     Node* X = n->inputs[0].get(); if (!X->requires_grad) return;
     Tensor s = Tensor::sigmoid(X->value);
-    X->grad.add_( rt( gy * ( s + X->value * ( s * (Tensor::ones_like(s)-s) ) ), X->value) );
+    X->grad.add_( rt( n->grad * ( s + X->value * ( s * (Tensor::ones_like(s)-s) ) ), X->value) );
 }
 
-void vjp_Parcon(Node* n, const Tensor& gy){
+void vjp_Parcon(Node* n){
     Node* X = n->inputs[0].get(); if (!X->requires_grad) return;
-    X->grad.add_( rt( gy * ( 2 *Tensor::ones_like(X->value)- 2*X->value  ), X->value) );
+    X->grad.add_( rt( n->grad * ( 2 *Tensor::ones_like(X->value)- 2*X->value  ), X->value) );
 }
 
-void vjp_LiSHT(Node* n, const Tensor& gy){
+void vjp_LiSHT(Node* n){
     Node* X = n->inputs[0].get(); if (!X->requires_grad) return;
-    X->grad.add_( rt( gy * ( Tensor::tanh(X->value)+ (Tensor::sech(X->value)*Tensor::sech(X->value)*X->value ) ), X->value) );
+    X->grad.add_( rt( n->grad * ( Tensor::tanh(X->value)+ (Tensor::sech(X->value)*Tensor::sech(X->value)*X->value ) ), X->value) );
 }
 
 
 
 
-void vjp_GELU(Node* n, const Tensor& gy){
+void vjp_GELU(Node* n){
     Node* X = n->inputs[0].get(); if (!X->requires_grad) return;
     constexpr float c = 0.79788456080286535588f; // sqrt(2/pi)
     int R=X->value.rows(), C=X->value.cols();
@@ -490,9 +530,9 @@ void vjp_GELU(Node* n, const Tensor& gy){
     }
     Tensor th=Tensor::tanh(u), one=Tensor::ones_like(th);
     Tensor dgelu=(one+th)*0.5f + (x * ((one - th*th) * dudx))*0.5f;
-    X->grad.add_( rt( gy * dgelu, X->value) );
+    X->grad.add_( rt( n->grad * dgelu, X->value) );
 }
-void vjp_LeakyRelu(Node* n, const Tensor& gy){
+void vjp_LeakyRelu(Node* n){
     Node* X = n->inputs[0].get(); Node* A = n->inputs[1].get();
     if (!X->requires_grad) return;
     float a = A->value(0,0);
@@ -500,13 +540,13 @@ void vjp_LeakyRelu(Node* n, const Tensor& gy){
     Tensor g(R,C);
     for(int i=0;i<R;++i) for(int j=0;j<C;++j){
         float z=X->value(i,j);
-        g(i,j)= gy(i,j) * (z>0.f ? 1.f : a);
+        g(i,j)= n->grad(i,j) * (z>0.f ? 1.f : a);
     }
     X->grad.add_( g );
 }
 
 // ----- matmul -----
-void vjp_MatMul(Node* n, const Tensor& gy){
+void vjp_MatMul(Node* n){
    Node* A = n->inputs[0].get();
     Node* B = n->inputs[1].get();
 
@@ -525,10 +565,10 @@ void vjp_MatMul(Node* n, const Tensor& gy){
         Tensor dA(M, K);                   // temp buffer
 
         if (mm) {
-            // dA = gy (MxN) * BT (NxK)
-            mm(gy.data(), BT.data(), dA.data(), M, N, K);
+            // dA = n->grad (MxN) * BT (NxK)
+            mm(n->grad.data(), BT.data(), dA.data(), M, N, K);
         } else {
-            dA = Tensor::matmul(gy, BT);
+            dA = Tensor::matmul(n->grad, BT);
         }
         A->grad.add_(dA);
     }
@@ -538,16 +578,16 @@ void vjp_MatMul(Node* n, const Tensor& gy){
         Tensor dB(K, N);                   // temp buffer
 
         if (mm) {
-            // dB = AT (KxM) * gy (MxN)
-            mm(AT.data(), gy.data(), dB.data(), K, M, N);
+            // dB = AT (KxM) * n->grad (MxN)
+            mm(AT.data(), n->grad.data(), dB.data(), K, M, N);
         } else {
-            dB = Tensor::matmul(AT, gy);
+            dB = Tensor::matmul(AT, n->grad);
         }
         B->grad.add_(dB);
     }
 }
 
-void vjp_Dyntanh(Node* n, const Tensor& gy){
+void vjp_Dyntanh(Node* n){
     Node* X = n->inputs[0].get(); 
     Node* A = n->inputs[1].get(); 
     Node* B = n->inputs[2].get(); 
@@ -555,53 +595,53 @@ void vjp_Dyntanh(Node* n, const Tensor& gy){
 
 
 
-        if (X->requires_grad) X->grad.add_(gy*Tensor::sech(X->value*A->value)*Tensor::sech(X->value*A->value)*A->value*G->value); 
-    if (A->requires_grad) A->grad.add_(gy*Tensor::sech(X->value*A->value)*Tensor::sech(X->value*A->value)*X->value*G->value);
-    if (B->requires_grad) B->grad.add_(gy);
-    if (G->requires_grad) G->grad.add_(gy*Tensor::tanh(*(n->tape.back()))   );
+        if (X->requires_grad) X->grad.add_(n->grad*Tensor::sech(X->value*A->value)*Tensor::sech(X->value*A->value)*A->value*G->value); 
+    if (A->requires_grad) A->grad.add_(n->grad*Tensor::sech(X->value*A->value)*Tensor::sech(X->value*A->value)*X->value*G->value);
+    if (B->requires_grad) B->grad.add_(n->grad);
+    if (G->requires_grad) G->grad.add_(n->grad*Tensor::tanh(*(n->tape.back()))   );
 }
 
 // ----- reductions -----
-void vjp_Sum(Node* n, const Tensor& gy){
+void vjp_Sum(Node* n){
     Node* X=n->inputs[0].get(); if(!X->requires_grad) return;
-    float s = gy(0,0);
+    float s = n->grad(0,0);
     X->grad.add_( Tensor::ones_like(X->value) * s );
 }
-void vjp_RowSum(Node* n, const Tensor& gy){
+void vjp_RowSum(Node* n){
     Node* X=n->inputs[0].get(); if(!X->requires_grad) return;
-    // gy [B,1] broadcast across columns
-    Tensor g = gy * Tensor::ones_like(X->value);
+    // n->grad [B,1] broadcast across columns
+    Tensor g = n->grad * Tensor::ones_like(X->value);
     X->grad.add_( g );
 }
-void vjp_RowMax(Node* n, const Tensor& gy){
+void vjp_RowMax(Node* n){
     Node* X=n->inputs[0].get(); if(!X->requires_grad) return;
     int R=X->value.rows(), C=X->value.cols();
     Tensor m = Tensor::row_max(X->value);
     Tensor g(R,C);
     for(int i=0;i<R;++i) for(int j=0;j<C;++j)
-        g(i,j) = (X->value(i,j)==m(i,0)) ? gy(i,0) : 0.f;
+        g(i,j) = (X->value(i,j)==m(i,0)) ? n->grad(i,0) : 0.f;
     X->grad.add_( g );
 }
-void vjp_MeanAll(Node* n, const Tensor& gy){
+void vjp_MeanAll(Node* n){
     Node* X=n->inputs[0].get(); if(!X->requires_grad) return;
-    float scale = gy(0,0) / float(X->value.rows()*X->value.cols());
+    float scale = n->grad(0,0) / float(X->value.rows()*X->value.cols());
     X->grad.add_( Tensor::ones_like(X->value) * scale );
 }
 
 // ----- softmax / losses -----
-void vjp_SoftmaxRow(Node* n, const Tensor& gy){
+void vjp_SoftmaxRow(Node* n){
     Node* Z = n->inputs[0].get(); if(!Z->requires_grad) return;
     Tensor y = n->value; // softmax(Z)
-    Tensor dot = Tensor::row_sum( y * gy ); // [B,1]
-    Tensor g = y * (gy - dot);
+    Tensor dot = Tensor::row_sum( y * n->grad ); // [B,1]
+    Tensor g = y * (n->grad - dot);
     Z->grad.add_( g );
 }
-void vjp_LogSumExpRow(Node* n, const Tensor& gy){
+void vjp_LogSumExpRow(Node* n){
     Node* Z = n->inputs[0].get(); if(!Z->requires_grad) return;
     Tensor y = Tensor::softmax_row(Z->value);
-    Z->grad.add_( y * gy ); // gy [B,1] broadcast
+    Z->grad.add_( y * n->grad ); // n->grad [B,1] broadcast
 }
-void vjp_CeWithLogits(Node* n, const Tensor& gy /*unused: scalar gy*/){
+void vjp_CeWithLogits(Node* n /*unused: scalar n->grad*/){
     Node* Z = n->inputs[0].get();
     Node* Y = n->inputs[1].get();
     int B = Z->value.rows();
@@ -618,7 +658,7 @@ void vjp_CeWithLogits(Node* n, const Tensor& gy /*unused: scalar gy*/){
 
 
 
-void vjp_KLDivergence(Node* n, const Tensor& gy /*unused: scalar gy*/){
+void vjp_KLDivergence(Node* n /*unused: scalar n->grad*/){
     Node* Z = n->inputs[0].get();
     Node* Y = n->inputs[1].get();
     int B = Z->value.rows();
@@ -633,21 +673,21 @@ void vjp_KLDivergence(Node* n, const Tensor& gy /*unused: scalar gy*/){
     }
 }
 
-void vjp_Div(Node* n, const Tensor& gy){
+void vjp_Div(Node* n){
     Node* A = n->inputs[0].get(); Node* B = n->inputs[1].get();
-    if (A->requires_grad) A->grad.add_( rt( gy * (Tensor::reciprocal(B->value)), A->value) );
-    if (B->requires_grad) B->grad.add_( rt( -gy * (Tensor::reciprocal(B->value)) * (Tensor::reciprocal(B->value)) * A->value, B->value) );
+    if (A->requires_grad) A->grad.add_( rt( n->grad * (Tensor::reciprocal(B->value)), A->value) );
+    if (B->requires_grad) B->grad.add_( rt( -n->grad * (Tensor::reciprocal(B->value)) * (Tensor::reciprocal(B->value)) * A->value, B->value) );
 }
-void vjp_Reciprocal(Node* n, const Tensor& gy){
+void vjp_Reciprocal(Node* n){
     Node* X = n->inputs[0].get(); if (!X->requires_grad) return;
-    X->grad.add_( rt( -gy * (Tensor::reciprocal(X->value)) * (Tensor::reciprocal(X->value)), X->value) );
+    X->grad.add_( rt( -n->grad * (Tensor::reciprocal(X->value)) * (Tensor::reciprocal(X->value)), X->value) );
 }
 
 
 
 
 
-void vjp_Linear(Node* n, const Tensor& gy){
+void vjp_Linear(Node* n){
     Node* A = n->inputs[0].get();
     Node* B = n->inputs[1].get();
     Node* C = n->inputs[2].get();
@@ -667,10 +707,10 @@ void vjp_Linear(Node* n, const Tensor& gy){
         Tensor dA(M, K);                   // temp buffer
 
         if (mm) {
-            // dA = gy (MxN) * BT (NxK)
-            mm(gy.data(), BT.data(), dA.data(), M, N, K);
+            // dA = n->grad (MxN) * BT (NxK)
+            mm(n->grad.data(), BT.data(), dA.data(), M, N, K);
         } else {
-            dA = Tensor::matmul(gy, BT);
+            dA = Tensor::matmul(n->grad, BT);
         }
         A->grad.add_(dA);
     }
@@ -680,14 +720,14 @@ void vjp_Linear(Node* n, const Tensor& gy){
         Tensor dB(K, N);                   // temp buffer
 
         if (mm) {
-            // dB = AT (KxM) * gy (MxN)
-            mm(AT.data(), gy.data(), dB.data(), K, M, N);
+            // dB = AT (KxM) * n->grad (MxN)
+            mm(AT.data(), n->grad.data(), dB.data(), K, M, N);
         } else {
-            dB = Tensor::matmul(AT, gy);
+            dB = Tensor::matmul(AT, n->grad);
         }
         B->grad.add_(dB);
     }
-    if (C->requires_grad) C->grad.add_( rt(gy, C->value) );
+    if (C->requires_grad) C->grad.add_( rt(n->grad, C->value) );
 }
 
 
@@ -695,49 +735,49 @@ void vjp_Linear(Node* n, const Tensor& gy){
 
 
 
-void vjp_Cosh(Node* n, const Tensor& gy){
+void vjp_Cosh(Node* n){
     Node* X = n->inputs[0].get();
-    if (X->requires_grad) X->grad.add_( rt( gy * (Tensor::sinh(X->value)), X->value) );
+    if (X->requires_grad) X->grad.add_( rt( n->grad * (Tensor::sinh(X->value)), X->value) );
 }
 
 
-void vjp_Sinh(Node* n, const Tensor& gy){
+void vjp_Sinh(Node* n){
     Node* X = n->inputs[0].get();
-    if (X->requires_grad) X->grad.add_( rt( gy * (Tensor::cosh(X->value)), X->value) );
+    if (X->requires_grad) X->grad.add_( rt( n->grad * (Tensor::cosh(X->value)), X->value) );
 }
 
 
-void vjp_Sign(Node* n, const Tensor& gy){
+void vjp_Sign(Node* n){
     Node* X = n->inputs[0].get();
     if (!X->requires_grad) return;
     Tensor th = n->value, one = Tensor::ones_like(th);
     
-    X->grad.add_( rt( gy * 0.0f, X->value) );
+    X->grad.add_( rt( n->grad * 0.0f, X->value) );
 }
 
-void vjp_Cos(Node* n, const Tensor& gy){
+void vjp_Cos(Node* n){
     Node* X = n->inputs[0].get();
-    if (X->requires_grad) X->grad.add_( rt( -1.0 * gy* (Tensor::sin(X->value)), X->value) );
+    if (X->requires_grad) X->grad.add_( rt( -1.0 * n->grad* (Tensor::sin(X->value)), X->value) );
 }
 
 
-void vjp_Sin(Node* n, const Tensor& gy){
+void vjp_Sin(Node* n){
     Node* X = n->inputs[0].get();
-    if (X->requires_grad) X->grad.add_( rt( gy * (Tensor::cos(X->value)), X->value) );
+    if (X->requires_grad) X->grad.add_( rt( n->grad * (Tensor::cos(X->value)), X->value) );
 }
 
 
-void vjp_Sqrt(Node* n, const Tensor& gy){
+void vjp_Sqrt(Node* n){
     Node* X = n->inputs[0].get();
-    if (X->requires_grad) X->grad.add_( rt(0.5f * gy * Tensor::sqrt(  Tensor::reciprocal(X->value)), X->value) );
+    if (X->requires_grad) X->grad.add_( rt(0.5f * n->grad * Tensor::sqrt(  Tensor::reciprocal(X->value)), X->value) );
 }
 
-void vjp_Relumask(Node* n, const Tensor& gy){
+void vjp_Relumask(Node* n){
     Node* X = n->inputs[0].get();
     if (!X->requires_grad) return;
     Tensor th = n->value, one = Tensor::ones_like(th);
 
-    X->grad.add_( rt( gy * 0.0f, X->value) );
+    X->grad.add_( rt( n->grad * 0.0f, X->value) );
 }
 
 
@@ -754,7 +794,7 @@ void vjp_Relumask(Node* n, const Tensor& gy){
 
 
 
-void vjp_RELUAtt(Node* n, const Tensor& gy){
+void vjp_RELUAtt(Node* n){
     Node* A = n->inputs[0].get();
     Node* B = n->inputs[1].get();
     Node* C = n->inputs[2].get();
@@ -769,8 +809,8 @@ void vjp_RELUAtt(Node* n, const Tensor& gy){
     // ---- Backprop chain ----
 
     // y = s v
-    Tensor dL_ds = Tensor::matmul(gy, Tensor::transpose(v));   // [B x B]
-    Tensor dL_dv = Tensor::matmul(Tensor::transpose(s), gy);   // [A x D]
+    Tensor dL_ds = Tensor::matmul(n->grad, Tensor::transpose(v));   // [B x B]
+    Tensor dL_dv = Tensor::matmul(Tensor::transpose(s), n->grad);   // [A x D]
 
     // s = softmax(g)
     Tensor dL_dg; 
@@ -812,16 +852,16 @@ Tensor dL_dD   = Tensor::matmul(Tensor::transpose(dL_dv), A->value);
 
 
 
-void vjp_MOE(Node* n, const Tensor& gy){
+void vjp_MOE(Node* n){
     Node* X = n->inputs[0].get();
     Node* W = n->inputs[1].get();
     Node* B = n->inputs[2].get();
 
     Tensor y = Tensor::matmul(X->value, Tensor::transpose(W->value)) + B->value; 
 
-    Tensor dL_dB = gy;
-    Tensor dL_dW = Tensor::matmul(Tensor::transpose(gy), X->value);
-    Tensor dL_dX = Tensor::matmul(gy, W->value);
+    Tensor dL_dB = n->grad;
+    Tensor dL_dW = Tensor::matmul(Tensor::transpose(n->grad), X->value);
+    Tensor dL_dX = Tensor::matmul(n->grad, W->value);
 
     if (X->requires_grad) X->grad.add_(dL_dX);
     if (W->requires_grad) W->grad.add_(dL_dW);
@@ -831,7 +871,7 @@ void vjp_MOE(Node* n, const Tensor& gy){
 
 
 
-void vjp_SigAtt(Node* n, const Tensor& gy){
+void vjp_SigAtt(Node* n){
     Node* A = n->inputs[0].get();
     Node* B = n->inputs[1].get();
     Node* C = n->inputs[2].get();
@@ -846,8 +886,8 @@ void vjp_SigAtt(Node* n, const Tensor& gy){
     // ---- Backprop chain ----
 
     // y = s v
-    Tensor dL_ds = Tensor::matmul(gy, Tensor::transpose(v));   // [B x B]
-    Tensor dL_dv = Tensor::matmul(Tensor::transpose(s), gy);   // [A x D]
+    Tensor dL_ds = Tensor::matmul(n->grad, Tensor::transpose(v));   // [B x B]
+    Tensor dL_dv = Tensor::matmul(Tensor::transpose(s), n->grad);   // [A x D]
 
     // s = softmax(g)
     Tensor dL_dg; 
@@ -886,7 +926,7 @@ Tensor dL_dD   = Tensor::matmul(Tensor::transpose(dL_dv), A->value);
 }
 
 
-void vjp_MSELoss(Node* n, const Tensor& gy /*unused: scalar gy*/){
+void vjp_MSELoss(Node* n /*unused: scalar n->grad*/){
     Node* Z = n->inputs[0].get();
     Node* Y = n->inputs[1].get();
     int B = Z->value.rows(), C = Z->value.cols();
@@ -897,7 +937,7 @@ void vjp_MSELoss(Node* n, const Tensor& gy /*unused: scalar gy*/){
     if (Y->requires_grad) Y->grad.add_(gY);
 }
 
-void vjp_MAELoss(Node* n, const Tensor& gy /*unused: scalar gy*/){
+void vjp_MAELoss(Node* n /*unused: scalar n->grad*/){
     Node* Z = n->inputs[0].get();
     Node* Y = n->inputs[1].get();
     int B = Z->value.rows(), C = Z->value.cols();
@@ -909,7 +949,7 @@ void vjp_MAELoss(Node* n, const Tensor& gy /*unused: scalar gy*/){
 }
 
 
-void vjp_Leaf(Node*, const Tensor&){ /* no-op */ }
+void vjp_Leaf(Node*){ /* no-op */ }
 
 
 } // anon

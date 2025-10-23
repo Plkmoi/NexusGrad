@@ -23,6 +23,8 @@ Node::Node(const Tensor& v, bool rg, Op op_, const char* nm, bool device)
     if (cuda_device) {
         cudaMalloc(&d_array, v.size() * sizeof(float));
         cudaMemcpy(d_array, v.data(), v.size() * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMalloc(&c_array, v.size() * sizeof(float));
+        cudaMemcpy(c_array, v.data(), v.size() * sizeof(float), cudaMemcpyHostToDevice);
     } else {
         d_array = nullptr;
     }
@@ -37,6 +39,10 @@ Value::Value(std::shared_ptr<Node> n) : node(std::move(n)) {
             cudaMalloc(&node->d_array, node->value.size() * sizeof(float));
             cudaMemcpy(node->d_array, node->value.data(),
                        node->value.size() * sizeof(float),
+                       cudaMemcpyHostToDevice);
+                        cudaMalloc(&node->c_array, node->grad.size() * sizeof(float));
+            cudaMemcpy(node->c_array, node->grad.data(),
+                       node->grad.size() * sizeof(float),
                        cudaMemcpyHostToDevice);
         }
     }
