@@ -97,14 +97,33 @@ AG_EXPORT int ag_get_cpu_kernels_v1(struct ag_cpu_v1* out);
 // Avoid pulling in CUDA headers here: just forward-declare the opaque type.
 typedef struct CUstream_st* ag_cuda_stream_t;
 
-typedef void (*ag_relu_cuda_fn)(const float* x, float* y, int64_t n, ag_cuda_stream_t s);
-typedef void (*ag_matmul_cuda_fn)(const float* A, const float* B, float* C,
-                                  int M, int K, int N, ag_cuda_stream_t s);
-typedef void (*ag_add_cuda_fn)(const float* A, const float* B, float* C,
-                               int64_t n, ag_cuda_stream_t s);
-typedef void (*ag_exp_cuda_fn)(const float* x, float* y, int64_t n,
-                               ag_cuda_stream_t s);
-typedef void (*ag_zero_cuda_fn)(float* x, int64_t n, ag_cuda_stream_t s);
+
+// Arithmetic
+typedef void (*ag_add_cuda_fn)   (const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_sub_cuda_fn)   (const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_mul_cuda_fn)   (const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_div_cuda_fn)   (const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_pow_cuda_fn)   (const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_square_cuda_fn)(const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_neg_cuda_fn)   (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_clip_cuda_fn)  (const float* x, float* y, float minv, float maxv, int64_t n, ag_cuda_stream_t s);
+
+// Activations
+typedef void (*ag_relu_cuda_fn)        (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_leaky_relu_cuda_fn)  (const float* x, float* y, float alpha, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_gelu_cuda_fn)        (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_silu_cuda_fn)        (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_mish_cuda_fn)        (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_tanh_cuda_fn)        (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_sigmoid_cuda_fn)     (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_hard_sigmoid_cuda_fn)(const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_hard_swish_cuda_fn)  (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_exp_cuda_fn)         (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+
+// Core
+typedef void (*ag_zero_cuda_fn)  (float* x, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_matmul_cuda_fn)(const float* A, const float* B, float* C, int M, int K, int N, ag_cuda_stream_t s);
+typedef void (*ag_gemm_cuda_fn)(const float* A, const float* B, float* C, int M, int K, int N, ag_cuda_stream_t s);
 
 // NEW: VJP (backward) function types for CUDA
 typedef void (*ag_vjp_add_cuda_fn)(float* gA, float* gB, const float* gy,
@@ -113,20 +132,52 @@ typedef void (*ag_vjp_matmul_cuda_fn)(float* gA, float* gB, const float* gy,
                                       const float* A, const float* B,
                                       int M, int K, int N, ag_cuda_stream_t s);
 typedef void (*ag_vjp_relu_cuda_fn)(float* gX, const float* gy, const float* X, int64_t n, ag_cuda_stream_t s); 
-
+typedef void (*ag_vjp_tanh_cuda_fn)(float* gX, const float* gy, const float* X, int64_t n, ag_cuda_stream_t s); 
+typedef void (*ag_vjp_gemm_cuda_fn)(float* gA, float* gB, float* gC, const float* gy,
+                                      const float* A, const float* B, const float* C,
+                                      int M, int K, int N, ag_cuda_stream_t s);
 // CUDA function table
 struct ag_cuda_v1 {
   uint32_t abi_version;
+  // ========================================================
   // Forward ops
-  ag_relu_cuda_fn   relu;
-  ag_matmul_cuda_fn matmul;
-  ag_add_cuda_fn    add;
-  ag_exp_cuda_fn    exp;
+  // ========================================================
+
+  // Arithmetic
+  ag_add_cuda_fn     add;
+  ag_sub_cuda_fn     sub;
+  ag_mul_cuda_fn     mul;
+  ag_div_cuda_fn     div;
+  ag_pow_cuda_fn     pow;
+  ag_square_cuda_fn  square;
+  ag_neg_cuda_fn     neg;
+  ag_clip_cuda_fn    clip;
+
+  // Activations
+  ag_relu_cuda_fn         relu;
+  ag_leaky_relu_cuda_fn   leaky_relu;
+  ag_gelu_cuda_fn         gelu;
+  ag_silu_cuda_fn         silu;
+  ag_mish_cuda_fn         mish;
+  ag_tanh_cuda_fn         tanh;
+  ag_sigmoid_cuda_fn      sigmoid;
+  ag_hard_sigmoid_cuda_fn hard_sigmoid;
+  ag_hard_swish_cuda_fn   hard_swish;
+  ag_exp_cuda_fn          exp;
+
+  // Core
   ag_zero_cuda_fn   zero;
-  // NEW: Backward ops
+  ag_matmul_cuda_fn matmul;
+  ag_gemm_cuda_fn gemm;
+
+  // ========================================================
+  // Backward (VJP) ops
+  // ========================================================
   ag_vjp_add_cuda_fn    vjp_add;
   ag_vjp_matmul_cuda_fn vjp_matmul;
   ag_vjp_relu_cuda_fn   vjp_relu;  
+  ag_vjp_tanh_cuda_fn   vjp_tanh; 
+  ag_vjp_gemm_cuda_fn vjp_gemm;
 };
 
 // Every CUDA plugin must export this symbol.
@@ -180,16 +231,38 @@ void load_cpu_plugin(const char* path);
 // ---- NEW: CUDA registry ----
 struct Cuda {
   // Forward
-  ag_relu_cuda_fn   relu   = nullptr;
-  ag_matmul_cuda_fn matmul = nullptr;
-  ag_add_cuda_fn    add    = nullptr;
-  ag_exp_cuda_fn    exp    = nullptr;
+  // Arithmetic
+  ag_add_cuda_fn     add    = nullptr;
+  ag_sub_cuda_fn     sub    = nullptr;
+  ag_mul_cuda_fn     mul    = nullptr;
+  ag_div_cuda_fn     div    = nullptr;
+  ag_pow_cuda_fn     pow    = nullptr;
+  ag_square_cuda_fn  square = nullptr;
+  ag_neg_cuda_fn     neg    = nullptr;
+  ag_clip_cuda_fn    clip   = nullptr;
+
+  // Activations
+  ag_relu_cuda_fn         relu         = nullptr;
+  ag_leaky_relu_cuda_fn   leaky_relu   = nullptr;
+  ag_gelu_cuda_fn         gelu         = nullptr;
+  ag_silu_cuda_fn         silu         = nullptr;
+  ag_mish_cuda_fn         mish         = nullptr;
+  ag_tanh_cuda_fn         tanh         = nullptr;
+  ag_sigmoid_cuda_fn      sigmoid      = nullptr;
+  ag_hard_sigmoid_cuda_fn hard_sigmoid = nullptr;
+  ag_hard_swish_cuda_fn   hard_swish   = nullptr;
+  ag_exp_cuda_fn          exp          = nullptr;
+  ag_gemm_cuda_fn         gemm         = nullptr;
+
+  // Core
   ag_zero_cuda_fn   zero   = nullptr;
-  
+  ag_matmul_cuda_fn matmul = nullptr;
   // NEW: Backward
   ag_vjp_add_cuda_fn    vjp_add = nullptr;
   ag_vjp_matmul_cuda_fn vjp_matmul = nullptr;
   ag_vjp_relu_cuda_fn   vjp_relu   = nullptr;
+  ag_vjp_tanh_cuda_fn   vjp_tanh   = nullptr;
+  ag_vjp_gemm_cuda_fn vjp_gemm = nullptr;
 };
 Cuda& cuda();
 void load_cuda_plugin(const char* path);

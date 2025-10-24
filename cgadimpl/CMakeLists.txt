@@ -165,6 +165,19 @@ if(AG_BUILD_TESTS)
     add_test(NAME ${name} COMMAND ${name})
   endfunction()
 
+  function(add_ag_testcuda name src)
+    add_executable(${name} ${src})
+    set_source_files_properties(${src} PROPERTIES LANGUAGE CUDA)
+    
+    # ===================== THIS IS THE CORRECTED LINE =====================
+    # We link against the canonical "CUDA::cudart" target, which is guaranteed
+    # to exist when the CUDA language is enabled in the project() command.
+    target_link_libraries(${name} PRIVATE cgadimpl ${CUDAToolkit_LIBRARIES})
+    # ======================================================================
+
+    add_test(NAME ${name} COMMAND ${name})
+  endfunction()
+
   # Now all these calls will correctly link everything.
   add_ag_test(test_ag                tests/test_ag.cpp)
   add_ag_test(test_mlp               tests/test_mlp.cpp)
@@ -183,14 +196,16 @@ if(AG_BUILD_TESTS)
   add_ag_test(test_kernels_cpu       tests/test_kernels_cpu.cpp)
   add_ag_test(test_vjp_kernels       tests/test_end_to_end_gpu.cpp)
 # --- Define the GPU test MANUALLY to force the CUDA compiler ---
-add_executable(test_kernels_gpu tests/test_kernels_gpu.cpp)
+# add_executable(test_kernels_gpu tests/test_kernels_gpu.cpp)
+# add_executable()
 
-# THIS IS THE ANSWER. This one line tells CMake to use NVCC for this file.
-set_source_files_properties(tests/test_kernels_gpu.cpp PROPERTIES LANGUAGE CUDA)
+# # THIS IS THE ANSWER. This one line tells CMake to use NVCC for this file.
+# set_source_files_properties(tests/test_kernels_gpu.cpp PROPERTIES LANGUAGE CUDA)
 
-# Now we link it manually.
-target_link_libraries(test_kernels_gpu PRIVATE cgadimpl ${CUDAToolkit_LIBRARIES})
-add_test(NAME test_kernels_gpu COMMAND test_kernels_gpu)
+# # Now we link it manually.
+# target_link_libraries(test_kernels_gpu PRIVATE cgadimpl ${CUDAToolkit_LIBRARIES})
+# add_test(NAME test_kernels_gpu COMMAND test_kernels_gpu)
+  add_ag_testcuda(test_kernels_gpu tests/test_kernels_gpu.cpp)
 
 endif()
 

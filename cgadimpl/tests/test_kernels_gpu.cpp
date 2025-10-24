@@ -72,6 +72,50 @@ void test_gpu_add() {
     CUDA_CHECK(cudaFree(c_gpu));
 }
 
+
+void test_gpu_unified_tanh() {
+    auto& K = ag::kernels::cuda();
+    ag::Tensor a_cpu = ag::Tensor::randn(8, 8, 1);
+    ag::Tensor ref = ag::Tensor::tanh(a_cpu);
+
+    float *a_gpu = to_gpu(a_cpu), *c_gpu;
+    CUDA_CHECK(cudaMalloc(&c_gpu, ref.numel() * sizeof(float)));
+
+    K.tanh(a_gpu, c_gpu, ref.numel(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    ag::Tensor gy_cpu = ag::Tensor::randn(8, 8, 5);
+
+    ag::Tensor one = ag::Tensor::ones_like(a_cpu);
+    ag::Tensor ga_ref = gy_cpu*(one - (ref*ref)); // vjp_add just passes gradient through
+
+    ag::Tensor ga_cpu_init = ag::Tensor::zeros(8, 8);
+
+    float *gy_gpu = to_gpu(gy_cpu);
+    float *ga_gpu = to_gpu(ga_cpu_init);
+
+    K.vjp_tanh(ga_gpu, gy_gpu, c_gpu, gy_cpu.numel(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    
+
+    ag::Tensor out = from_gpu(c_gpu, 8, 8);
+    check_tensors_close(ref, out, "test_gpu_tanh");
+
+    ag::Tensor ga_out = from_gpu(ga_gpu, 8, 8);
+
+    check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_tanh");
+
+
+
+
+
+    CUDA_CHECK(cudaFree(a_gpu));
+    CUDA_CHECK(cudaFree(c_gpu));
+    CUDA_CHECK(cudaFree(gy_gpu));
+    CUDA_CHECK(cudaFree(ga_gpu));
+}
+
 void test_gpu_matmul() {
     auto& K = ag::kernels::cuda();
     ag::Tensor a_cpu = ag::Tensor::randn(8, 16, 3);
@@ -158,7 +202,7 @@ int main() {
         #elif defined(__APPLE__)
             const char* plugin_path = "./libagkernels_cuda.dylib";
         #else
-            const char* plugin_path = "./libagkernels_cuda.so";
+            const char* plugin_path = "./cgadimpl/build/libagkernels_cuda.so";
         #endif
 
         std::cout << "Loading GPU plugin from: " << plugin_path << "\n";
@@ -168,6 +212,7 @@ int main() {
         test_gpu_matmul();
         test_gpu_vjp_add();
         test_gpu_vjp_matmul();
+        test_gpu_unified_tanh();
 
     } catch (const std::exception& e) {
         std::cerr << "ERROR: " << e.what() << std::endl;

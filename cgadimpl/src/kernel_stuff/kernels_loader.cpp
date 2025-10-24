@@ -85,14 +85,38 @@ void load_cuda_plugin(const char* path) {
   if (sym(&table) != 0 || table.abi_version != AG_KERNELS_ABI_V1) {
     throw std::runtime_error("CUDA kernels ABI mismatch or plugin init failed");
   }
-  g_cuda.relu   = table.relu;
-  g_cuda.matmul = table.matmul;
-  g_cuda.add    = table.add;
-  g_cuda.exp    = table.exp;
-  g_cuda.zero   = table.zero;
+  // ========================================================
+  // Forward kernel assignments
+  // ========================================================
+  g_cuda.add          = table.add;
+  g_cuda.sub          = table.sub;
+  g_cuda.mul          = table.mul;
+  g_cuda.div          = table.div;
+  g_cuda.pow          = table.pow;
+  g_cuda.square       = table.square;
+  g_cuda.neg          = table.neg;
+  g_cuda.clip         = table.clip;
+
+  g_cuda.relu         = table.relu;
+  g_cuda.leaky_relu   = table.leaky_relu;
+  g_cuda.gelu         = table.gelu;
+  g_cuda.silu         = table.silu;
+  g_cuda.mish         = table.mish;
+  g_cuda.tanh         = table.tanh;
+  g_cuda.sigmoid      = table.sigmoid;
+  g_cuda.hard_sigmoid = table.hard_sigmoid;
+  g_cuda.hard_swish   = table.hard_swish;
+  g_cuda.exp          = table.exp;
+
+  g_cuda.zero         = table.zero;
+  g_cuda.matmul       = table.matmul;
+
   g_cuda.vjp_add    = table.vjp_add;
   g_cuda.vjp_matmul = table.vjp_matmul;
   g_cuda.vjp_relu   = table.vjp_relu;
+  g_cuda.vjp_tanh   = table.vjp_tanh;
+  g_cuda.vjp_gemm   = table.vjp_gemm;
+
 }
 
 #ifndef AG_NO_AUTOLOAD_KERNELS
@@ -120,7 +144,7 @@ static bool try_default_autoload_cuda() {
 #elif defined(__APPLE__)
     "./agkernels_cuda.dylib"
 #else
-    "./libagkernels_cuda.so"
+    "./cgadimpl/build/libagkernels_cuda.so"
 #endif
   };
   for (const char* p : cands) {

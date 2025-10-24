@@ -34,3 +34,17 @@ void vjp_relu_cuda(float* gX, const float* gy, const float* X, int64_t n, ag_cud
     dim3 blocks( (unsigned int)((n + 255) / 256) );
     k_vjp_relu_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, gy, X, n);
 }
+
+
+__global__ void k_vjp_tanh_accum(float* gX, const float* gy, const float* X, int64_t n) {
+    int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) {
+        // Only add the gradient if the original input (X) was positive.
+            atomicAdd(&gX[i], (gy[i] *(1- (X[i]*X[i]))   ));
+    }
+}
+
+void vjp_tanh_cuda(float* gX, const float* gy, const float* X, int64_t n, ag_cuda_stream_t s) {
+    dim3 blocks( (unsigned int)((n + 255) / 256) );
+    k_vjp_tanh_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, gy, X, n);
+}
