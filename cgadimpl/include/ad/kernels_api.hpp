@@ -124,6 +124,7 @@ typedef void (*ag_exp_cuda_fn)         (const float* x, float* y, int64_t n, ag_
 typedef void (*ag_zero_cuda_fn)  (float* x, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_matmul_cuda_fn)(const float* A, const float* B, float* C, int M, int K, int N, ag_cuda_stream_t s);
 typedef void (*ag_gemm_cuda_fn)(const float* A, const float* B, float* C, int M, int K, int N, ag_cuda_stream_t s);
+typedef void (*ag_linear_cuda_fn)(const float* A, const float* B, float* C, int M, int K, int N, ag_cuda_stream_t s);
 
 // NEW: VJP (backward) function types for CUDA
 typedef void (*ag_vjp_add_cuda_fn)(float* gA, float* gB, const float* gy,
@@ -134,6 +135,9 @@ typedef void (*ag_vjp_matmul_cuda_fn)(float* gA, float* gB, const float* gy,
 typedef void (*ag_vjp_relu_cuda_fn)(float* gX, const float* gy, const float* X, int64_t n, ag_cuda_stream_t s); 
 typedef void (*ag_vjp_tanh_cuda_fn)(float* gX, const float* gy, const float* X, int64_t n, ag_cuda_stream_t s); 
 typedef void (*ag_vjp_gemm_cuda_fn)(float* gA, float* gB, float* gC, const float* gy,
+                                      const float* A, const float* B, const float* C,
+                                      int M, int K, int N, ag_cuda_stream_t s);
+typedef void (*ag_vjp_linear_cuda_fn)(float* gA, float* gB, float* gC, const float* gy,
                                       const float* A, const float* B, const float* C,
                                       int M, int K, int N, ag_cuda_stream_t s);
 // CUDA function table
@@ -169,6 +173,7 @@ struct ag_cuda_v1 {
   ag_zero_cuda_fn   zero;
   ag_matmul_cuda_fn matmul;
   ag_gemm_cuda_fn gemm;
+  ag_linear_cuda_fn       linear;
 
   // ========================================================
   // Backward (VJP) ops
@@ -178,6 +183,7 @@ struct ag_cuda_v1 {
   ag_vjp_relu_cuda_fn   vjp_relu;  
   ag_vjp_tanh_cuda_fn   vjp_tanh; 
   ag_vjp_gemm_cuda_fn vjp_gemm;
+  ag_vjp_linear_cuda_fn vjp_linear;
 };
 
 // Every CUDA plugin must export this symbol.
@@ -253,6 +259,7 @@ struct Cuda {
   ag_hard_swish_cuda_fn   hard_swish   = nullptr;
   ag_exp_cuda_fn          exp          = nullptr;
   ag_gemm_cuda_fn         gemm         = nullptr;
+  ag_linear_cuda_fn       linear         = nullptr;
 
   // Core
   ag_zero_cuda_fn   zero   = nullptr;
@@ -263,6 +270,7 @@ struct Cuda {
   ag_vjp_relu_cuda_fn   vjp_relu   = nullptr;
   ag_vjp_tanh_cuda_fn   vjp_tanh   = nullptr;
   ag_vjp_gemm_cuda_fn vjp_gemm = nullptr;
+  ag_vjp_linear_cuda_fn vjp_linear = nullptr;
 };
 Cuda& cuda();
 void load_cuda_plugin(const char* path);

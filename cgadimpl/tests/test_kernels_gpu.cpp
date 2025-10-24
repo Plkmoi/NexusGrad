@@ -139,10 +139,10 @@ void test_gpu_unified_fmab() {
         // Reference calculation on CPU
     ag::Tensor ga_ref = ag::Tensor::matmul(gy_cpu, ag::Tensor::transpose(b_cpu));
     ag::Tensor gb_ref = ag::Tensor::matmul(ag::Tensor::transpose(a_cpu), gy_cpu);
-    ag::Tensor gc_ref = gy_cpu+ag::Tensor::ones_like(gy_cpu);
+    ag::Tensor gc_ref = gy_cpu;
 
     float *gy_gpu = to_gpu(gy_cpu);
-    float *ga_gpu = to_gpu(ag::Tensor::ones_like(a_cpu)), *gb_gpu = to_gpu(ag::Tensor::ones_like(a_cpu)),  *gc_gpu = to_gpu(ag::Tensor::ones_like(a_cpu));
+    float *ga_gpu = to_gpu(ag::Tensor::zeros_like(a_cpu)), *gb_gpu = to_gpu(ag::Tensor::zeros_like(a_cpu)),  *gc_gpu = to_gpu(ag::Tensor::zeros_like(a_cpu));
 
 
 
@@ -156,6 +156,54 @@ void test_gpu_unified_fmab() {
     check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_gemm (gA)");
     check_tensors_close(gb_ref, gb_out, "test_gpu_vjp_gemm (gB)");
     check_tensors_close(gc_ref, gc_out, "test_gpu_vjp_gemm (gC)");
+
+    CUDA_CHECK(cudaFree(a_gpu));
+    CUDA_CHECK(cudaFree(b_gpu));
+    CUDA_CHECK(cudaFree(c_gpu));
+    CUDA_CHECK(cudaFree(gy_gpu));
+    CUDA_CHECK(cudaFree(ga_gpu));
+    CUDA_CHECK(cudaFree(gb_gpu));
+    CUDA_CHECK(cudaFree(gc_gpu));
+}
+
+void test_gpu_unified_linear() {
+    auto& K = ag::kernels::cuda();
+    ag::Tensor a_cpu = ag::Tensor::randn(8, 16, 3);
+    ag::Tensor b_cpu = ag::Tensor::randn(8, 16, 4);
+    ag::Tensor c_cpu = ag::Tensor::randn(8, 8, 5);
+    ag::Tensor ref = ag::Tensor::matmul(a_cpu, ag::Tensor::transpose( b_cpu)) + c_cpu;
+
+    float *a_gpu = to_gpu(a_cpu), *b_gpu = to_gpu(b_cpu), *c_gpu = to_gpu(c_cpu);
+
+    K.linear(a_gpu, b_gpu, c_gpu, 8, 16, 8, nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    ag::Tensor out = from_gpu(c_gpu, 8, 8);
+    check_tensors_close(ref, out, "test_gpu_linear");
+    
+
+    ag::Tensor gy_cpu = ag::Tensor::randn(8, 8, 8);
+
+        // Reference calculation on CPU
+    ag::Tensor ga_ref = ag::Tensor::matmul(gy_cpu, (b_cpu));
+    ag::Tensor gb_ref = ag::Tensor::transpose(ag::Tensor::matmul(ag::Tensor::transpose(a_cpu), gy_cpu));
+    ag::Tensor gc_ref = gy_cpu;
+
+    float *gy_gpu = to_gpu(gy_cpu);
+    float *ga_gpu = to_gpu(ag::Tensor::zeros_like(a_cpu)), *gb_gpu = to_gpu(ag::Tensor::zeros_like(a_cpu)),  *gc_gpu = to_gpu(ag::Tensor::zeros_like(a_cpu));
+
+
+
+    K.vjp_linear(ga_gpu, gb_gpu, gc_gpu, gy_gpu, a_gpu, b_gpu, c_gpu, 8, 16, 8, nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    ag::Tensor ga_out = from_gpu(ga_gpu, 8, 16);
+    ag::Tensor gb_out = from_gpu(gb_gpu, 16, 8);
+    ag::Tensor gc_out = from_gpu(gc_gpu, 8, 8);
+
+    check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_linear (gA)");
+    check_tensors_close(gb_ref, gb_out, "test_gpu_vjp_linear (gB)");
+    check_tensors_close(gc_ref, gc_out, "test_gpu_vjp_linear (gC)");
 
     CUDA_CHECK(cudaFree(a_gpu));
     CUDA_CHECK(cudaFree(b_gpu));
@@ -264,6 +312,7 @@ int main() {
         test_gpu_vjp_matmul();
         test_gpu_unified_tanh();
         test_gpu_unified_fmab();
+        test_gpu_unified_linear();
 
     } catch (const std::exception& e) {
         std::cerr << "ERROR: " << e.what() << std::endl;

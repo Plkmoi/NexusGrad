@@ -111,12 +111,14 @@ void load_cuda_plugin(const char* path) {
   g_cuda.zero         = table.zero;
   g_cuda.matmul       = table.matmul;
   g_cuda.gemm       = table.gemm;
+  g_cuda.linear       = table.linear;
 
   g_cuda.vjp_add    = table.vjp_add;
   g_cuda.vjp_matmul = table.vjp_matmul;
   g_cuda.vjp_relu   = table.vjp_relu;
   g_cuda.vjp_tanh   = table.vjp_tanh;
   g_cuda.vjp_gemm   = table.vjp_gemm;
+  g_cuda.vjp_linear   = table.vjp_linear;
 
 }
 

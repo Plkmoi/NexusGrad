@@ -34,6 +34,7 @@ extern void exp_cuda         (const float*, float*, int64_t, ag_cuda_stream_t);
 extern void zero_cuda (float*, int64_t, ag_cuda_stream_t);
 extern void mm_cuda   (const float*, const float*, float*, int, int, int, ag_cuda_stream_t);
 extern void gemm_cuda   (const float*, const float*, float*, int, int, int, ag_cuda_stream_t);
+extern void linear_cuda   (const float*, const float*, float*, int, int, int, ag_cuda_stream_t);
 
 
 // ============================================================
@@ -44,6 +45,7 @@ extern void vjp_matmul_cuda (float*, float*, const float*, const float*, const f
 extern void vjp_relu_cuda   (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 extern void vjp_tanh_cuda   (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 extern void vjp_gemm_cuda (float*, float*, float*, const float*, const float*, const float*, const float*, int, int, int, ag_cuda_stream_t);
+extern void vjp_linear_cuda (float*, float*, float*, const float*, const float*, const float*, const float*, int, int, int, ag_cuda_stream_t);
 
 
 // ============================================================
@@ -80,6 +82,7 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->zero         = &zero_cuda;
   out->matmul       = &mm_cuda;
   out->gemm       = &gemm_cuda;
+  out->linear       = &linear_cuda;
 
   // ========================================================
   // Backward (VJP)
@@ -89,6 +92,7 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->vjp_relu     = &vjp_relu_cuda;
   out->vjp_tanh     = &vjp_tanh_cuda;
   out->vjp_gemm     = &vjp_gemm_cuda;
+  out->vjp_linear     = &vjp_linear_cuda;
 
   return 0;
 }
