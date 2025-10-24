@@ -73,6 +73,13 @@ void gemm_cuda(const float* A, const float* B, float* C,
         C, N);              // C(M,N) -> ldc is cols = N
 }
 
+__global__ void k_vjp_c_accum(float* gC, const float* gy, int64_t n) {
+    int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) {
+        atomicAdd(&gC[i], gy[i]);
+    }
+}
+
 // --- Backward Pass (VJP) ---
 void vjp_gemm_cuda(float* gA, float* gB, float* gC, const float* gy,
                     const float* A, const float* B, const float* C,
@@ -89,5 +96,7 @@ void vjp_gemm_cuda(float* gA, float* gB, float* gC, const float* gy,
     // gB(K,N) = A^T(K,M) @ gy(M,N)
     cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, N, K, M, &alpha, gy, N, A, K, &beta, gB, N);
 
+dim3 blocks( (unsigned int)(((M*K)+ 255) / 256) );
+            k_vjp_c_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gC, gy, (M*K));
 
 }

@@ -110,6 +110,7 @@ void load_cuda_plugin(const char* path) {
 
   g_cuda.zero         = table.zero;
   g_cuda.matmul       = table.matmul;
+  g_cuda.gemm       = table.gemm;
 
   g_cuda.vjp_add    = table.vjp_add;
   g_cuda.vjp_matmul = table.vjp_matmul;
