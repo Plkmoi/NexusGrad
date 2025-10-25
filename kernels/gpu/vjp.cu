@@ -71,7 +71,7 @@ __global__ void k_vjp_hadmul_accum(float* gA, float* gB, const float* A, const f
     }
 }
 
-void vjp_hadmul_cuda(float* gA, float* gB, const float* A, const float* B, const float* gy, 
+void vjp_hadmul_cuda(float* gA, float* gB, const float* gy, const float* A, const float* B, 
                   int64_t n, ag_cuda_stream_t s) {
     dim3 blocks( (unsigned int)((n + 255) / 256) );
     k_vjp_hadmul_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gA, gB, A, B, gy, n);
@@ -85,7 +85,7 @@ __global__ void k_vjp_div_accum(float* gA, float* gB, const float* A, const floa
     }
 }
 
-void vjp_div_cuda(float* gA, float* gB, const float* A, const float* B, const float* gy, 
+void vjp_div_cuda(float* gA, float* gB, const float* gy, const float* A, const float* B, 
                   int64_t n, ag_cuda_stream_t s) {
     dim3 blocks( (unsigned int)((n + 255) / 256) );
     k_vjp_div_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gA, gB, A, B, gy, n);

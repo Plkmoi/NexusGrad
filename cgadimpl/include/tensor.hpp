@@ -71,6 +71,8 @@ public:
     friend Tensor operator-(const Tensor& x);
     friend Tensor operator*(const Tensor& a, float s);
     friend Tensor operator*(float s, const Tensor& a);
+    friend Tensor operator/(const Tensor& a, float s);
+    friend Tensor operator/(float s, const Tensor& a);
     friend Tensor operator+(const Tensor& a, float s);
     friend Tensor operator+(float s, const Tensor& a);
     static Tensor relu (const Tensor& x);

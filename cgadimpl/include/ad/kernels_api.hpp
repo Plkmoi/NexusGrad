@@ -144,9 +144,6 @@ typedef void (*ag_vjp_matmul_cuda_fn)(float* gA, float* gB, const float* gy,
 typedef void (*ag_vjp_div_cuda_fn)(float* gA, float* gB, const float* gy,
                                    const float* A, const float* B,
                                    int64_t n, ag_cuda_stream_t s);
-typedef void (*ag_vjp_matmul_cuda_fn)(float* gA, float* gB, const float* gy,
-                                      const float* A, const float* B,
-                                      int M, int K, int N, ag_cuda_stream_t s);
 
 // Additional VJP function types for arithmetic ops
 typedef void (*ag_vjp_pow_cuda_fn)(float* gA, float* gB, const float* gy,

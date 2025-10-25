@@ -208,6 +208,20 @@ Tensor operator*(const Tensor& a, float s) {
     return y;
 }
 
+Tensor operator/(const Tensor& a, float s) {
+    REQUIRE_CPU(a, "scalar*");
+    Tensor y(a.rows(), a.cols());
+    for(size_t i=0; i < a.numel(); ++i) y.data()[i] = a.data()[i] / s;
+    return y;
+}
+
+Tensor operator/(float s, const Tensor& a) {
+    REQUIRE_CPU(a, "scalar*");
+    Tensor y(a.rows(), a.cols());
+    for(size_t i=0; i < a.numel(); ++i) y.data()[i] = s/a.data()[i];
+    return y;
+}
+
 Tensor operator*(float s, const Tensor& a){ return a*s; }
 
 Tensor operator+(const Tensor& a, float s){
