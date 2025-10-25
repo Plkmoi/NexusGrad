@@ -82,7 +82,7 @@ Tensor Tensor::to(Device target_dev) const {
 }
 
 Tensor Tensor::from_gpu(const float* d_ptr, int rows, int cols) {
-    ag::Tensor t(rows, cols, Device::CUDA);
+    ag::Tensor t(rows, cols);
     CUDA_CHECK(cudaMemcpy(t.data(), d_ptr, t.numel() * sizeof(float), cudaMemcpyDeviceToHost));
     return t;
 }
@@ -92,6 +92,11 @@ Tensor Tensor::final_from_gpu(const float* d_ptr, int rows, int cols) {
     CUDA_CHECK(cudaMemcpy(t.data(), d_ptr, t.numel() * sizeof(float), cudaMemcpyDeviceToHost));
     return t;
 }
+
+Tensor Tensor::signaler(Device dev) {
+    this->dev_ = dev;
+}
+
 
 // --- Factories ---
 Tensor Tensor::zeros(int r, int c, Device dev) {

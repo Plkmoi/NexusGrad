@@ -31,7 +31,7 @@ void backward(const Value& root, const Tensor* grad_seed){
 
         if (!n->requires_grad) continue;
         const Tensor& gy = n->grad;
-
+if(n->value.is_cuda()) n->requires_cuda=true;
         ag::debug::on_backprop_step(n, gy); // (optional) prints one line per node
 
         if (n->is_checkpoint && n->value.size() == 0) {
@@ -53,12 +53,13 @@ void valsend(const Value& root) {
 
     for (auto it = order.rbegin(); it != order.rend(); ++it) {
         Node* n = *it;
-
+if(n->value.is_cuda()) n->requires_cuda=true;
         if (!n->requires_grad || !(n->value.is_cuda())) continue;
         std::cout << "(" << n->value.numel() << ")\n";
 
         if (n->value.numel()> 0) {
             n->value = ag::Tensor::from_gpu(n->value.data(), n->value.rows(), n->value.cols());
+            
         }
 
         std::cout << "[CUDA VALSEND output]: ";
@@ -102,13 +103,18 @@ void unisend(const Value& root)
         std::cout << "(" << n->value.numel() << ")\n";
 
         if (n->grad.numel()> 0 || n->value.numel()> 0) {
+            n->requires_cuda = true;
             n->value = ag::Tensor::from_gpu(n->value.data(), n->value.rows(), n->value.cols());
+            n->grad = ag::Tensor::from_gpu(n->grad.data(), n->grad.rows(), n->grad.cols());
+
         }
 
         std::cout << "[CUDA UNISEND output]: ";
         for (int i = 0; i < 10; ++i)
           {  std::cout << n->value.data()[i] << " ";
         std::cout << "(" << n->debug_name << ")\n";
+        std::cout << n->grad.data()[i] << " ";
+        std::cout << "(" << n->debug_name << ")\n";;
 }
     }
     

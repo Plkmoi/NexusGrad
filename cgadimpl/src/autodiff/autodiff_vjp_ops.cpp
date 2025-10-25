@@ -1781,7 +1781,7 @@ void vjp_Linear(Node* n, const Tensor& gy){
     // Assuming vjp_Linear is a composite and can be handled by its constituents (MatMul, Add)
     // For a truly fused kernel, this would need a device-aware implementation.
     std::cout<<n->value.is_cuda()<<"           "<<"frgfhjyh5ilnktmjm7kn";
-    if (n->value.is_cpu()) {
+    if (!n->requires_cuda) {
         Node* A = n->inputs[0].get();
         Node* B = n->inputs[1].get();
         Node* C = n->inputs[2].get();
