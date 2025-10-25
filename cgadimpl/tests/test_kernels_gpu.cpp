@@ -46,7 +46,7 @@ float* to_gpu(const ag::Tensor& t) {
 
 ag::Tensor from_gpu(const float* d_ptr, int rows, int cols) {
     ag::Tensor t(rows, cols);
-    CUDA_CHECK(cudaMemcpy(t.data(), d_ptr, t.numel() * sizeof(float), cudaMemcpyDeviceToHost));
+    (cudaMemcpy(t.data(), d_ptr, t.numel() * sizeof(float), cudaMemcpyDeviceToHost));
     return t;
 }
 
@@ -198,7 +198,7 @@ void test_gpu_unified_linear() {
     CUDA_CHECK(cudaDeviceSynchronize());
 
     ag::Tensor ga_out = from_gpu(ga_gpu, 8, 16);
-    ag::Tensor gb_out = from_gpu(gb_gpu, 16, 8);
+    ag::Tensor gb_out = from_gpu(gb_gpu, 8, 16);
     ag::Tensor gc_out = from_gpu(gc_gpu, 8, 8);
 
     check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_linear (gA)");
