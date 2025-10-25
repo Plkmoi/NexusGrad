@@ -1015,18 +1015,18 @@ inline Tensor rt(const Tensor& g, const Tensor& like){ return Tensor::reduce_to(
 void vjp_Add(Node* n, const Tensor& gy){
     Node* A = n->inputs[0].get();
     Node* B = n->inputs[1].get();
-
-    if (!A->value.is_cpu()) {
+    if (!n->requires_cuda) {
         if (A->requires_grad) A->grad.add_( rt(gy, A->value) );
         if (B->requires_grad) B->grad.add_( rt(gy, B->value) );
     } else {
+        std::cout<<"CUDA VJP Add called\n";
         ag::kernels::cuda().vjp_add(A->grad.data(), B->grad.data(), gy.data(),
                                     gy.numel(), ag::current_stream());
     }
 }
 void vjp_Sub(Node* n, const Tensor& gy){
     Node* A = n->inputs[0].get(); Node* B = n->inputs[1].get();
-    if (n->value.is_cpu()) {
+    if (!A->requires_cuda && !B->requires_cuda) {
         if (A->requires_grad) A->grad.add_( rt(gy, A->value) );
         if (B->requires_grad) B->grad.add_( rt(-gy, B->value) );
     } else {

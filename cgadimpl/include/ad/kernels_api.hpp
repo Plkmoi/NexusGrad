@@ -127,11 +127,55 @@ typedef void (*ag_gemm_cuda_fn)(const float* A, const float* B, float* C, float*
 typedef void (*ag_linear_cuda_fn)(const float* A, const float* B, float* C, float* E, int M, int K, int N, ag_cuda_stream_t s);
 
 // NEW: VJP (backward) function types for CUDA
+// Basic element-wise VJPs
 typedef void (*ag_vjp_add_cuda_fn)(float* gA, float* gB, const float* gy,
+                                   int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_vjp_sub_cuda_fn)(float* gA, float* gB, const float* gy,
+                                   int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_vjp_hadmul_cuda_fn)(float* gA, float* gB, const float* gy,
+                                   const float* A, const float* B,
+                                   int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_vjp_div_cuda_fn)(float* gA, float* gB, const float* gy,
+                                   const float* A, const float* B,
                                    int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_vjp_matmul_cuda_fn)(float* gA, float* gB, const float* gy,
                                       const float* A, const float* B,
                                       int M, int K, int N, ag_cuda_stream_t s);
+typedef void (*ag_vjp_div_cuda_fn)(float* gA, float* gB, const float* gy,
+                                   const float* A, const float* B,
+                                   int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_vjp_matmul_cuda_fn)(float* gA, float* gB, const float* gy,
+                                      const float* A, const float* B,
+                                      int M, int K, int N, ag_cuda_stream_t s);
+
+// Additional VJP function types for arithmetic ops
+typedef void (*ag_vjp_pow_cuda_fn)(float* gA, float* gB, const float* gy,
+                                  const float* A, const float* B, int64_t n,
+                                  ag_cuda_stream_t s);
+typedef void (*ag_vjp_square_cuda_fn)(float* gX, const float* gy, const float* X,
+                                     int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_vjp_neg_cuda_fn)(float* gX, const float* gy,
+                                  int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_vjp_clip_cuda_fn)(float* gX, const float* gy, float minv, float maxv,
+                                   const float* X, int64_t n, ag_cuda_stream_t s);
+
+// VJP function types for activation functions
+typedef void (*ag_vjp_leaky_relu_cuda_fn)(float* gX, const float* gy, const float* X,
+                                         float alpha, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_vjp_sigmoid_cuda_fn)(float* gX, const float* gy, const float* X,
+                                      int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_vjp_silu_cuda_fn)(float* gX, const float* gy, const float* X,
+                                   int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_vjp_gelu_cuda_fn)(float* gX, const float* gy, const float* X,
+                                   int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_vjp_mish_cuda_fn)(float* gX, const float* gy, const float* X,
+                                   int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_vjp_exp_cuda_fn)(float* gX, const float* gy, const float* X,
+                                  int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_vjp_hard_sigmoid_cuda_fn)(float* gX, const float* gy, const float* X,
+                                          int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_vjp_hard_swish_cuda_fn)(float* gX, const float* gy, const float* X,
+                                         int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_vjp_relu_cuda_fn)(float* gX, const float* gy, const float* X, int64_t n, ag_cuda_stream_t s); 
 typedef void (*ag_vjp_tanh_cuda_fn)(float* gX, const float* gy, const float* X, int64_t n, ag_cuda_stream_t s); 
 typedef void (*ag_vjp_gemm_cuda_fn)(float* gA, float* gB, float* gC, const float* gy,
@@ -178,12 +222,32 @@ struct ag_cuda_v1 {
   // ========================================================
   // Backward (VJP) ops
   // ========================================================
+  // Basic ops VJPs
   ag_vjp_add_cuda_fn    vjp_add;
+  ag_vjp_sub_cuda_fn    vjp_sub;
+  ag_vjp_hadmul_cuda_fn vjp_hadmul;    // Hadamard multiplication VJP
+  ag_vjp_div_cuda_fn    vjp_div;    // Element-wise division VJP
   ag_vjp_matmul_cuda_fn vjp_matmul;
   ag_vjp_relu_cuda_fn   vjp_relu;  
   ag_vjp_tanh_cuda_fn   vjp_tanh; 
-  ag_vjp_gemm_cuda_fn vjp_gemm;
+  ag_vjp_gemm_cuda_fn   vjp_gemm;
   ag_vjp_linear_cuda_fn vjp_linear;
+
+  // Arithmetic ops VJPs  
+  ag_vjp_pow_cuda_fn    vjp_pow;
+  ag_vjp_square_cuda_fn vjp_square;
+  ag_vjp_neg_cuda_fn    vjp_neg;
+  ag_vjp_clip_cuda_fn   vjp_clip;
+
+  // Activation functions VJPs
+  ag_vjp_leaky_relu_cuda_fn   vjp_leaky_relu;
+  ag_vjp_sigmoid_cuda_fn      vjp_sigmoid;
+  ag_vjp_silu_cuda_fn         vjp_silu;
+  ag_vjp_gelu_cuda_fn         vjp_gelu;
+  ag_vjp_mish_cuda_fn         vjp_mish;
+  ag_vjp_exp_cuda_fn          vjp_exp;
+  ag_vjp_hard_sigmoid_cuda_fn vjp_hard_sigmoid;
+  ag_vjp_hard_swish_cuda_fn   vjp_hard_swish;
 };
 
 // Every CUDA plugin must export this symbol.
@@ -265,12 +329,32 @@ struct Cuda {
   ag_zero_cuda_fn   zero   = nullptr;
   ag_matmul_cuda_fn matmul = nullptr;
   // NEW: Backward
+  // Basic ops VJPs
   ag_vjp_add_cuda_fn    vjp_add = nullptr;
+  ag_vjp_sub_cuda_fn    vjp_sub = nullptr;
+  ag_vjp_hadmul_cuda_fn    vjp_hadmul = nullptr;    // Hadamard multiplication VJP
+  ag_vjp_div_cuda_fn    vjp_div = nullptr;    // Element-wise division VJP
   ag_vjp_matmul_cuda_fn vjp_matmul = nullptr;
   ag_vjp_relu_cuda_fn   vjp_relu   = nullptr;
   ag_vjp_tanh_cuda_fn   vjp_tanh   = nullptr;
-  ag_vjp_gemm_cuda_fn vjp_gemm = nullptr;
+  ag_vjp_gemm_cuda_fn   vjp_gemm = nullptr;
   ag_vjp_linear_cuda_fn vjp_linear = nullptr;
+
+  // Arithmetic ops VJPs
+  ag_vjp_pow_cuda_fn    vjp_pow = nullptr;
+  ag_vjp_square_cuda_fn vjp_square = nullptr;
+  ag_vjp_neg_cuda_fn    vjp_neg = nullptr;
+  ag_vjp_clip_cuda_fn   vjp_clip = nullptr;
+
+  // Activation functions VJPs
+  ag_vjp_leaky_relu_cuda_fn   vjp_leaky_relu = nullptr;
+  ag_vjp_sigmoid_cuda_fn      vjp_sigmoid = nullptr;
+  ag_vjp_silu_cuda_fn         vjp_silu = nullptr;
+  ag_vjp_gelu_cuda_fn         vjp_gelu = nullptr;
+  ag_vjp_mish_cuda_fn         vjp_mish = nullptr;
+  ag_vjp_exp_cuda_fn          vjp_exp = nullptr;
+  ag_vjp_hard_sigmoid_cuda_fn vjp_hard_sigmoid = nullptr;
+  ag_vjp_hard_swish_cuda_fn   vjp_hard_swish = nullptr;
 };
 Cuda& cuda();
 void load_cuda_plugin(const char* path);

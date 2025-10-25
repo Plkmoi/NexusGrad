@@ -113,12 +113,32 @@ void load_cuda_plugin(const char* path) {
   g_cuda.gemm       = table.gemm;
   g_cuda.linear       = table.linear;
 
+  // Basic ops VJPs
   g_cuda.vjp_add    = table.vjp_add;
+  g_cuda.vjp_sub    = table.vjp_sub;
+  g_cuda.vjp_hadmul    = table.vjp_hadmul;    // Hadamard multiplication VJP
+  g_cuda.vjp_div    = table.vjp_div;    // Element-wise division VJP
   g_cuda.vjp_matmul = table.vjp_matmul;
   g_cuda.vjp_relu   = table.vjp_relu;
   g_cuda.vjp_tanh   = table.vjp_tanh;
   g_cuda.vjp_gemm   = table.vjp_gemm;
-  g_cuda.vjp_linear   = table.vjp_linear;
+  g_cuda.vjp_linear = table.vjp_linear;
+
+  // Arithmetic ops VJPs
+  g_cuda.vjp_pow    = table.vjp_pow;
+  g_cuda.vjp_square = table.vjp_square;
+  g_cuda.vjp_neg    = table.vjp_neg;
+  g_cuda.vjp_clip   = table.vjp_clip;
+
+  // Activation functions VJPs
+  g_cuda.vjp_leaky_relu   = table.vjp_leaky_relu;
+  g_cuda.vjp_sigmoid      = table.vjp_sigmoid;
+  g_cuda.vjp_silu        = table.vjp_silu;
+  g_cuda.vjp_gelu        = table.vjp_gelu;
+  g_cuda.vjp_mish        = table.vjp_mish;
+  g_cuda.vjp_exp         = table.vjp_exp;
+  g_cuda.vjp_hard_sigmoid = table.vjp_hard_sigmoid;
+  g_cuda.vjp_hard_swish  = table.vjp_hard_swish;
 
 }
 

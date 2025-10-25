@@ -28,10 +28,10 @@ void backward(const Value& root, const Tensor* grad_seed){
     // reverse topo
     for (auto it = order.rbegin(); it != order.rend(); ++it) {
         Node* n = *it;
+if(n->value.is_cuda()) n->requires_cuda=true;
 
         if (!n->requires_grad) continue;
         const Tensor& gy = n->grad;
-if(n->value.is_cuda()) n->requires_cuda=true;
         ag::debug::on_backprop_step(n, gy); // (optional) prints one line per node
 
         if (n->is_checkpoint && n->value.size() == 0) {
@@ -58,7 +58,7 @@ if(n->value.is_cuda()) n->requires_cuda=true;
         std::cout << "(" << n->value.numel() << ")\n";
 
         if (n->value.numel()> 0) {
-            n->value = ag::Tensor::from_gpu(n->value.data(), n->value.rows(), n->value.cols());
+            n->value = n->value.to(Device::CPU);
             
         }
 
@@ -77,11 +77,13 @@ void grasend(const Value& root) {
 
     for (auto it = order.rbegin(); it != order.rend(); ++it) {
         Node* n = *it;
-        if (!n->requires_grad || !(n->grad.is_cuda())) continue;
+        if(n->value.is_cuda()) n->requires_cuda=true;
+
+        if (!n->requires_grad || !(n->requires_cuda)) continue;
         std::cout << "(" << n->value.numel() << ")\n";
 
         if (n->grad.numel()> 0) {
-            n->grad = ag::Tensor::from_gpu(n->grad.data(), n->grad.rows(), n->grad.cols());
+            n->grad = n->grad.to(Device::CPU);
         }
 
         std::cout << "[CUDA GRASEND output]: ";
@@ -104,8 +106,8 @@ void unisend(const Value& root)
 
         if (n->grad.numel()> 0 || n->value.numel()> 0) {
             n->requires_cuda = true;
-            n->value = ag::Tensor::from_gpu(n->value.data(), n->value.rows(), n->value.cols());
-            n->grad = ag::Tensor::from_gpu(n->grad.data(), n->grad.rows(), n->grad.cols());
+            n->value =             n->value.to(Device::CPU);
+            n->grad = n->grad.to(Device::CPU);
 
         }
 
