@@ -85,7 +85,7 @@ __global__ void k_vjp_c_accum(float* gC, const float* gy, int64_t n) {
 // --- Backward Pass (VJP) ---
 void vjp_gemm_cuda(float* gA, float* gB, float* gC, const float* gy,
                     const float* A, const float* B, const float* C,
-                    int M, int K, int N, ag_cuda_stream_t s)
+                    int M, int N, int K, ag_cuda_stream_t s)
 {
     static thread_local cublasHandle_t handle = nullptr;
     if (!handle) cublasCreate(&handle);
