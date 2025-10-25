@@ -61,6 +61,13 @@ void load_cpu_plugin(const char* path) {
   g_cpu.rowmax = table.rowmax;
   g_cpu.leakyrelu = table.leakyrelu;
     g_cpu.flashae = table.flashae;
+  
+  g_cpu.vjp_add    = table.vjp_add;
+  g_cpu.vjp_matmul = table.vjp_matmul;
+  g_cpu.vjp_relu   = table.vjp_relu;
+  g_cpu.vjp_tanh   = table.vjp_tanh;
+  g_cpu.vjp_gemm   = table.vjp_gemm;
+  g_cpu.vjp_linear   = table.vjp_linear;
 
 }
 

@@ -49,6 +49,21 @@ typedef void (*ag_flashatte_fn)(const float* Q, const float* K, const float* V,
     float* O, int B, int nh, int N, int d);
 
 
+typedef void (*ag_vjp_add_cuda_fn)(float* gA, float* gB, const float* gy,
+                                   int64_t n );
+typedef void (*ag_vjp_matmul_cuda_fn)(float* gA, float* gB, const float* gy,
+                                      const float* A, const float* B,
+                                      int M, int K, int N );
+typedef void (*ag_vjp_relu_cuda_fn)(float* gX, const float* gy, const float* X, int64_t n ); 
+typedef void (*ag_vjp_tanh_cuda_fn)(float* gX, const float* gy, const float* X, int64_t n ); 
+typedef void (*ag_vjp_gemm_cuda_fn)(float* gA, float* gB, float* gC, const float* gy,
+                                      const float* A, const float* B, const float* C,
+                                      int M, int K, int N );
+typedef void (*ag_vjp_linear_cuda_fn)(float* gA, float* gB, float* gC, const float* gy,
+                                      const float* A, const float* B, const float* C,
+                                      int M, int K, int N );
+
+
 // CPU function table (can be partially filled; nulls mean "not provided")
 struct ag_cpu_v1 {
   uint32_t abi_version;   // must be AG_KERNELS_ABI_V1
@@ -78,7 +93,15 @@ struct ag_cpu_v1 {
   ag_rowmax_fn rowmax;
   ag_leakyrelu_fn leakyrelu;
       ag_flashatte_fn flashae;
-
+  // ========================================================
+  // Backward (VJP) ops
+  // ========================================================
+  ag_vjp_add_cuda_fn    vjp_add;
+  ag_vjp_matmul_cuda_fn vjp_matmul;
+  ag_vjp_relu_cuda_fn   vjp_relu;  
+  ag_vjp_tanh_cuda_fn   vjp_tanh; 
+  ag_vjp_gemm_cuda_fn vjp_gemm;
+  ag_vjp_linear_cuda_fn vjp_linear;
 };
 
 // Every CPU plugin must export this symbol.
@@ -116,7 +139,12 @@ ag_sig_fn sigmoid = nullptr;
   ag_rowmax_fn rowmax = nullptr;
   ag_leakyrelu_fn leakyrelu = nullptr;
         ag_flashatte_fn flashae = nullptr;
-
+  ag_vjp_add_cuda_fn    vjp_add = nullptr;
+  ag_vjp_matmul_cuda_fn vjp_matmul = nullptr;
+  ag_vjp_relu_cuda_fn   vjp_relu   = nullptr;
+  ag_vjp_tanh_cuda_fn   vjp_tanh   = nullptr;
+  ag_vjp_gemm_cuda_fn vjp_gemm = nullptr;
+  ag_vjp_linear_cuda_fn vjp_linear = nullptr;
 };
 
 // Global registry accessor

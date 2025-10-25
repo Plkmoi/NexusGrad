@@ -31,9 +31,9 @@ void backward(const Value& root, const Tensor* grad_seed){
     for (auto it = order.rbegin(); it != order.rend(); ++it) {
         Node* n = *it;
         if (!n->requires_grad) continue;
-        const Tensor& gy = n->grad;
+        auto gy = n;
 
-        ag::debug::on_backprop_step(n, gy); // (optional) prints one line per node
+        // ag::debug::on_backprop_step(n, gy); // (optional) prints one line per node
 
         if (n->is_checkpoint && n->value.size() == 0) {
         if (!ag::checkpoint_impl::recompute_subgraph(n->shared_from_this())) {
@@ -59,6 +59,26 @@ void valsend(const Value& root) {
         }
 
         std::cout << "[CUDA VALSEND output]: ";
+        for (int i = 0; i < 10; ++i)
+          {  std::cout << n->value.data()[i] << " ";
+        std::cout << "(" << n->debug_name << ")\n";}
+    }
+}
+
+void grasend(const Value& root) {
+    auto order = topo_from(root.node.get());
+    cudaDeviceSynchronize(); // Wait for all GPU ops to finish
+
+    for (auto it = order.rbegin(); it != order.rend(); ++it) {
+        Node* n = *it;
+        if (!n->requires_grad || !(n->cuda_device)) continue;
+
+        if (n->d_array && n->siz > 0) {
+            cudaMemcpy(n->grad.data(), n->c_array,
+                       n->siz * sizeof(float), cudaMemcpyDeviceToHost);
+        }
+
+        std::cout << "[CUDA GRASEND output]: ";
         for (int i = 0; i < 10; ++i)
           {  std::cout << n->value.data()[i] << " ";
         std::cout << "(" << n->debug_name << ")\n";}
