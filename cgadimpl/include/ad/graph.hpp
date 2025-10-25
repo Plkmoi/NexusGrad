@@ -20,6 +20,7 @@ Tensor value; // forward value
 Tensor grad; // same shape as value
 bool requires_grad{false};
 bool is_checkpoint{false};
+bool requires_cuda{false};
 
 std::vector<Value> saved_inputs;
 std::vector<uint8_t> saved_rng_blob;

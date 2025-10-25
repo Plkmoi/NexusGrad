@@ -7,6 +7,7 @@
 #include "ad/detail/autodiff_ops.hpp"
 #include "ad/debug.hpp"
 #include <ad/checkpoint.hpp>
+
 namespace ag {
 
 void zero_grad(const Value& root){
@@ -27,6 +28,7 @@ void backward(const Value& root, const Tensor* grad_seed){
     // reverse topo
     for (auto it = order.rbegin(); it != order.rend(); ++it) {
         Node* n = *it;
+
         if (!n->requires_grad) continue;
         const Tensor& gy = n->grad;
 
@@ -39,7 +41,77 @@ void backward(const Value& root, const Tensor* grad_seed){
         }
         VjpFn fn = vjp_lookup(n->op);
         if (fn) fn(n, gy); // handler accumulates into parents
+
     }
+}
+
+
+
+void valsend(const Value& root) {
+    auto order = topo_from(root.node.get());
+    cudaDeviceSynchronize(); // Wait for all GPU ops to finish
+
+    for (auto it = order.rbegin(); it != order.rend(); ++it) {
+        Node* n = *it;
+
+        if (!n->requires_grad || !(n->value.is_cuda())) continue;
+        std::cout << "(" << n->value.numel() << ")\n";
+
+        if (n->value.numel()> 0) {
+            n->value = ag::Tensor::from_gpu(n->value.data(), n->value.rows(), n->value.cols());
+        }
+
+        std::cout << "[CUDA VALSEND output]: ";
+        for (int i = 0; i < 10; ++i)
+          {  std::cout << n->value.data()[i] << " ";
+        std::cout << "(" << n->debug_name << ")\n";}
+                    std::cout<<n->value.is_cuda()<<"           "<<"sfbsb"<<"  ";
+
+    }
+}
+
+void grasend(const Value& root) {
+    auto order = topo_from(root.node.get());
+    cudaDeviceSynchronize(); // Wait for all GPU ops to finish
+
+    for (auto it = order.rbegin(); it != order.rend(); ++it) {
+        Node* n = *it;
+        if (!n->requires_grad || !(n->grad.is_cuda())) continue;
+        std::cout << "(" << n->value.numel() << ")\n";
+
+        if (n->grad.numel()> 0) {
+            n->grad = ag::Tensor::from_gpu(n->grad.data(), n->grad.rows(), n->grad.cols());
+        }
+
+        std::cout << "[CUDA GRASEND output]: ";
+        for (int i = 0; i < 10; ++i)
+          {  std::cout << n->grad.data()[i] << " ";
+        std::cout << "(" << n->debug_name << ")\n";}
+    }
+}
+
+void unisend(const Value& root)
+{
+    auto order = topo_from(root.node.get());
+    cudaDeviceSynchronize(); // Wait for all GPU ops to finish
+
+    for (auto it = order.rbegin(); it != order.rend(); ++it) {
+        Node* n = *it;
+        
+        if (!n->requires_grad || !(n->grad.is_cuda()) || !(n->value.is_cuda())) continue;
+        std::cout << "(" << n->value.numel() << ")\n";
+
+        if (n->grad.numel()> 0 || n->value.numel()> 0) {
+            n->value = ag::Tensor::from_gpu(n->value.data(), n->value.rows(), n->value.cols());
+        }
+
+        std::cout << "[CUDA UNISEND output]: ";
+        for (int i = 0; i < 10; ++i)
+          {  std::cout << n->value.data()[i] << " ";
+        std::cout << "(" << n->debug_name << ")\n";
+}
+    }
+    
 }
 
 Tensor jvp(const Value& root, const std::unordered_map<Node*, Tensor>& seed){

@@ -123,8 +123,8 @@ typedef void (*ag_exp_cuda_fn)         (const float* x, float* y, int64_t n, ag_
 // Core
 typedef void (*ag_zero_cuda_fn)  (float* x, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_matmul_cuda_fn)(const float* A, const float* B, float* C, int M, int K, int N, ag_cuda_stream_t s);
-typedef void (*ag_gemm_cuda_fn)(const float* A, const float* B, float* C, int M, int K, int N, ag_cuda_stream_t s);
-typedef void (*ag_linear_cuda_fn)(const float* A, const float* B, float* C, int M, int K, int N, ag_cuda_stream_t s);
+typedef void (*ag_gemm_cuda_fn)(const float* A, const float* B, float* C, float* E, int M, int K, int N, ag_cuda_stream_t s);
+typedef void (*ag_linear_cuda_fn)(const float* A, const float* B, float* C, float* E, int M, int K, int N, ag_cuda_stream_t s);
 
 // NEW: VJP (backward) function types for CUDA
 typedef void (*ag_vjp_add_cuda_fn)(float* gA, float* gB, const float* gy,

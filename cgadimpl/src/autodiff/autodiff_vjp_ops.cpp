@@ -1003,6 +1003,7 @@
 #include "ad/runtime.hpp"
 #include <cmath>
 #include <stdexcept> // Required for std::runtime_error
+#include <iostream>
 
 namespace ag {
 namespace detail{
@@ -1015,7 +1016,7 @@ void vjp_Add(Node* n, const Tensor& gy){
     Node* A = n->inputs[0].get();
     Node* B = n->inputs[1].get();
 
-    if (A->value.is_cpu()) {
+    if (!A->value.is_cpu()) {
         if (A->requires_grad) A->grad.add_( rt(gy, A->value) );
         if (B->requires_grad) B->grad.add_( rt(gy, B->value) );
     } else {
@@ -1779,7 +1780,44 @@ void vjp_Reciprocal(Node* n, const Tensor& gy){
 void vjp_Linear(Node* n, const Tensor& gy){
     // Assuming vjp_Linear is a composite and can be handled by its constituents (MatMul, Add)
     // For a truly fused kernel, this would need a device-aware implementation.
-    vjp_FMA(n, gy);
+    std::cout<<n->value.is_cuda()<<"           "<<"frgfhjyh5ilnktmjm7kn";
+    if (n->value.is_cpu()) {
+        Node* A = n->inputs[0].get();
+        Node* B = n->inputs[1].get();
+        Node* C = n->inputs[2].get();
+        
+        const Tensor& At = A->value;
+        const Tensor& Bt = B->value;
+
+        if (A->requires_grad){
+            A->grad.add_(Tensor::matmul(gy, Tensor::transpose(Bt)));
+        }
+        if (B->requires_grad){
+            B->grad.add_(Tensor::matmul(Tensor::transpose(At), gy));
+        }
+        if (C->requires_grad) C->grad.add_( rt(gy, C->value) );
+    } else {
+
+std::cout<<"I am cuda";
+            Node* A = n->inputs[0].get();
+    Node* B = n->inputs[1].get();
+    Node* C = n->inputs[2].get();
+
+    // External kernel (if plugin loaded), else fallback to Tensor::matmul
+    auto* mm = ag::kernels::cuda().vjp_linear;
+
+    // Shapes
+    auto At = A->value;
+    auto Bt = B->value;
+    auto [M, K]  = At.shape();
+    auto [N, K2] = Bt.shape();
+    (void)K2; // assume forward already checked
+
+    mm(A->grad.data(), B->grad.data(), C->grad.data(), gy.data(), A->value.data(), B->value.data(), C->value.data(), M, K, N, nullptr);
+  
+
+
+}
 }
 
 void vjp_Cosh(Node* n, const Tensor& gy){

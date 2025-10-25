@@ -629,16 +629,42 @@ std::shared_ptr<Node> relumask_nodeops(const std::shared_ptr<Node>& x) {
 
 
 std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c){
-    const Tensor& A = a->value;
-    const Tensor B = Tensor::transpose(b->value);
+    auto A = a->value;
+    auto B = b->value;
 
     auto [M,K]  = A.shape();
     auto [K2,N] = B.shape();
     if (K != K2) throw std::runtime_error("gemm: inner dims mismatch");
 
-    const Tensor& C = c->value;
+    auto C = c->value;
 
-    Tensor E({M,N});
+    Tensor E = Tensor::zeros(M, N, Device::CUDA);
+
+    auto* fn = ag::kernels::cuda().linear;
+
+    if (fn) {
+        // --- NEW: Call the fast CUDA kernel ---
+        fn(A.data(), B.data(), C.data(), E.data(), M , K, N, ag::current_stream());
+
+
+
+    } 
+else{
+    //         const Tensor& A = a->value;
+//          const Tensor& B = Tensor::transpose(b->value);
+
+//          auto [M,K]  = A.shape();
+//          auto [K2,N] = B.shape();
+//          if (K != K2) throw std::runtime_error("gemm: inner dims mismatch");
+
+//          const Tensor& C = c->value; 
+
+//                  Tensor E({M,N});
+
+
+//          auto* fn = ag::kernels::cpu().fmab;
+//          if (!fn) throw std::runtime_error("No CPU GEMM kernel registered now only");
+//          fn(A.data(), B.data(), C.data(), E.data(), M, K, N);
 
     // Direct implementation of fused multiply-add (A * B + C)
     const float* a_data = A.data();
@@ -657,7 +683,7 @@ std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, const std::
             e_data[i * N + j] = sum + (C.numel() == N ? c_data[j] : c_data[i * N + j]);
         }
     }
-
+}
     auto n = std::make_shared<Node>(E,
         (a->requires_grad || b->requires_grad || c->requires_grad),
         Op::Linear, "linear");

@@ -33,8 +33,8 @@ extern void exp_cuda         (const float*, float*, int64_t, ag_cuda_stream_t);
 // Core ops
 extern void zero_cuda (float*, int64_t, ag_cuda_stream_t);
 extern void mm_cuda   (const float*, const float*, float*, int, int, int, ag_cuda_stream_t);
-extern void gemm_cuda   (const float*, const float*, float*, int, int, int, ag_cuda_stream_t);
-extern void linear_cuda   (const float*, const float*, float*, int, int, int, ag_cuda_stream_t);
+extern void gemm_cuda   (const float*, const float*, float*, float*, int, int, int, ag_cuda_stream_t);
+extern void linear_cuda   (const float*, const float*, float*, float*, int, int, int, ag_cuda_stream_t);
 
 
 // ============================================================

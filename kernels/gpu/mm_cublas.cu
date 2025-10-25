@@ -52,13 +52,15 @@ void vjp_matmul_cuda(float* gA, float* gB, const float* gy,
 
 // --- Forward Pass: C = A @ B ---
 // A is (M, K), B is (K, N), C is (M, N). All are row-major.
-void gemm_cuda(const float* A, const float* B, float* C,
+void gemm_cuda(const float* A, const float* B, float* C, float* E,
             int M, int K, int N, ag_cuda_stream_t s) {
     static thread_local cublasHandle_t handle = nullptr;
     if (!handle) cublasCreate(&handle);
     cublasSetStream(handle, (cudaStream_t)s);
 
     const float alpha = 1.f, beta = 1.f;
+        cudaMemcpy(E, C, M*N*sizeof(float), cudaMemcpyDeviceToDevice);
+
 
     // Row-major C(M,N) = A(M,K) @ B(K,N) is equivalent to
     // column-major C_t(N,M) = B_t(N,K) @ A_t(K,M).
@@ -72,7 +74,7 @@ void gemm_cuda(const float* A, const float* B, float* C,
         B, N,               // B(K,N) -> lda is cols = N
         A, K,               // A(M,K) -> ldb is cols = K
         &beta,
-        C, N);              // C(M,N) -> ldc is cols = N
+        E, N);              // C(M,N) -> ldc is cols = N
 }
 
 __global__ void k_vjp_c_accum(float* gC, const float* gy, int64_t n) {
@@ -106,7 +108,7 @@ dim3 blocks( (unsigned int)(((M*K)+ 255) / 256) );
 
 
 
-void linear_cuda(const float* A, const float* B, float* C,
+void linear_cuda(const float* A, const float* B, float* C, float* E,
                  int M, int K, int N, ag_cuda_stream_t s) {
     // Semantics: A: (M,K), B: (N,K)  -> compute C += A @ B^T  (C is MxN row-major)
     assert(A && B && C);
@@ -121,6 +123,8 @@ void linear_cuda(const float* A, const float* B, float* C,
 
     const float alpha = 1.0f;
     const float beta  = 1.0f; // match "GEMM worked as C += A@B", use 1.0f for accumulation
+
+    cudaMemcpy(E, C, M*N*sizeof(float), cudaMemcpyDeviceToDevice);
 
     // Explanation:
     // We want C = C + A @ B^T (row-major)
@@ -138,7 +142,8 @@ cublasSgemm(handle,
     B, K,         // B is (N, K) so lda = K
     A, K,         // A is (M, K) so ldb = K
     &beta,
-    C, N);        // C (M,N), ldc = N
+    E, N);        // C (M,N), ldc = N
+
 }
 
 

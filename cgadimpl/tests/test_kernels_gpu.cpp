@@ -46,7 +46,7 @@ float* to_gpu(const ag::Tensor& t) {
 
 ag::Tensor from_gpu(const float* d_ptr, int rows, int cols) {
     ag::Tensor t(rows, cols);
-    (cudaMemcpy(t.data(), d_ptr, t.numel() * sizeof(float), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(t.data(), d_ptr, t.numel() * sizeof(float), cudaMemcpyDeviceToHost));
     return t;
 }
 
@@ -123,14 +123,15 @@ void test_gpu_unified_fmab() {
     ag::Tensor a_cpu = ag::Tensor::randn(11, 17, 3);
     ag::Tensor b_cpu = ag::Tensor::randn(17, 9, 4);
     ag::Tensor c_cpu = ag::Tensor::randn(11, 9, 5);
+    ag::Tensor e_cpu = ag::Tensor::zeros(11, 9);
     ag::Tensor ref = ag::Tensor::matmul(a_cpu, b_cpu) + c_cpu;
 
-    float *a_gpu = to_gpu(a_cpu), *b_gpu = to_gpu(b_cpu), *c_gpu = to_gpu(c_cpu);
+    float *a_gpu = to_gpu(a_cpu), *b_gpu = to_gpu(b_cpu), *c_gpu = to_gpu(c_cpu), *e_gpu=to_gpu(e_cpu);
 
-    K.gemm(a_gpu, b_gpu, c_gpu, 11, 17, 9, nullptr);
+    K.gemm(a_gpu, b_gpu, c_gpu, e_gpu, 11, 17, 9, nullptr);
     CUDA_CHECK(cudaDeviceSynchronize());
 
-    ag::Tensor out = from_gpu(c_gpu, 11, 9);
+    ag::Tensor out = from_gpu(e_gpu, 11, 9);
     check_tensors_close(ref, out, "test_gpu_gemm");
     
 
@@ -171,14 +172,15 @@ void test_gpu_unified_linear() {
     ag::Tensor a_cpu = ag::Tensor::randn(11, 17, 3);
     ag::Tensor b_cpu = ag::Tensor::randn(9, 17, 4);
     ag::Tensor c_cpu = ag::Tensor::randn(11, 9, 5);
+    ag::Tensor e_cpu = ag::Tensor::zeros(11, 9);
     ag::Tensor ref = ag::Tensor::matmul(a_cpu, ag::Tensor::transpose( b_cpu)) + c_cpu;
 
-    float *a_gpu = to_gpu(a_cpu), *b_gpu = to_gpu(b_cpu), *c_gpu = to_gpu(c_cpu);
+    float *a_gpu = to_gpu(a_cpu), *b_gpu = to_gpu(b_cpu), *c_gpu = to_gpu(c_cpu), *e_gpu=to_gpu(e_cpu);
 
-    K.linear(a_gpu, b_gpu, c_gpu, 11, 17, 9, nullptr);
+    K.linear(a_gpu, b_gpu, c_gpu, e_gpu, 11, 17, 9, nullptr);
     CUDA_CHECK(cudaDeviceSynchronize());
 
-    ag::Tensor out = from_gpu(c_gpu, 11, 9);
+    ag::Tensor out = from_gpu(e_gpu, 11, 9);
     check_tensors_close(ref, out, "test_gpu_linear");
     
 

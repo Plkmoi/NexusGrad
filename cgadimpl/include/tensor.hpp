@@ -40,6 +40,8 @@ public:
     static Tensor randn(int r, int c, unsigned seed=42, Device dev = Device::CPU);
     static Tensor zeros_like(const Tensor& x);
     static Tensor ones_like (const Tensor& x);
+    static Tensor from_gpu(const float* d_ptr, int rows, int cols);
+    static Tensor final_from_gpu(const float* d_ptr, int rows, int cols);
 
     // --- Data Access ---
     float* data() { return data_ptr_.get(); }

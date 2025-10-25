@@ -42,6 +42,7 @@ namespace ag {
     }
 
     Value param (const Tensor& v, const char* name){ 
+        v.device(); // ensure on correct device
         return Value(std::make_shared<Node>(v,true ,Op::Leaf,name));
     }
 
