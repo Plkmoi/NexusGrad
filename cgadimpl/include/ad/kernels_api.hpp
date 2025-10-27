@@ -101,7 +101,7 @@ typedef struct CUstream_st* ag_cuda_stream_t;
 // Arithmetic
 typedef void (*ag_add_cuda_fn)   (const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_sub_cuda_fn)   (const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s);
-typedef void (*ag_mul_cuda_fn)   (const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_hadmul_cuda_fn)   (const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_div_cuda_fn)   (const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_pow_cuda_fn)   (const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_square_cuda_fn)(const float* x, float* y, int64_t n, ag_cuda_stream_t s);
@@ -191,7 +191,7 @@ struct ag_cuda_v1 {
   // Arithmetic
   ag_add_cuda_fn     add;
   ag_sub_cuda_fn     sub;
-  ag_mul_cuda_fn     mul;
+  ag_hadmul_cuda_fn     hadmul;
   ag_div_cuda_fn     div;
   ag_pow_cuda_fn     pow;
   ag_square_cuda_fn  square;
@@ -301,7 +301,7 @@ struct Cuda {
   // Arithmetic
   ag_add_cuda_fn     add    = nullptr;
   ag_sub_cuda_fn     sub    = nullptr;
-  ag_mul_cuda_fn     mul    = nullptr;
+  ag_hadmul_cuda_fn     hadmul    = nullptr;
   ag_div_cuda_fn     div    = nullptr;
   ag_pow_cuda_fn     pow    = nullptr;
   ag_square_cuda_fn  square = nullptr;

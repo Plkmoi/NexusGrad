@@ -11,7 +11,7 @@
 // Arithmetic
 extern void add_cuda   (const float*, const float*, float*, int64_t, ag_cuda_stream_t);
 extern void sub_cuda   (const float*, const float*, float*, int64_t, ag_cuda_stream_t);
-extern void mul_cuda   (const float*, const float*, float*, int64_t, ag_cuda_stream_t);
+extern void hadmul_cuda   (const float*, const float*, float*, int64_t, ag_cuda_stream_t);
 extern void div_cuda   (const float*, const float*, float*, int64_t, ag_cuda_stream_t);
 extern void pow_cuda   (const float*, const float*, float*, int64_t, ag_cuda_stream_t);
 extern void square_cuda(const float*, float*, int64_t, ag_cuda_stream_t);
@@ -82,7 +82,7 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   // ========================================================
   out->add          = &add_cuda;
   out->sub          = &sub_cuda;
-  out->mul          = &mul_cuda;
+  out->hadmul          = &hadmul_cuda;
   out->div          = &div_cuda;
   out->pow          = &pow_cuda;
   out->square       = &square_cuda;

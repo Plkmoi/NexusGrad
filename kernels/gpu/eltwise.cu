@@ -162,7 +162,7 @@ void add_cuda(const float* a, const float* b, float* c, int64_t n, ag_cuda_strea
 void sub_cuda(const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s) {
   k_sub<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(a, b, c, n);
 }
-void mul_cuda(const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s) {
+void hadmul_cuda(const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s) {
   k_mul<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(a, b, c, n);
 }
 void div_cuda(const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s) {

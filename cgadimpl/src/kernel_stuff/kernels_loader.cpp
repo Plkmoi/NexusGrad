@@ -90,7 +90,7 @@ void load_cuda_plugin(const char* path) {
   // ========================================================
   g_cuda.add          = table.add;
   g_cuda.sub          = table.sub;
-  g_cuda.mul          = table.mul;
+  g_cuda.hadmul          = table.hadmul;
   g_cuda.div          = table.div;
   g_cuda.pow          = table.pow;
   g_cuda.square       = table.square;

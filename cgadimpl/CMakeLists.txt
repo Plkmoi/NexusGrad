@@ -206,6 +206,7 @@ if(AG_BUILD_TESTS)
 # target_link_libraries(test_kernels_gpu PRIVATE cgadimpl ${CUDAToolkit_LIBRARIES})
 # add_test(NAME test_kernels_gpu COMMAND test_kernels_gpu)
   add_ag_testcuda(test_kernels_gpu tests/test_kernels_gpu.cpp)
+  add_ag_testcuda(test_integpu tests/test_integpu.cpp)
 
 endif()
 

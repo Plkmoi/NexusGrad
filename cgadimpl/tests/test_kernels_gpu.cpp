@@ -56,7 +56,11 @@ void test_gpu_add() {
     auto& K = ag::kernels::cuda();
     ag::Tensor a_cpu = ag::Tensor::randn(11, 11, 1);
     ag::Tensor b_cpu = ag::Tensor::randn(11, 11, 2);
+    std::cout << "\nForward Pass Values:" << std::endl;
+    std::cout << "Input A (CPU):\n" << a_cpu << std::endl;
+    std::cout << "Input B (CPU):\n" << b_cpu << std::endl;
     ag::Tensor ref = a_cpu + b_cpu;
+    std::cout << "Output (CPU):\n" << ref << std::endl;
 
     float *a_gpu = to_gpu(a_cpu), *b_gpu = to_gpu(b_cpu), *c_gpu;
     CUDA_CHECK(cudaMalloc(&c_gpu, ref.numel() * sizeof(float)));
@@ -66,6 +70,7 @@ void test_gpu_add() {
 
     ag::Tensor out = from_gpu(c_gpu, 11, 11);
     check_tensors_close(ref, out, "test_gpu_add");
+    std::cout << "Output (GPU):\n" << out << std::endl;
 
     CUDA_CHECK(cudaFree(a_gpu));
     CUDA_CHECK(cudaFree(b_gpu));
@@ -76,7 +81,10 @@ void test_gpu_add() {
 void test_gpu_unified_tanh() {
     auto& K = ag::kernels::cuda();
     ag::Tensor a_cpu = ag::Tensor::randn(11, 11, 1);
+    std::cout << "\nForward Pass Values:" << std::endl;
+    std::cout << "Input A (CPU):\n" << a_cpu << std::endl;
     ag::Tensor ref = ag::Tensor::tanh(a_cpu);
+    std::cout << "Output (CPU):\n" << ref << std::endl;
 
     float *a_gpu = to_gpu(a_cpu), *c_gpu;
     CUDA_CHECK(cudaMalloc(&c_gpu, ref.numel() * sizeof(float)));
@@ -101,8 +109,14 @@ void test_gpu_unified_tanh() {
 
     ag::Tensor out = from_gpu(c_gpu, 11, 11);
     check_tensors_close(ref, out, "test_gpu_tanh");
+    std::cout << "Output (GPU):\n" << out << std::endl;
 
     ag::Tensor ga_out = from_gpu(ga_gpu, 11, 11);
+
+    std::cout << "\nBackward Pass Values:" << std::endl;
+    std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+    std::cout << "Expected dA (CPU):\n" << ga_ref << std::endl;
+    std::cout << "Computed dA (GPU):\n" << ga_out << std::endl;
 
     check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_tanh");
 
@@ -124,7 +138,12 @@ void test_gpu_unified_fmab() {
     ag::Tensor b_cpu = ag::Tensor::randn(17, 9, 4);
     ag::Tensor c_cpu = ag::Tensor::randn(11, 9, 5);
     ag::Tensor e_cpu = ag::Tensor::zeros(11, 9);
+    std::cout << "\nForward Pass Values (GEMM):" << std::endl;
+    std::cout << "Input A (CPU):\n" << a_cpu << std::endl;
+    std::cout << "Input B (CPU):\n" << b_cpu << std::endl;
+    std::cout << "Input C (CPU):\n" << c_cpu << std::endl;
     ag::Tensor ref = ag::Tensor::matmul(a_cpu, b_cpu) + c_cpu;
+    std::cout << "Output (CPU):\n" << ref << std::endl;
 
     float *a_gpu = to_gpu(a_cpu), *b_gpu = to_gpu(b_cpu), *c_gpu = to_gpu(c_cpu), *e_gpu=to_gpu(e_cpu);
 
@@ -133,6 +152,7 @@ void test_gpu_unified_fmab() {
 
     ag::Tensor out = from_gpu(e_gpu, 11, 9);
     check_tensors_close(ref, out, "test_gpu_gemm");
+    std::cout << "Output (GPU):\n" << out << std::endl;
     
 
     ag::Tensor gy_cpu = ag::Tensor::randn(11, 9, 11);
@@ -154,6 +174,15 @@ void test_gpu_unified_fmab() {
     ag::Tensor gb_out = from_gpu(gb_gpu, 17, 9);
     ag::Tensor gc_out = from_gpu(gc_gpu, 11, 9);
 
+    std::cout << "\nBackward Pass Values (GEMM):" << std::endl;
+    std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+    std::cout << "Expected dA (CPU):\n" << ga_ref << std::endl;
+    std::cout << "Computed dA (GPU):\n" << ga_out << std::endl;
+    std::cout << "Expected dB (CPU):\n" << gb_ref << std::endl;
+    std::cout << "Computed dB (GPU):\n" << gb_out << std::endl;
+    std::cout << "Expected dC (CPU):\n" << gc_ref << std::endl;
+    std::cout << "Computed dC (GPU):\n" << gc_out << std::endl;
+
     check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_gemm (gA)");
     check_tensors_close(gb_ref, gb_out, "test_gpu_vjp_gemm (gB)");
     check_tensors_close(gc_ref, gc_out, "test_gpu_vjp_gemm (gC)");
@@ -173,7 +202,12 @@ void test_gpu_unified_linear() {
     ag::Tensor b_cpu = ag::Tensor::randn(9, 17, 4);
     ag::Tensor c_cpu = ag::Tensor::randn(11, 9, 5);
     ag::Tensor e_cpu = ag::Tensor::zeros(11, 9);
+    std::cout << "\nForward Pass Values (Linear):" << std::endl;
+    std::cout << "Input A (CPU):\n" << a_cpu << std::endl;
+    std::cout << "Input B (CPU):\n" << b_cpu << std::endl;
+    std::cout << "Input C (CPU):\n" << c_cpu << std::endl;
     ag::Tensor ref = ag::Tensor::matmul(a_cpu, ag::Tensor::transpose( b_cpu)) + c_cpu;
+    std::cout << "Output (CPU):\n" << ref << std::endl;
 
     float *a_gpu = to_gpu(a_cpu), *b_gpu = to_gpu(b_cpu), *c_gpu = to_gpu(c_cpu), *e_gpu=to_gpu(e_cpu);
 
@@ -182,6 +216,7 @@ void test_gpu_unified_linear() {
 
     ag::Tensor out = from_gpu(e_gpu, 11, 9);
     check_tensors_close(ref, out, "test_gpu_linear");
+    std::cout << "Output (GPU):\n" << out << std::endl;
     
 
     ag::Tensor gy_cpu = ag::Tensor::randn(11, 9, 11);
@@ -203,6 +238,15 @@ void test_gpu_unified_linear() {
     ag::Tensor gb_out = from_gpu(gb_gpu, 9, 17);
     ag::Tensor gc_out = from_gpu(gc_gpu, 11, 9);
 
+    std::cout << "\nBackward Pass Values (Linear):" << std::endl;
+    std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+    std::cout << "Expected dA (CPU):\n" << ga_ref << std::endl;
+    std::cout << "Computed dA (GPU):\n" << ga_out << std::endl;
+    std::cout << "Expected dB (CPU):\n" << gb_ref << std::endl;
+    std::cout << "Computed dB (GPU):\n" << gb_out << std::endl;
+    std::cout << "Expected dC (CPU):\n" << gc_ref << std::endl;
+    std::cout << "Computed dC (GPU):\n" << gc_out << std::endl;
+
     check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_linear (gA)");
     check_tensors_close(gb_ref, gb_out, "test_gpu_vjp_linear (gB)");
     check_tensors_close(gc_ref, gc_out, "test_gpu_vjp_linear (gC)");
@@ -220,7 +264,11 @@ void test_gpu_matmul() {
     auto& K = ag::kernels::cuda();
     ag::Tensor a_cpu = ag::Tensor::randn(11, 17, 3);
     ag::Tensor b_cpu = ag::Tensor::randn(17, 11, 4);
+    std::cout << "\nForward Pass Values (MatMul):" << std::endl;
+    std::cout << "Input A (CPU):\n" << a_cpu << std::endl;
+    std::cout << "Input B (CPU):\n" << b_cpu << std::endl;
     ag::Tensor ref = ag::Tensor::matmul(a_cpu, b_cpu);
+    std::cout << "Output (CPU):\n" << ref << std::endl;
 
     float *a_gpu = to_gpu(a_cpu), *b_gpu = to_gpu(b_cpu), *c_gpu;
     CUDA_CHECK(cudaMalloc(&c_gpu, ref.numel() * sizeof(float)));
@@ -230,6 +278,7 @@ void test_gpu_matmul() {
 
     ag::Tensor out = from_gpu(c_gpu, 11, 11);
     check_tensors_close(ref, out, "test_gpu_matmul");
+    std::cout << "Output (GPU):\n" << out << std::endl;
 
     CUDA_CHECK(cudaFree(a_gpu));
     CUDA_CHECK(cudaFree(b_gpu));
@@ -255,6 +304,13 @@ void test_gpu_vjp_add() {
     ag::Tensor ga_out = from_gpu(ga_gpu, 11, 11);
     ag::Tensor gb_out = from_gpu(gb_gpu, 11, 11);
 
+    std::cout << "\nBackward Pass Values (vjp_add):" << std::endl;
+    std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+    std::cout << "Expected dA (CPU):\n" << ga_ref << std::endl;
+    std::cout << "Computed dA (GPU):\n" << ga_out << std::endl;
+    std::cout << "Expected dB (CPU):\n" << gb_ref << std::endl;
+    std::cout << "Computed dB (GPU):\n" << gb_out << std::endl;
+
     check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_add (gA)");
     check_tensors_close(gb_ref, gb_out, "test_gpu_vjp_add (gB)");
 
@@ -268,7 +324,11 @@ void test_gpu_unified_sub() {
         auto& K = ag::kernels::cuda();
     ag::Tensor a_cpu = ag::Tensor::randn(11, 11, 1);
     ag::Tensor b_cpu = ag::Tensor::randn(11, 11, 2);
+    std::cout << "\nForward Pass Values:" << std::endl;
+    std::cout << "Input A (CPU):\n" << a_cpu << std::endl;
+    std::cout << "Input B (CPU):\n" << b_cpu << std::endl;
     ag::Tensor ref = a_cpu - b_cpu;
+    std::cout << "Output (CPU):\n" << ref << std::endl;
 
     float *a_gpu = to_gpu(a_cpu), *b_gpu = to_gpu(b_cpu), *c_gpu;
     CUDA_CHECK(cudaMalloc(&c_gpu, ref.numel() * sizeof(float)));
@@ -296,6 +356,15 @@ void test_gpu_unified_sub() {
         ag::Tensor out = from_gpu(c_gpu, 11, 11);
     check_tensors_close(ref, out, "test_gpu_sub");
 
+    std::cout << "Output (GPU):\n" << out << std::endl;
+
+    std::cout << "\nBackward Pass Values:" << std::endl;
+    std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+    std::cout << "Expected dA (CPU):\n" << ga_ref << std::endl;
+    std::cout << "Computed dA (GPU):\n" << ga_out << std::endl;
+    std::cout << "Expected dB (CPU):\n" << gb_ref << std::endl;
+    std::cout << "Computed dB (GPU):\n" << gb_out << std::endl;
+
     check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_sub (gA)");
     check_tensors_close(gb_ref, gb_out, "test_gpu_vjp_sub (gB)");
 
@@ -308,17 +377,20 @@ void test_gpu_unified_hadmul() {
         auto& K = ag::kernels::cuda();
     ag::Tensor a_cpu = ag::Tensor::randn(11, 11, 1);
     ag::Tensor b_cpu = ag::Tensor::randn(11, 11, 2);
+
     ag::Tensor ref = a_cpu * b_cpu;
 
     float *a_gpu = to_gpu(a_cpu), *b_gpu = to_gpu(b_cpu), *c_gpu;
     CUDA_CHECK(cudaMalloc(&c_gpu, ref.numel() * sizeof(float)));
 
-    K.mul(a_gpu, b_gpu, c_gpu, ref.numel(), nullptr);
+    K.hadmul(a_gpu, b_gpu, c_gpu, ref.numel(), nullptr);
     CUDA_CHECK(cudaDeviceSynchronize());
 
     ag::Tensor gy_cpu = ag::Tensor::ones(11, 11);
+    
     ag::Tensor ga_ref = b_cpu; // vjp_add just passes gradient through
     ag::Tensor gb_ref = a_cpu;
+
 
     ag::Tensor ga_cpu_init = ag::Tensor::zeros(11, 11);
     ag::Tensor gb_cpu_init = ag::Tensor::zeros(11, 11);
@@ -334,11 +406,32 @@ void test_gpu_unified_hadmul() {
     ag::Tensor gb_out = from_gpu(gb_gpu, 11, 11);
 
         ag::Tensor out = from_gpu(c_gpu, 11, 11);
-    check_tensors_close(ref, out, "test_gpu_hadmul");
+
+            check_tensors_close(ref, out, "test_gpu_hadmul");
+
+                std::cout << "\nForward Pass Values:" << std::endl;
+    std::cout << "Input A (CPU):\n" << a_cpu << std::endl;
+    std::cout << "Input B (CPU):\n" << b_cpu << std::endl;
+                std::cout << "Output (CPU):\n" << ref << std::endl;
+
+        std::cout << "Output (GPU):\n" << ref << std::endl;
+
+        std::cout << "\n\n\nBackward Pass Values:" << std::endl;
+    std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+
+
+
+
+        std::cout << "Expected Gradients (CPU):" << std::endl;
+    std::cout << "dA:\n" << ga_ref << std::endl;
+    std::cout << "dB:\n" << gb_ref << std::endl;
+
+    std::cout << "Expected Gradients (GPU):" << std::endl;
+    std::cout << "dA:\n" << ga_out << std::endl;
+    std::cout << "dB:\n" << gb_out << std::endl;
 
     check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_hadmul (gA)");
     check_tensors_close(gb_ref, gb_out, "test_gpu_vjp_hadmul (gB)");
-
     CUDA_CHECK(cudaFree(gy_gpu));
     CUDA_CHECK(cudaFree(ga_gpu));
     CUDA_CHECK(cudaFree(gb_gpu));
@@ -349,7 +442,11 @@ void test_gpu_unified_div() {
         auto& K = ag::kernels::cuda();
     ag::Tensor a_cpu = ag::Tensor::randn(11, 11, 1);
     ag::Tensor b_cpu = ag::Tensor::randn(11, 11, 2);
+    std::cout << "\nForward Pass Values:" << std::endl;
+    std::cout << "Input A (CPU):\n" << a_cpu << std::endl;
+    std::cout << "Input B (CPU):\n" << b_cpu << std::endl;
     ag::Tensor ref = a_cpu / b_cpu;
+    std::cout << "Output (CPU):\n" << ref << std::endl;
 
     float *a_gpu = to_gpu(a_cpu), *b_gpu = to_gpu(b_cpu), *c_gpu;
     CUDA_CHECK(cudaMalloc(&c_gpu, ref.numel() * sizeof(float)));
@@ -376,6 +473,15 @@ void test_gpu_unified_div() {
 
         ag::Tensor out = from_gpu(c_gpu, 11, 11);
     check_tensors_close(ref, out, "test_gpu_div");
+
+    std::cout << "Output (GPU):\n" << out << std::endl;
+
+    std::cout << "\nBackward Pass Values:" << std::endl;
+    std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+    std::cout << "Expected dA (CPU):\n" << ga_ref << std::endl;
+    std::cout << "Computed dA (GPU):\n" << ga_out << std::endl;
+    std::cout << "Expected dB (CPU):\n" << gb_ref << std::endl;
+    std::cout << "Computed dB (GPU):\n" << gb_out << std::endl;
 
     check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_div (gA)");
     check_tensors_close(gb_ref, gb_out, "test_gpu_vjp_div (gB)");
@@ -405,6 +511,13 @@ void test_gpu_vjp_matmul() {
 
     ag::Tensor ga_out = from_gpu(ga_gpu, 11, 17);
     ag::Tensor gb_out = from_gpu(gb_gpu, 17, 11);
+
+    std::cout << "\nBackward Pass Values (vjp_matmul):" << std::endl;
+    std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+    std::cout << "Expected dA (CPU):\n" << ga_ref << std::endl;
+    std::cout << "Computed dA (GPU):\n" << ga_out << std::endl;
+    std::cout << "Expected dB (CPU):\n" << gb_ref << std::endl;
+    std::cout << "Computed dB (GPU):\n" << gb_out << std::endl;
 
     check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_matmul (gA)");
     check_tensors_close(gb_ref, gb_out, "test_gpu_vjp_matmul (gB)");
@@ -470,7 +583,10 @@ void test_gpu_vjp_matmul() {
 void test_gpu_unified_square() {
     auto& K = ag::kernels::cuda();
     ag::Tensor x_cpu = ag::Tensor::randn(11, 11, 1);
+    std::cout << "\nForward Pass Values (Square):" << std::endl;
+    std::cout << "Input X (CPU):\n" << x_cpu << std::endl;
     ag::Tensor ref = x_cpu * x_cpu;
+    std::cout << "Output (CPU):\n" << ref << std::endl;
 
     float *x_gpu = to_gpu(x_cpu), *y_gpu;
     CUDA_CHECK(cudaMalloc(&y_gpu, ref.numel() * sizeof(float)));
@@ -480,6 +596,7 @@ void test_gpu_unified_square() {
 
     ag::Tensor out = from_gpu(y_gpu, 11, 11);
     check_tensors_close(ref, out, "test_gpu_square");
+    std::cout << "Output (GPU):\n" << out << std::endl;
 
     ag::Tensor gy_cpu = ag::Tensor::randn(11, 11, 2);
     ag::Tensor ga_ref = gy_cpu * (2.0f * x_cpu);
@@ -491,6 +608,10 @@ void test_gpu_unified_square() {
     CUDA_CHECK(cudaDeviceSynchronize());
 
     ag::Tensor ga_out = from_gpu(ga_gpu, 11, 11);
+    std::cout << "\nBackward Pass Values (Square):" << std::endl;
+    std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+    std::cout << "Expected dX (CPU):\n" << ga_ref << std::endl;
+    std::cout << "Computed dX (GPU):\n" << ga_out << std::endl;
     check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_square");
 
     CUDA_CHECK(cudaFree(x_gpu));
@@ -505,7 +626,10 @@ void test_gpu_unified_square() {
 void test_gpu_unified_neg() {
     auto& K = ag::kernels::cuda();
     ag::Tensor x_cpu = ag::Tensor::randn(11, 11, 1);
+    std::cout << "\nForward Pass Values (Neg):" << std::endl;
+    std::cout << "Input X (CPU):\n" << x_cpu << std::endl;
     ag::Tensor ref = -x_cpu;
+    std::cout << "Output (CPU):\n" << ref << std::endl;
 
     float *x_gpu = to_gpu(x_cpu), *y_gpu;
     CUDA_CHECK(cudaMalloc(&y_gpu, ref.numel() * sizeof(float)));
@@ -515,6 +639,7 @@ void test_gpu_unified_neg() {
 
     ag::Tensor out = from_gpu(y_gpu, 11, 11);
     check_tensors_close(ref, out, "test_gpu_neg");
+    std::cout << "Output (GPU):\n" << out << std::endl;
 
     ag::Tensor gy_cpu = ag::Tensor::randn(11, 11, 2);
     ag::Tensor ga_ref = -gy_cpu;
@@ -526,6 +651,10 @@ void test_gpu_unified_neg() {
     CUDA_CHECK(cudaDeviceSynchronize());
 
     ag::Tensor ga_out = from_gpu(ga_gpu, 11, 11);
+    std::cout << "\nBackward Pass Values (Neg):" << std::endl;
+    std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+    std::cout << "Expected dX (CPU):\n" << ga_ref << std::endl;
+    std::cout << "Computed dX (GPU):\n" << ga_out << std::endl;
     check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_neg");
 
     CUDA_CHECK(cudaFree(x_gpu));
@@ -582,7 +711,10 @@ void test_gpu_unified_neg() {
 void test_gpu_unified_sigmoid() {
     auto& K = ag::kernels::cuda();
     ag::Tensor x_cpu = ag::Tensor::randn(11, 11, 1);
+    std::cout << "\nForward Pass Values (Sigmoid):" << std::endl;
+    std::cout << "Input X (CPU):\n" << x_cpu << std::endl;
     ag::Tensor ref = ag::Tensor::sigmoid(x_cpu);
+    std::cout << "Output (CPU):\n" << ref << std::endl;
 
     float *x_gpu = to_gpu(x_cpu), *y_gpu;
     CUDA_CHECK(cudaMalloc(&y_gpu, ref.numel() * sizeof(float)));
@@ -592,6 +724,7 @@ void test_gpu_unified_sigmoid() {
 
     ag::Tensor out = from_gpu(y_gpu, 11, 11);
     check_tensors_close(ref, out, "test_gpu_sigmoid");
+    std::cout << "Output (GPU):\n" << out << std::endl;
 
     ag::Tensor gy_cpu = ag::Tensor::ones(11, 11);
     ag::Tensor ga_ref = gy_cpu * ref * (ag::Tensor::ones_like(ref) - ref);
@@ -603,6 +736,10 @@ void test_gpu_unified_sigmoid() {
     CUDA_CHECK(cudaDeviceSynchronize());
 
     ag::Tensor ga_out = from_gpu(ga_gpu, 11, 11);
+    std::cout << "\nBackward Pass Values (Sigmoid):" << std::endl;
+    std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+    std::cout << "Expected dX (CPU):\n" << ga_ref << std::endl;
+    std::cout << "Computed dX (GPU):\n" << ga_out << std::endl;
     check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_sigmoid");
 
     CUDA_CHECK(cudaFree(x_gpu));
@@ -617,8 +754,11 @@ void test_gpu_unified_sigmoid() {
 void test_gpu_unified_silu() {
     auto& K = ag::kernels::cuda();
     ag::Tensor x_cpu = ag::Tensor::randn(11, 11, 1);
+    std::cout << "\nForward Pass Values (SiLU):" << std::endl;
+    std::cout << "Input X (CPU):\n" << x_cpu << std::endl;
     ag::Tensor s = ag::Tensor::sigmoid(x_cpu);
     ag::Tensor ref = x_cpu * s;
+    std::cout << "Output (CPU):\n" << ref << std::endl;
 
     float *x_gpu = to_gpu(x_cpu), *y_gpu;
     CUDA_CHECK(cudaMalloc(&y_gpu, ref.numel() * sizeof(float)));
@@ -628,6 +768,7 @@ void test_gpu_unified_silu() {
 
     ag::Tensor out = from_gpu(y_gpu, 11, 11);
     check_tensors_close(ref, out, "test_gpu_silu");
+    std::cout << "Output (GPU):\n" << out << std::endl;
 
     ag::Tensor gy_cpu = ag::Tensor::randn(11, 11, 2);
     ag::Tensor ga_ref = gy_cpu * (s + x_cpu * s * (ag::Tensor::ones_like(s)-s));
@@ -639,6 +780,10 @@ void test_gpu_unified_silu() {
     CUDA_CHECK(cudaDeviceSynchronize());
 
     ag::Tensor ga_out = from_gpu(ga_gpu, 11, 11);
+    std::cout << "\nBackward Pass Values (SiLU):" << std::endl;
+    std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+    std::cout << "Expected dX (CPU):\n" << ga_ref << std::endl;
+    std::cout << "Computed dX (GPU):\n" << ga_out << std::endl;
     check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_silu");
 
     CUDA_CHECK(cudaFree(x_gpu));
@@ -690,8 +835,11 @@ void test_gpu_unified_silu() {
 void test_gpu_unified_mish() {
     auto& K = ag::kernels::cuda();
     ag::Tensor x_cpu = ag::Tensor::randn(11, 11, 1);
+    std::cout << "\nForward Pass Values (Mish):" << std::endl;
+    std::cout << "Input X (CPU):\n" << x_cpu << std::endl;
     ag::Tensor sp = ag::Tensor::softplus(x_cpu);
     ag::Tensor ref = x_cpu * ag::Tensor::tanh(sp);
+    std::cout << "Output (CPU):\n" << ref << std::endl;
 
     float *x_gpu = to_gpu(x_cpu), *y_gpu;
     CUDA_CHECK(cudaMalloc(&y_gpu, ref.numel() * sizeof(float)));
@@ -701,6 +849,7 @@ void test_gpu_unified_mish() {
 
     ag::Tensor out = from_gpu(y_gpu, 11, 11);
     check_tensors_close(ref, out, "test_gpu_mish");
+    std::cout << "Output (GPU):\n" << out << std::endl;
 
     ag::Tensor gy_cpu = ag::Tensor::randn(11, 11, 2);
     ag::Tensor s = ag::Tensor::sigmoid(x_cpu);
@@ -714,6 +863,10 @@ void test_gpu_unified_mish() {
     CUDA_CHECK(cudaDeviceSynchronize());
 
     ag::Tensor ga_out = from_gpu(ga_gpu, 11, 11);
+    std::cout << "\nBackward Pass Values (Mish):" << std::endl;
+    std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+    std::cout << "Expected dX (CPU):\n" << ga_ref << std::endl;
+    std::cout << "Computed dX (GPU):\n" << ga_out << std::endl;
     check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_mish");
 
     CUDA_CHECK(cudaFree(x_gpu));
@@ -728,7 +881,10 @@ void test_gpu_unified_mish() {
 void test_gpu_unified_exp() {
     auto& K = ag::kernels::cuda();
     ag::Tensor x_cpu = ag::Tensor::randn(11, 11, 1);
+    std::cout << "\nForward Pass Values (Exp):" << std::endl;
+    std::cout << "Input X (CPU):\n" << x_cpu << std::endl;
     ag::Tensor ref = ag::Tensor::exp(x_cpu);
+    std::cout << "Output (CPU):\n" << ref << std::endl;
 
     float *x_gpu = to_gpu(x_cpu), *y_gpu;
     CUDA_CHECK(cudaMalloc(&y_gpu, ref.numel() * sizeof(float)));
@@ -738,6 +894,7 @@ void test_gpu_unified_exp() {
 
     ag::Tensor out = from_gpu(y_gpu, 11, 11);
     check_tensors_close(ref, out, "test_gpu_exp");
+    std::cout << "Output (GPU):\n" << out << std::endl;
 
     ag::Tensor gy_cpu = ag::Tensor::ones(11, 11);
     ag::Tensor ga_ref = gy_cpu * ref;
@@ -749,6 +906,10 @@ void test_gpu_unified_exp() {
     CUDA_CHECK(cudaDeviceSynchronize());
 
     ag::Tensor ga_out = from_gpu(ga_gpu, 11, 11);
+    std::cout << "\nBackward Pass Values (Exp):" << std::endl;
+    std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+    std::cout << "Expected dX (CPU):\n" << ga_ref << std::endl;
+    std::cout << "Computed dX (GPU):\n" << ga_out << std::endl;
     check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_exp");
 
     CUDA_CHECK(cudaFree(x_gpu));
