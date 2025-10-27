@@ -125,6 +125,10 @@ typedef void (*ag_zero_cuda_fn)  (float* x, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_matmul_cuda_fn)(const float* A, const float* B, float* C, int M, int K, int N, ag_cuda_stream_t s);
 typedef void (*ag_gemm_cuda_fn)(const float* A, const float* B, float* C, float* E, int M, int K, int N, ag_cuda_stream_t s);
 typedef void (*ag_linear_cuda_fn)(const float* A, const float* B, float* C, float* E, int M, int K, int N, ag_cuda_stream_t s);
+typedef void (*ag_flash_attention)(const float* Q, const float* K, const float* V, float* O,
+                       int B, int nh, int N, int d, ag_cuda_stream_t);
+
+
 
 // NEW: VJP (backward) function types for CUDA
 // Basic element-wise VJPs
@@ -219,6 +223,7 @@ struct ag_cuda_v1 {
   ag_matmul_cuda_fn matmul;
   ag_gemm_cuda_fn gemm;
   ag_linear_cuda_fn       linear;
+  ag_flash_attention flash;
 
   // ========================================================
   // Backward (VJP) ops
@@ -327,6 +332,7 @@ struct Cuda {
   ag_exp_cuda_fn          exp          = nullptr;
   ag_gemm_cuda_fn         gemm         = nullptr;
   ag_linear_cuda_fn       linear         = nullptr;
+  ag_flash_attention flash = nullptr;
 
   // Core
   ag_zero_cuda_fn   zero   = nullptr;

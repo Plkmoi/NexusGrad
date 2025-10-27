@@ -295,8 +295,8 @@ __global__ void flash_forward_kernele(
 // --------------------------------------------
 // Host Launcher
 // --------------------------------------------
-void run_flash_forwarde(const float* Q, const float* K, const float* V, float* O,
-                       int B, int nh, int N, int d) {
+void run_flash_forward(const float* Q, const float* K, const float* V, float* O,
+                       int B, int nh, int N, int d, ag_cuda_stream_t s) {
     const int Bc = 32, Br = 32;
     const int Tc = (N + Bc - 1) / Bc;
     const int Tr = (N + Br - 1) / Br;
@@ -305,7 +305,7 @@ void run_flash_forwarde(const float* Q, const float* K, const float* V, float* O
     size_t qkv_size = B * nh * N * d * sizeof(float);
     size_t lm_size  = B * nh * N * sizeof(float);
 
-    float *d_O, *d_l, *d_m;
+    float *d_l, *d_m;
 
     cudaMalloc(&d_l, lm_size);
     cudaMalloc(&d_m, lm_size);
@@ -318,7 +318,7 @@ void run_flash_forwarde(const float* Q, const float* K, const float* V, float* O
     dim3 block_dim(Br, Tc);
     int shared_mem = (3 * Bc * d + Br * Bc) * sizeof(float);
 
-    flash_forward_kernele<<<grid_dim, block_dim, shared_mem>>>(
+    flash_forward_kernele<<<grid_dim, block_dim, shared_mem, (cudaStream_t)s>>>(
         Q, K, V, O,
         N, d, Tc, Tr, Bc, Br, d_l, d_m, softmax_scale
     );

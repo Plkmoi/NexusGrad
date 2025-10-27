@@ -92,7 +92,7 @@ auto b = make_tensor(Tensor::randn(8,8, 777,ag::Device::CUDA), "B",true);
 
 auto c = make_tensor(Tensor::randn(8,8, 329,ag::Device::CUDA), "C",true);
 auto d = make_tensor(Tensor::randn(8,8, 170,ag::Device::CUDA), "D",true);
-
+auto e = make_tensor(Tensor::randn(8,8, 170,ag::Device::CUDA), "E",true);
 Tensor Yt(8, 8);
     std::mt19937 gen(42);
     std::uniform_int_distribution<int> pick(0, 2 - 1);
@@ -105,9 +105,9 @@ Tensor Yt(8, 8);
 
 auto bias = param(Tensor::zeros(8,8), "bias");
 
-    auto q =   linear(a, b, c); // [2,2]
+    auto q =   attention(a, b, c, d, 1, 1); // [2,2]
     //auto m=q*c;
-    auto y=q * d;
+    auto y=q *e;
 std::cout << "y = " << y.val()
 <<","<< endl<< "A = " << a.val()
 <<","<< endl<< "B = " << b.val()<<","<< endl
@@ -117,7 +117,6 @@ std::cout << "dL/dA[0,0] = " << a.grad()
 <<","<< endl<< "dL/dB[0,0] = " << b.grad()<<","<< endl
 << "dL/dbias[0,0] = " << bias.grad() << endl<< "dL/dq = " << q.grad() << endl;
 zero_grad(y);
-backward(y);
 
 unisend(y);
 

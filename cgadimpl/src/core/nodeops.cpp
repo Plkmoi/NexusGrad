@@ -485,73 +485,87 @@ std::shared_ptr<Node> matmul_nodeops(const std::shared_ptr<Node>& a, const std::
 
 
 
-// std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d){ 
-    
-//       if (a->value.device() != b->value.device()) {
-//         throw std::runtime_error("add_nodeops: device mismatch between inputs.");
-//     }
+std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d, int Bw, int nh){ 
+    Tensor o = Tensor::zeros(a->value.rows(), d->value.cols());
+        Tensor q = Tensor::zeros(a->value.rows(), b->value.cols());
+        Tensor k = Tensor::zeros(a->value.rows(), c->value.cols());
+        Tensor v = Tensor::zeros(a->value.rows(), d->value.cols());
+                    if (a->value.device() != b->value.device()) {
+        throw std::runtime_error("add_nodeops: device mismatch between inputs.");
+    }
 
-//     Tensor Y = Tensor::zeros_like(a->value); // Create output tensor on the same device
-
-//     if (a->value.is_cpu()  && b->value.is_cpu() && c->value.is_cpu()) {
-//      //   auto fn = ag::kernels::cpu().hadmul;
-//         if (0) { // add CPU fmab kernel for AVX2
-//             // if(fn) {
-//             // --- NEW: Call the fast AVX2 fmab kernel ---
-//        //     fn(X.data(), Y.data(), X.numel());
-//         } else {
-//                 Tensor q = Tensor::matmul(a->value, b->value); 
-//     Tensor k = Tensor::matmul(a->value, c->value); 
-//     Tensor v = Tensor::matmul(a->value, d->value);
-//     Tensor g = Tensor::matmul(q, Tensor::transpose(k)*(1.f/sqrt(float(k.cols())))) ;
-//     Tensor s = Tensor::softmax_row(g);
-//     Tensor y = Tensor::matmul(s, v);
-//         }
-//     } else {
-//         // GPU path (when ready)
-//         // This will correctly dispatch to your existing CUDA ReLU kernel.
-//         auto fn = ag::kernels::cuda().flash;
-//         if (fn) {
-//         Y.to(Device::CUDA);
-
-//             if (!fn) throw std::runtime_error("No CPU Flash Attention kernel registered now only");
-
-
-//     fn(q.data(), k.data(), v.data(), o.data(),
-//                     B, nh, N, x);
-//         } 
-//         else {
-//             throw std::runtime_error("GEMM forward on CUDA not implemented or loaded.");
-//         }
-//     }
-    
-   
-    
-    
-    
-    
-//     n->inputs = {a, b, c, d};
-//     n->tape.resize(4);
-//     n->tape={std::make_shared<Tensor>(q), std::make_shared<Tensor>(k), std::make_shared<Tensor>(v), std::make_shared<Tensor>(s)};
-//     ag::debug::on_node_created(n); 
-//     return n; 
-//     }
-
-
-    std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d){ 
-    Tensor q = Tensor::matmul(a->value, b->value); 
+    if (a->value.is_cpu()  && b->value.is_cpu() && c->value.is_cpu() && d->value.is_cpu()) {
+     //   auto fn = ag::kernels::cpu().hadmul;
+        if (0) { // add CPU fmab kernel for AVX2
+            // if(fn) {
+            // --- NEW: Call the fast AVX2 fmab kernel ---
+       //     fn(X.data(), Y.data(), X.numel());
+        } else {
+                Tensor q = Tensor::matmul(a->value, b->value); 
     Tensor k = Tensor::matmul(a->value, c->value); 
     Tensor v = Tensor::matmul(a->value, d->value);
     Tensor g = Tensor::matmul(q, Tensor::transpose(k)*(1.f/sqrt(float(k.cols())))) ;
     Tensor s = Tensor::softmax_row(g);
-    Tensor y = Tensor::matmul(s, v);
-    auto n = std::make_shared<Node>(y, a->requires_grad || b->requires_grad || c->requires_grad || d->requires_grad, Op::Attention, "attention"); 
+    o = Tensor::matmul(s, v);
+        }
+    } else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto* fnm = ag::kernels::cuda().matmul;
+        if(fnm){
+q=q.to(Device::CUDA);
+      k=  k.to(Device::CUDA);
+      v=  v.to(Device::CUDA);
+          o=      o.to(Device::CUDA);
+        
+        fnm(a->value.data(), b->value.data(), q.data(), a->value.rows(), a->value.cols(),  b->value.cols(), ag::current_stream()); 
+        fnm(a->value.data(), c->value.data(), k.data(), a->value.rows(), a->value.cols(),  c->value.cols(), ag::current_stream()); 
+        fnm(a->value.data(), d->value.data(), v.data(), a->value.rows(), a->value.cols(),  d->value.cols(), ag::current_stream()); 
+        auto fn = ag::kernels::cuda().flash;
+        if (fn) {
+    std::cout<< "\n\n\n" <<o.is_cuda()<<std::endl;
+
+            if (!fn) throw std::runtime_error("No CPU Flash Attention kernel registered now only");
+
+
+    fn(q.data(), k.data(), v.data(), o.data(),
+                    Bw, nh, q.rows(), v.cols(), nullptr);
+        }
+
+    }
+        else {
+            throw std::runtime_error("Flash forward on CUDA not implemented or loaded.");
+        }
+    }
+    
+   
+    
+    std::cout<< "\n\n\n" <<q.is_cuda()<<std::endl;
+auto n = std::make_shared<Node>(o, a->requires_grad || b->requires_grad || c->requires_grad || d->requires_grad, Op::Attention, "attention"); 
+
+    
     n->inputs = {a, b, c, d};
-    n->tape.resize(4);
-    n->tape={std::make_shared<Tensor>(q), std::make_shared<Tensor>(k), std::make_shared<Tensor>(v), std::make_shared<Tensor>(s)};
+    n->tape.resize(3);
+    n->tape={std::make_shared<Tensor>(q), std::make_shared<Tensor>(k), std::make_shared<Tensor>(v)};
     ag::debug::on_node_created(n); 
     return n; 
     }
+
+
+    // std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d){ 
+    // Tensor q = Tensor::matmul(a->value, b->value); 
+    // Tensor k = Tensor::matmul(a->value, c->value); 
+    // Tensor v = Tensor::matmul(a->value, d->value);
+    // Tensor g = Tensor::matmul(q, Tensor::transpose(k)*(1.f/sqrt(float(k.cols())))) ;
+    // Tensor s = Tensor::softmax_row(g);
+    // Tensor y = Tensor::matmul(s, v);
+    // auto n = std::make_shared<Node>(y, a->requires_grad || b->requires_grad || c->requires_grad || d->requires_grad, Op::Attention, "attention"); 
+    // n->inputs = {a, b, c, d};
+    // n->tape.resize(4);
+    // n->tape={std::make_shared<Tensor>(q), std::make_shared<Tensor>(k), std::make_shared<Tensor>(v), std::make_shared<Tensor>(s)};
+    // ag::debug::on_node_created(n); 
+    // return n; 
+    // }
 
 
 std::shared_ptr<Node> sigatt_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d){ 

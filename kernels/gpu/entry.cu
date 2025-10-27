@@ -35,6 +35,8 @@ extern void zero_cuda (float*, int64_t, ag_cuda_stream_t);
 extern void mm_cuda   (const float*, const float*, float*, int, int, int, ag_cuda_stream_t);
 extern void gemm_cuda   (const float*, const float*, float*, float*, int, int, int, ag_cuda_stream_t);
 extern void linear_cuda   (const float*, const float*, float*, float*, int, int, int, ag_cuda_stream_t);
+extern void run_flash_forward(const float* Q, const float* K, const float* V, float* O,
+                       int B, int nh, int N, int d, ag_cuda_stream_t);
 
 
 // ============================================================
@@ -68,6 +70,7 @@ extern void vjp_hard_sigmoid_cuda  (float*, const float*, const float*, int64_t,
 extern void vjp_hard_swish_cuda    (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 extern void vjp_sofba_cuda       (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 extern void vjp_log_cuda       (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
+
 
 
 
@@ -137,6 +140,7 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->vjp_hard_swish  = &vjp_hard_swish_cuda;
   out->vjp_sofba       = &vjp_sofba_cuda;
   out->vjp_log        = &vjp_log_cuda;
+  out->flash         = &run_flash_forward;
 
   return 0;
 }

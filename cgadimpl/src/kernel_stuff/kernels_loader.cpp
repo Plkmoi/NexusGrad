@@ -112,6 +112,7 @@ void load_cuda_plugin(const char* path) {
   g_cuda.matmul       = table.matmul;
   g_cuda.gemm       = table.gemm;
   g_cuda.linear       = table.linear;
+  g_cuda.flash = table.flash;
 
   // Basic ops VJPs
   g_cuda.vjp_add    = table.vjp_add;

@@ -117,8 +117,8 @@ namespace ag {
     }
 
 
-    Value attention(const Value& a, const Value& b, const Value& c, const Value& d){ 
-    return Value(detail::attention_nodeops(a.node, b.node, c.node, d.node));
+    Value attention(const Value& a, const Value& b, const Value& c, const Value& d, int Bw, int nh){ 
+    return Value(detail::attention_nodeops(a.node, b.node, c.node, d.node, Bw, nh));
     }
 
 
