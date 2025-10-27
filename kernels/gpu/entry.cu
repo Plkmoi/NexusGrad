@@ -66,6 +66,8 @@ extern void vjp_mish_cuda          (float*, const float*, const float*, int64_t,
 extern void vjp_exp_cuda           (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 extern void vjp_hard_sigmoid_cuda  (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 extern void vjp_hard_swish_cuda    (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
+extern void vjp_sofba_cuda       (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
+extern void vjp_log_cuda       (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 
 
 
@@ -133,6 +135,8 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->vjp_exp        = &vjp_exp_cuda;
   out->vjp_hard_sigmoid = &vjp_hard_sigmoid_cuda;
   out->vjp_hard_swish  = &vjp_hard_swish_cuda;
+  out->vjp_sofba       = &vjp_sofba_cuda;
+  out->vjp_log        = &vjp_log_cuda;
 
   return 0;
 }

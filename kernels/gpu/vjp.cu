@@ -5,6 +5,10 @@
 #include <cstdint>
 #include "ad/kernels_api.hpp"
 
+__device__ __forceinline__ float sigmoidf(float x) {
+  return 1.f / (1.f + __expf(-x));
+}
+
 __global__ void k_vjp_add_accum(float* gA, float* gB, const float* gy, int64_t n) {
     int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n) {
@@ -171,22 +175,22 @@ void vjp_clip_cuda(float* gX, const float* x, float minv, float maxv, const floa
 // --------------------
 
 
-__global__ void k_vjp_leaky_relu_accum(float* gX, const float* __restrict__ gy,
-                                       const float* __restrict__ X, float slope, int64_t n) {
+__global__ void k_vjp_leaky_relu_accum(float* gX, const float* __restrict__ X,
+                                       const float* __restrict__ gy, float slope, int64_t n) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) {
     float xi = X[i];
     atomicAdd(&gX[i], gy[i] * (xi > 0.f ? 1.0f : slope));
   }
 }
-void vjp_leaky_relu_cuda(float* gX, const float* gy, const float* X, float slope, int64_t n, ag_cuda_stream_t s) {
+void vjp_leaky_relu_cuda(float* gX, const float* X, const float* gy, float slope, int64_t n, ag_cuda_stream_t s) {
     int64_t blocks((unsigned int)((n + 255) / 256));
-    k_vjp_leaky_relu_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, gy, X, slope, n);
+    k_vjp_leaky_relu_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, slope, n);
 }
 
 // sigmoid, tanh, silu, gelu, mish, exp
 
-__global__ void k_vjp_sigmoid_accum(float* gX, const float* __restrict__ gy, const float* __restrict__ X, int64_t n) {
+__global__ void k_vjp_sigmoid_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) {
     float s = 1.0f / (1.0f + __expf(-X[i])); // sigmoid(X)
@@ -195,10 +199,10 @@ __global__ void k_vjp_sigmoid_accum(float* gX, const float* __restrict__ gy, con
 }
 void vjp_sigmoid_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda_stream_t s) {
     int64_t blocks((unsigned int)((n + 255) / 256));
-  k_vjp_sigmoid_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, gy, X, n);
+  k_vjp_sigmoid_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
 }
 
-__global__ void k_vjp_silu_accum(float* gX, const float* __restrict__ gy, const float* __restrict__ X, int64_t n) {
+__global__ void k_vjp_silu_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
   // SiLU(x) = x * sigmoid(x)
   // d/dx = sigmoid(x) + x * sigmoid(x)*(1-sigmoid(x))
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -208,13 +212,13 @@ __global__ void k_vjp_silu_accum(float* gX, const float* __restrict__ gy, const 
     atomicAdd(&gX[i], gy[i] * (s + xi * s * (1.0f - s)));
   }
 }
-void vjp_silu_cuda(float* gX, const float* gy, const float* X, int64_t n, ag_cuda_stream_t s) {
+void vjp_silu_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda_stream_t s) {
     int64_t blocks((unsigned int)((n + 255) / 256));
-  k_vjp_silu_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, gy, X, n);
+  k_vjp_silu_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
 }
 
 // GELU derivative (approximate) using same constants as forward
-__global__ void k_vjp_gelu_accum(float* gX, const float* __restrict__ gy, const float* __restrict__ X, int64_t n) {
+__global__ void k_vjp_gelu_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
   const float k0 = 0.7978845608f; // sqrt(2/pi)
   const float k1 = 0.044715f;
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -232,14 +236,14 @@ __global__ void k_vjp_gelu_accum(float* gX, const float* __restrict__ gy, const 
     atomicAdd(&gX[i], gy[i] * dg);
   }
 }
-void vjp_gelu_cuda(float* gX, const float* gy, const float* X, int64_t n, ag_cuda_stream_t s) {
+void vjp_gelu_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda_stream_t s) {
     int64_t blocks((unsigned int)((n + 255) / 256));
-  k_vjp_gelu_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, gy, X, n);
+  k_vjp_gelu_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
 }
 
 // MISH derivative (using softplus = log(1+exp(x)) and its derivatives)
 // d/dx [x * tanh(softplus(x))] = tanh(sp) + x * sech^2(sp) * sigmoid(x)
-__global__ void k_vjp_mish_accum(float* gX, const float* __restrict__ gy, const float* __restrict__ X, int64_t n) {
+__global__ void k_vjp_mish_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) {
     float x = X[i];
@@ -251,9 +255,9 @@ __global__ void k_vjp_mish_accum(float* gX, const float* __restrict__ gy, const 
     atomicAdd(&gX[i], gy[i] * grad);
   }
 }
-void vjp_mish_cuda(float* gX, const float* gy, const float* X, int64_t n, ag_cuda_stream_t s) {
+void vjp_mish_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda_stream_t s) {
     int64_t blocks((unsigned int)((n + 255) / 256));
-  k_vjp_mish_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, gy, X, n);
+  k_vjp_mish_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
 }
 
 __global__ void k_vjp_exp_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
@@ -298,4 +302,31 @@ __global__ void k_vjp_hard_swish_accum(float* gX, const float* __restrict__ X, c
 void vjp_hard_swish_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda_stream_t s) {
     int64_t blocks((unsigned int)((n + 255) / 256));
   k_vjp_hard_swish_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
+}
+
+__global__ void k_vjp_sofba_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+    atomicAdd(&gX[i], gy[i] * (1.0f / (1.0f + __expf(-X[i]))));
+  }
+}
+void vjp_sofba_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda_stream_t s) {
+    int64_t blocks((unsigned int)((n + 255) / 256));
+  k_vjp_sofba_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
+}
+
+
+__global__ void k_vjp_log_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n && X[i] != 0.0f) {
+    atomicAdd(&gX[i], gy[i] /X[i]);
+  }
+  else{
+
+    atomicAdd(&gX[i], 0.0f);
+  }
+}
+void vjp_log_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda_stream_t s) {
+    int64_t blocks((unsigned int)((n + 255) / 256));
+  k_vjp_log_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
 }

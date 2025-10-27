@@ -48,8 +48,8 @@ void softplus_bwd_impl_optimized(const float* x, const float* dY, float* dX, int
 void exp_bwd_impl_optimized_from_y(const float* y, const float* dY, float* dX, int64_t n);
 void log_bwd_impl_optimized(const float* x, const float* dY, float* dX, int64_t n);
 void sqrt_bwd_impl_optimized_from_y(const float* y, const float* dY, float* dX, int64_t n);
-// void matmul_bwd_dA_impl_optimized(const float* dC, const float* B, float* dA, int M, int K, int N);
-// void matmul_bwd_dB_impl_optimized(const float* A, const float* dC, float* dB, int M, int K, int N);
+void matmul_bwd_dA_impl_optimized(const float* dC, const float* B, float* dA, int M, int K, int N);
+void matmul_bwd_dB_impl_optimized(const float* A, const float* dC, float* dB, int M, int K, int N);
 void linear_dW_impl_optimized(const float* X, const float* dY, float* dW, int B, int In, int Out);
 void linear_dX_impl_optimized(const float* dY, const float* W, float* dX, int B, int In, int Out);
 void linear_db_impl_optimized(const float* dY, float* db, int B, int Out);
@@ -82,8 +82,8 @@ struct ag_cpu_v1 {
   elem_bwd_fn log_bwd;         //done
   elem_bwd_fn sqrt_bwd_from_y;  //done
   // matmul backward wrappers
-  // void (*matmul_bwd_dA)(const float*, const float*, float*, int M, int K, int N);   ***
-  // void (*matmul_bwd_dB)(const float*, const float*, float*, int M, int K, int N);   ***
+ void (*matmul_bwd_dA)(const float*, const float*, float*, int M, int K, int N);   
+ void (*matmul_bwd_dB)(const float*, const float*, float*, int M, int K, int N);  
   ag_linear_dW_fn linear_dW;
   ag_linear_dX_fn linear_dX;  
   ag_linear_db_fn linear_db;
@@ -169,7 +169,11 @@ typedef void (*ag_vjp_mish_cuda_fn)(float* gX, const float* gy, const float* X,
                                    int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_vjp_exp_cuda_fn)(float* gX, const float* gy, const float* X,
                                   int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_vjp_log_cuda_fn)(float* gX, const float* gy, const float* X,
+                                  int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_vjp_hard_sigmoid_cuda_fn)(float* gX, const float* gy, const float* X,
+                                          int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_vjp_softplusback_cuda_fn )(float* gX, const float* gy, const float* X,
                                           int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_vjp_hard_swish_cuda_fn)(float* gX, const float* gy, const float* X,
                                          int64_t n, ag_cuda_stream_t s);
@@ -245,6 +249,8 @@ struct ag_cuda_v1 {
   ag_vjp_exp_cuda_fn          vjp_exp;
   ag_vjp_hard_sigmoid_cuda_fn vjp_hard_sigmoid;
   ag_vjp_hard_swish_cuda_fn   vjp_hard_swish;
+  ag_vjp_softplusback_cuda_fn    vjp_sofba;
+  ag_vjp_log_cuda_fn        vjp_log       ;
 };
 
 // Every CUDA plugin must export this symbol.
@@ -282,8 +288,8 @@ struct Cpu {
   elem_bwd_fn log_bwd = nullptr;
   elem_bwd_fn sqrt_bwd_from_y = nullptr;
   // linear backward wrappers
-  // void (*matmul_bwd_dA)(const float*, const float*, float*, int M, int K, int N);
-  // void (*matmul_bwd_dB)(const float*, const float*, float*, int M, int K, int N);
+ void (*matmul_bwd_dA)(const float*, const float*, float*, int M, int K, int N);
+ void (*matmul_bwd_dB)(const float*, const float*, float*, int M, int K, int N);
   ag_linear_dW_fn linear_dW = nullptr;
   ag_linear_dX_fn linear_dX = nullptr;
   ag_linear_db_fn linear_db = nullptr;
@@ -352,6 +358,8 @@ struct Cuda {
   ag_vjp_exp_cuda_fn          vjp_exp = nullptr;
   ag_vjp_hard_sigmoid_cuda_fn vjp_hard_sigmoid = nullptr;
   ag_vjp_hard_swish_cuda_fn   vjp_hard_swish = nullptr;
+  ag_vjp_softplusback_cuda_fn    vjp_sofba       = nullptr;
+  ag_vjp_log_cuda_fn        vjp_log       = nullptr;
 };
 Cuda& cuda();
 void load_cuda_plugin(const char* path);

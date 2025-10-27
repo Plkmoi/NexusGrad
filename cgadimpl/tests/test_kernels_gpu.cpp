@@ -859,7 +859,7 @@ void test_gpu_unified_mish() {
     float *gy_gpu = to_gpu(gy_cpu);
     float *ga_gpu = to_gpu(ag::Tensor::zeros_like(x_cpu));
 
-    K.vjp_mish(ga_gpu, gy_gpu, x_gpu, ref.numel(), nullptr);
+    K.vjp_mish(ga_gpu, x_gpu, gy_gpu, ref.numel(), nullptr);
     CUDA_CHECK(cudaDeviceSynchronize());
 
     ag::Tensor ga_out = from_gpu(ga_gpu, 11, 11);

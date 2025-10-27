@@ -64,8 +64,8 @@ void load_cpu_plugin(const char* path) {
   g_cpu.log_bwd          = table.log_bwd;
   g_cpu.sqrt_bwd_from_y   = table.sqrt_bwd_from_y;
 
-  // g_cpu.matmul_bwd_dA = table.matmul_bwd_dA;
-  // g_cpu.matmul_bwd_dB = table.matmul_bwd_dB;
+  g_cpu.matmul_bwd_dA = table.matmul_bwd_dA;
+ g_cpu.matmul_bwd_dB = table.matmul_bwd_dB;
   g_cpu.linear_dW     = table.linear_dW;
   g_cpu.linear_dX     = table.linear_dX;
   g_cpu.linear_db     = table.linear_db;
@@ -139,6 +139,8 @@ void load_cuda_plugin(const char* path) {
   g_cuda.vjp_exp         = table.vjp_exp;
   g_cuda.vjp_hard_sigmoid = table.vjp_hard_sigmoid;
   g_cuda.vjp_hard_swish  = table.vjp_hard_swish;
+  g_cuda.vjp_sofba       = table.vjp_sofba;
+  g_cuda.vjp_log        = table.vjp_log;
 
 }
 

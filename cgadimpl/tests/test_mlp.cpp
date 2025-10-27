@@ -107,7 +107,20 @@ auto bias = param(Tensor::zeros(8,8), "bias");
 
     auto q =   linear(a, b, c); // [2,2]
     //auto m=q*c;
-    auto y=q + d;
+    auto y=q * d;
+std::cout << "y = " << y.val()
+<<","<< endl<< "A = " << a.val()
+<<","<< endl<< "B = " << b.val()<<","<< endl
+<< "c = " << c.val() << endl<< "q = " << q.val() << endl;
+std::cout << "y grad " << y.grad() << endl;
+std::cout << "dL/dA[0,0] = " << a.grad()
+<<","<< endl<< "dL/dB[0,0] = " << b.grad()<<","<< endl
+<< "dL/dbias[0,0] = " << bias.grad() << endl<< "dL/dq = " << q.grad() << endl;
+zero_grad(y);
+backward(y);
+     q =   linear(a, b, c); // [2,2]
+    //auto m=q*c;
+     y=q * d;
 std::cout << "y = " << y.val()
 <<","<< endl<< "A = " << a.val()
 <<","<< endl<< "B = " << b.val()<<","<< endl
@@ -119,7 +132,8 @@ std::cout << "dL/dA[0,0] = " << a.grad()
 zero_grad(y);
 backward(y);
 
-unisend(y);
+valsend(y);
+grasend(y);
 
 std::cout << "y = " << y.val()
 <<","<< endl<< "A = " << a.val()

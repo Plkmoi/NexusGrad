@@ -168,3 +168,161 @@ dim3 blocks( (unsigned int)(((M*K)+ 255) / 256) );
             k_vjp_c_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gC, gy, (M*K));
 
 }
+
+
+
+// --------------------------------------------
+// Flash Attention Forward Kernel (Fixed Logic)
+// --------------------------------------------
+__global__ void flash_forward_kernele(
+    const float* Q, const float* K, const float* V, float* O,
+    const int N, const int d,
+    const int Tc, const int Tr, const int Bc, const int Br,
+    float* l, float* m, const float softmax_scale)
+{
+    int tx = threadIdx.x;
+    int bx = blockIdx.x;
+    int by = blockIdx.y; // batch and head index
+    int i = blockIdx.z;
+    int j = threadIdx.y;
+
+    int qkv_offset = (bx * gridDim.y * N * d) + (by * N * d); // per batch+head
+    int lm_offset  = (bx * gridDim.y * N) + (by * N);
+
+    extern __shared__ float sram[];
+    int tile_size = Bc * d;
+    float* Qi = sram;
+    float* Kj = &sram[tile_size];
+    float* Vj = &sram[tile_size * 2];
+    float* S  = &sram[tile_size * 3]; // S has shape [Br x Bc]
+
+        int row_idx = i * Br + tx;
+        if (row_idx < N) {
+
+        // load Qi
+        for (int x = 0; x < d; x++) {
+            Qi[tx * d + x] = Q[qkv_offset + row_idx * d + x];
+        }
+
+        float row_m_prev = -INFINITY;
+        float row_l_prev = 0.0f;
+        if (m && l && i < Tr) {
+            // if we already processed previous tiles
+            row_m_prev = m[lm_offset + row_idx];
+            row_l_prev = l[lm_offset + row_idx];
+        }
+
+        float row_m_new = row_m_prev;
+        float row_l_new = row_l_prev;
+
+        // process each K/V tile
+        if (j < Tc) {
+            int col_base = j * Bc;
+            __syncthreads();
+
+            // Load K/V to SRAM
+            if (col_base + tx < N) {
+                for (int x = 0; x < d; x++) {
+                    Kj[tx * d + x] = K[qkv_offset + (col_base + tx) * d + x];
+                    Vj[tx * d + x] = V[qkv_offset + (col_base + tx) * d + x];
+                }
+            } else {
+                for (int x = 0; x < d; x++) {
+                    Kj[tx * d + x] = 0.0f;
+                    Vj[tx * d + x] = 0.0f;
+                }
+            }
+            printf("wefgrhy46k");
+
+            __syncthreads();
+
+            // compute attention scores S = QK^T
+            float row_m = -INFINITY;
+            for (int y = 0; y < Bc; y++) {
+                float sum = 0.0f;
+                for (int x = 0; x < d; x++) {
+                    sum += Qi[tx * d + x] * Kj[y * d + x];
+                }
+                sum *= softmax_scale;
+                S[tx * Bc + y] = sum;
+                if (sum > row_m) row_m = sum;
+            }
+
+            // compute P = exp(S - row_m)
+            float row_l = 0.0f;
+            for (int y = 0; y < Bc; y++) {
+                float val = __expf(S[tx * Bc + y] - row_m);
+                S[tx * Bc + y] = val;
+                row_l += val;
+            }
+
+            // combine with running max/sum
+            float new_m = fmaxf(row_m_prev, row_m);
+            float new_l = __expf(row_m_prev - new_m) * row_l_prev +
+                          __expf(row_m - new_m) * row_l;
+
+            // accumulate O
+            for (int x = 0; x < d; x++) {
+                float pv = 0.0f;
+                for (int y = 0; y < Bc; y++) {
+                    pv += S[tx * Bc + y] * Vj[y * d + x];
+                }
+
+                float old_O = (row_l_prev > 0)
+                    ? O[qkv_offset + row_idx * d + x]
+                    : 0.0f;
+
+                float new_O = (1.0f / new_l) *
+                              ( __expf(row_m_prev - new_m) * row_l_prev * old_O +
+                                __expf(row_m - new_m) * pv );
+
+                O[qkv_offset + row_idx * d + x] = new_O;
+            }
+
+            row_m_prev = new_m;
+            row_l_prev = new_l;
+            row_m_new  = new_m;
+            row_l_new  = new_l;
+        }
+
+        // store back updated m and l
+        m[lm_offset + row_idx] = row_m_new;
+        l[lm_offset + row_idx] = row_l_new;
+        __syncthreads();
+    }
+}
+
+// --------------------------------------------
+// Host Launcher
+// --------------------------------------------
+void run_flash_forwarde(const float* Q, const float* K, const float* V, float* O,
+                       int B, int nh, int N, int d) {
+    const int Bc = 32, Br = 32;
+    const int Tc = (N + Bc - 1) / Bc;
+    const int Tr = (N + Br - 1) / Br;
+    const float softmax_scale = 1.0f / sqrtf((float)d);
+
+    size_t qkv_size = B * nh * N * d * sizeof(float);
+    size_t lm_size  = B * nh * N * sizeof(float);
+
+    float *d_O, *d_l, *d_m;
+
+    cudaMalloc(&d_l, lm_size);
+    cudaMalloc(&d_m, lm_size);
+
+
+    cudaMemset(d_l, 0, lm_size);
+    cudaMemset(d_m, 0, lm_size); // init to -inf handled inside kernel
+
+    dim3 grid_dim(B, nh, Tr);
+    dim3 block_dim(Br, Tc);
+    int shared_mem = (3 * Bc * d + Br * Bc) * sizeof(float);
+
+    flash_forward_kernele<<<grid_dim, block_dim, shared_mem>>>(
+        Q, K, V, O,
+        N, d, Tc, Tr, Bc, Br, d_l, d_m, softmax_scale
+    );
+    cudaDeviceSynchronize();
+
+
+}

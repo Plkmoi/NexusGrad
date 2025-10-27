@@ -107,7 +107,7 @@ auto bias = param(Tensor::zeros(8,8), "bias");
 
     auto q =   linear(a, b, c); // [2,2]
     //auto m=q*c;
-    auto y=q + d;
+    auto y=q * d;
 std::cout << "y = " << y.val()
 <<","<< endl<< "A = " << a.val()
 <<","<< endl<< "B = " << b.val()<<","<< endl
