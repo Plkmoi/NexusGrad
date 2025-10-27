@@ -87,19 +87,33 @@ namespace detail {
 //         return n; 
 //     }
 std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){
-    const Tensor& A = a->value;
-    const Tensor& B = b->value;
-    if (A.device() != B.device()) {
+                       if (a->value.device() != b->value.device()) {
         throw std::runtime_error("add_nodeops: device mismatch between inputs.");
     }
 
-    Tensor Y = Tensor::zeros_like(A); // Create output tensor on the same device
+    Tensor Y = Tensor::zeros_like(a->value); // Create output tensor on the same device
 
-    if (A.is_cpu()) {
-        Y = A + B; // Use the old CPU-based operator+
+    if (a->value.is_cpu()  && b->value.is_cpu()) {
+     //   auto fn = ag::kernels::cpu().add;
+        if (0) { // add CPU add kernel for AVX2
+            // if(fn) {
+            // --- NEW: Call the fast AVX2 add kernel ---
+       //     fn(X.data(), Y.data(), X.numel());
+        } else {
+            // --- OLD: Fallback to generic C++ ---
+            Y = a->value + b->value;
+        }
     } else {
-        // Dispatch to the GPU kernel!
-        ag::kernels::cuda().add(A.data(), B.data(), Y.data(), Y.numel(), ag::current_stream());
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().add;
+        if (fn) {
+        Y.to(Device::CUDA);
+        fn(a->value.data(), b->value.data(), Y.data(), Y.numel(), ag::current_stream());
+        } 
+        else {
+            throw std::runtime_error("ReLU forward on CUDA not implemented or loaded.");
+        }
     }
 
     auto n = std::make_shared<Node>(Y, a->requires_grad || b->requires_grad, Op::Add, "+");
@@ -143,8 +157,36 @@ std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::sha
     // }
 
    std::shared_ptr<Node> sub_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){ 
-        Tensor y = a->value - b->value; 
-        auto n = std::make_shared<Node>(y, a->requires_grad || b->requires_grad, Op::Sub, "-"); 
+                          if (a->value.device() != b->value.device()) {
+        throw std::runtime_error("add_nodeops: device mismatch between inputs.");
+    }
+
+    Tensor Y = Tensor::zeros_like(a->value); // Create output tensor on the same device
+
+    if (a->value.is_cpu()  && b->value.is_cpu()) {
+     //   auto fn = ag::kernels::cpu().sub;
+        if (0) { // add CPU add kernel for AVX2
+            // if(fn) {
+            // --- NEW: Call the fast AVX2 add kernel ---
+       //     fn(X.data(), Y.data(), X.numel());
+        } else {
+            // --- OLD: Fallback to generic C++ ---
+            Y = a->value - b->value;
+        }
+    } else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().sub;
+        if (fn) {
+        Y.to(Device::CUDA);
+        fn(a->value.data(), b->value.data(), Y.data(), Y.numel(), ag::current_stream());
+        } 
+        else {
+            throw std::runtime_error("ReLU forward on CUDA not implemented or loaded.");
+        }
+    }
+
+        auto n = std::make_shared<Node>(Y, a->requires_grad || b->requires_grad, Op::Sub, "-"); 
         n->inputs = {a, b}; 
         ag::debug::on_node_created(n); 
         return n; 
@@ -186,8 +228,37 @@ std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::sha
     // }
 
     std::shared_ptr<Node> mul_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){ 
-        Tensor y = a->value * b->value; 
-        auto n = std::make_shared<Node>(y, a->requires_grad || b->requires_grad, Op::Mul, "*"); 
+                    if (a->value.device() != b->value.device()) {
+        throw std::runtime_error("add_nodeops: device mismatch between inputs.");
+    }
+
+    Tensor Y = Tensor::zeros_like(a->value); // Create output tensor on the same device
+
+    if (a->value.is_cpu()  && b->value.is_cpu()) {
+     //   auto fn = ag::kernels::cpu().hadmul;
+        if (0) { // add CPU add kernel for AVX2
+            // if(fn) {
+            // --- NEW: Call the fast AVX2 hadmul kernel ---
+       //     fn(X.data(), Y.data(), X.numel());
+        } else {
+            // --- OLD: Fallback to generic C++ ---
+            Y = a->value * b->value;
+        }
+    } else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().hadmul;
+        if (fn) {
+        Y.to(Device::CUDA);
+        fn(a->value.data(), b->value.data(), Y.data(), Y.numel(), ag::current_stream());
+        } 
+        else {
+            throw std::runtime_error("ReLU forward on CUDA not implemented or loaded.");
+        }
+    }
+
+    
+        auto n = std::make_shared<Node>(Y, a->requires_grad || b->requires_grad, Op::Mul, "*"); 
         n->inputs = {a, b}; 
         ag::debug::on_node_created(n); 
         return n; 
@@ -251,6 +322,7 @@ std::shared_ptr<Node> relu_nodeops(const std::shared_ptr<Node>& x){
         // This will correctly dispatch to your existing CUDA ReLU kernel.
         auto fn = ag::kernels::cuda().relu;
         if (fn) {
+            Y.to(Device::CUDA);
             fn(X.data(), Y.data(), Y.numel(), ag::current_stream());
         } else {
             throw std::runtime_error("ReLU forward on CUDA not implemented or loaded.");
@@ -376,8 +448,35 @@ std::shared_ptr<Node> matmul_nodeops(const std::shared_ptr<Node>& a, const std::
     //      return n;
     // }
     std::shared_ptr<Node> fmab_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c){ 
-        Tensor y = Tensor::matmul(a->value, b->value)+c->value; 
-        auto n = std::make_shared<Node>(y, a->requires_grad || b->requires_grad || c->requires_grad, Op::FMA, "fmab"); 
+                            if (a->value.device() != b->value.device()) {
+        throw std::runtime_error("add_nodeops: device mismatch between inputs.");
+    }
+
+    Tensor Y = Tensor::zeros_like(a->value); // Create output tensor on the same device
+
+    if (a->value.is_cpu()  && b->value.is_cpu() && c->value.is_cpu()) {
+     //   auto fn = ag::kernels::cpu().hadmul;
+        if (0) { // add CPU fmab kernel for AVX2
+            // if(fn) {
+            // --- NEW: Call the fast AVX2 fmab kernel ---
+       //     fn(X.data(), Y.data(), X.numel());
+        } else {
+            // --- OLD: Fallback to generic C++ ---
+            Y = Tensor::matmul(a->value, b->value) + c->value;
+        }
+    } else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().gemm;
+        if (fn) {
+        Y.to(Device::CUDA);
+        fn(a->value.data(), b->value.data(), c->value.data(), Y.data(), a->value.rows(), a->value.cols(),  b->value.cols(), ag::current_stream());
+        } 
+        else {
+            throw std::runtime_error("GEMM forward on CUDA not implemented or loaded.");
+        }
+    }
+        auto n = std::make_shared<Node>(Y, a->requires_grad || b->requires_grad || c->requires_grad, Op::FMA, "fmab"); 
         n->inputs = {a, b, c}; ag::debug::on_node_created(n); 
         return n; 
     }
@@ -631,42 +730,28 @@ std::shared_ptr<Node> relumask_nodeops(const std::shared_ptr<Node>& x) {
 std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c){
     auto A = a->value;
     auto B = b->value;
+    auto C = c->value;
 
     auto [M,K]  = A.shape();
     auto [K2,N] = B.shape();
-    if (K != K2) throw std::runtime_error("gemm: inner dims mismatch");
-
-    auto C = c->value;
-
-    Tensor E = Tensor::zeros(M, N, Device::CUDA);
-
-    auto* fn = ag::kernels::cuda().linear;
-
-    if (fn) {
-        // --- NEW: Call the fast CUDA kernel ---
-        fn(A.data(), B.data(), C.data(), E.data(), M , K, N, ag::current_stream());
+    
+    if (K != N) throw std::runtime_error("gemm: inner dims mismatch");
 
 
+                            if (a->value.device() != b->value.device()) {
+        throw std::runtime_error("add_nodeops: device mismatch between inputs.");
+    }
 
-    } 
-else{
-    //         const Tensor& A = a->value;
-//          const Tensor& B = Tensor::transpose(b->value);
+    Tensor E = Tensor::zeros_like(c->value); // Create output tensor on the same device
 
-//          auto [M,K]  = A.shape();
-//          auto [K2,N] = B.shape();
-//          if (K != K2) throw std::runtime_error("gemm: inner dims mismatch");
-
-//          const Tensor& C = c->value; 
-
-//                  Tensor E({M,N});
-
-
-//          auto* fn = ag::kernels::cpu().fmab;
-//          if (!fn) throw std::runtime_error("No CPU GEMM kernel registered now only");
-//          fn(A.data(), B.data(), C.data(), E.data(), M, K, N);
-
-    // Direct implementation of fused multiply-add (A * B + C)
+    if (a->value.is_cpu()  && b->value.is_cpu() && c->value.is_cpu()) {
+     //   auto fn = ag::kernels::cpu().hadmul;
+        if (0) { // add CPU fmab kernel for AVX2
+            // if(fn) {
+            // --- NEW: Call the fast AVX2 fmab kernel ---
+       //     fn(X.data(), Y.data(), X.numel());
+        } else {
+            // --- OLD: Fallback to generic C++ ---
     const float* a_data = A.data();
     const float* b_data = B.data();
     const float* c_data = C.data();
@@ -683,7 +768,21 @@ else{
             e_data[i * N + j] = sum + (C.numel() == N ? c_data[j] : c_data[i * N + j]);
         }
     }
-}
+
+
+        }
+    } else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().linear;
+        if (fn) {
+        E.to(Device::CUDA);
+        fn(a->value.data(), b->value.data(), c->value.data(), E.data(), a->value.rows(), a->value.cols(),  b->value.cols(), ag::current_stream());
+        } 
+        else {
+            throw std::runtime_error("GEMM forward on CUDA not implemented or loaded.");
+        }
+    }
     auto n = std::make_shared<Node>(E,
         (a->requires_grad || b->requires_grad || c->requires_grad),
         Op::Linear, "linear");

@@ -37,6 +37,11 @@ namespace ag {
         return Value(std::make_shared<Node>(v, requires_grad, Op::Leaf, name));
 }
 
+//     std::shared_ptr<Node> make_tensornode(const Tensor& v, const char* name, bool requires_grad) {
+//         // The boolean `requires_grad` directly controls the second argument of the Node constructor.
+//         return std::make_shared<Node>(v, requires_grad, Op::Leaf, name);
+// }
+
     Value constant(const Tensor& v, const char* name){ 
         return Value(std::make_shared<Node>(v,false,Op::Leaf,name)); 
     }
