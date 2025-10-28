@@ -129,8 +129,22 @@ Tensor Tensor::randn(int r, int c, unsigned seed, Device dev) {
     return dev == Device::CPU ? t_cpu : t_cpu.to(Device::CUDA);
 }
 
+Tensor Tensor::vales(int r, int c, float vals, Device dev) {
+    Tensor t(r, c, dev);
+    if (t.numel() > 0) {
+        if (dev == Device::CPU) {
+            std::fill(t.data(), t.data() + t.numel(), vals);
+        } else {
+            std::vector<float> temp(t.numel(), vals);
+            CUDA_CHECK(cudaMemcpy(t.data(), temp.data(), t.numel() * sizeof(float), cudaMemcpyHostToDevice));
+        }
+    }
+    return t;
+}
+
 Tensor Tensor::zeros_like(const Tensor& x) { return zeros(x.r_, x.c_, x.dev_); }
 Tensor Tensor::ones_like(const Tensor& x) { return ones(x.r_, x.c_, x.dev_); }
+Tensor Tensor::vals_like(const Tensor& x, float vals) { return vales(x.r_, x.c_, vals, x.dev_); }
 Tensor Tensor::floten(float q) { Tensor t(1, 1); t(0,0) = q; return t; }
 Tensor Tensor::alibi(int rows, int cols, float m) { /* Unchanged CPU-only code */ return Tensor(); }
 
@@ -356,6 +370,13 @@ Tensor Tensor::sigmoid(const Tensor& x) {
     REQUIRE_CPU(x, "sigmoid");
     Tensor y(x.rows(), x.cols());
     for(size_t i=0; i < x.numel(); ++i) y.data()[i] = 1.f / (1.f + std::exp(-x.data()[i]));
+    return y;
+}
+
+Tensor Tensor::silu(const Tensor& x) {
+    REQUIRE_CPU(x, "silu");
+    Tensor y(x.rows(), x.cols());
+    for(size_t i=0; i < x.numel(); ++i) y.data()[i] = x.data()[i] / (1.f + std::exp(-x.data()[i]));
     return y;
 }
 

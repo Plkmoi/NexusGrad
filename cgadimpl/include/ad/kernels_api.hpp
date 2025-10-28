@@ -121,6 +121,7 @@ typedef void (*ag_hard_swish_cuda_fn)  (const float* x, float* y, int64_t n, ag_
 typedef void (*ag_exp_cuda_fn)         (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_log_cuda_fn)         (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_softplus_cuda_fn)         (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_relumask_cuda_fn)    (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
 
 // Core
 typedef void (*ag_zero_cuda_fn)  (float* x, int64_t n, ag_cuda_stream_t s);
@@ -225,6 +226,7 @@ struct ag_cuda_v1 {
   ag_exp_cuda_fn          exp;
   ag_log_cuda_fn          log;
   ag_softplus_cuda_fn          softplus;
+  ag_relumask_cuda_fn     relumask;
 
   // Core
   ag_zero_cuda_fn   zero;
@@ -330,6 +332,7 @@ struct Cuda {
   ag_neg_cuda_fn     neg    = nullptr;
   ag_clip_cuda_fn    clip   = nullptr;
   ag_log_cuda_fn          log = nullptr;
+  ag_relumask_cuda_fn     relumask = nullptr;
 
   // Activations
   ag_relu_cuda_fn         relu         = nullptr;

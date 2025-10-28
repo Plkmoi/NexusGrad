@@ -38,8 +38,10 @@ public:
     static Tensor zeros(int r, int c, Device dev = Device::CPU);
     static Tensor ones (int r, int c, Device dev = Device::CPU);
     static Tensor randn(int r, int c, unsigned seed=42, Device dev = Device::CPU);
-    static Tensor zeros_like(const Tensor& x);
+    static Tensor vales(int r, int c, float vals, Device dev);
+    static Tensor zeros_like(const Tensor &x);
     static Tensor ones_like (const Tensor& x);
+    static Tensor vals_like(const Tensor &x, float val);
     // static Tensor from_gpu(const float* d_ptr, int rows, int cols);
     // static Tensor final_from_gpu(const float* d_ptr, int rows, int cols);
     // Tensor signaler (Device dev);
@@ -95,6 +97,7 @@ public:
     static Tensor sqrt(const Tensor &x);
     static Tensor tanh(const Tensor& x);
     static Tensor sigmoid(const Tensor& x);
+    static Tensor silu(const Tensor& x);
     static Tensor softplus(const Tensor& x);
     static Tensor gelu_tanh(const Tensor& x);
     static Tensor leaky_relu(const Tensor& x, float alpha);

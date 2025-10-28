@@ -263,7 +263,7 @@ std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::sha
     }
 
   std::shared_ptr<Node> flomul_nodeops(const std::shared_ptr<Node>& a, float b){ 
-        auto c = std::make_shared<Node>(b*Tensor::ones_like(a->value), false, Op::Leaf, "leaf");
+        auto c = std::make_shared<Node>(Tensor::vals_like(a->value,b), false, Op::Leaf, "leaf");
         Tensor y = mul_nodeops(a, c)->value; 
         auto n = std::make_shared<Node>(y, a->requires_grad || c->requires_grad, Op::Mul, "*"); 
         n->inputs = {a, c}; 
@@ -635,36 +635,70 @@ std::shared_ptr<Node> moewe_nodeops(const std::shared_ptr<Node>& x, const std::s
 //     }
 
 std::shared_ptr<Node> div_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){
-    const Tensor& A = a->value;
-    const Tensor& B = b->value;
 
-    if (A.shape() != B.shape()) {
-        throw std::runtime_error("div: tensor shapes must match for element-wise division");
+    if (a->value.device() != b->value.device()) {
+        throw std::runtime_error("add_nodeops: device mismatch between inputs.");
     }
 
-    Tensor C = Tensor::zeros_like(A);
+    Tensor Y = Tensor::zeros_like(a->value); // Create output tensor on the same device
 
-    // Direct implementation of element-wise division
-    const float* a_data = A.data();
-    const float* b_data = B.data();
-    float* c_data = C.data();
-    const int64_t num_elements = A.numel();
-
-    for (int64_t i = 0; i < num_elements; ++i) {
-        // Note: This does not explicitly handle division by zero.
-        // For better numerical stability, you might want to add a small epsilon to the divisor.
-        c_data[i] = a_data[i] / b_data[i];
+    if (a->value.is_cpu()  && b->value.is_cpu()) {
+     //   auto fn = ag::kernels::cpu().hadmul;
+        if (0) { // add CPU add kernel for AVX2
+            // if(fn) {
+            // --- NEW: Call the fast AVX2 hadmul kernel ---
+       //     fn(X.data(), Y.data(), X.numel());
+        } else {
+            // --- OLD: Fallback to generic C++ ---
+            Y = a->value / b->value;
+        }
+    } else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().hadmul;
+        if (fn) {
+        fn(a->value.data(), b->value.data(), Y.data(), Y.numel(), ag::current_stream());
+        } 
+        else {
+            throw std::runtime_error("ReLU forward on CUDA not implemented or loaded.");
+        }
     }
 
-    auto n = std::make_shared<Node>(C,
+    
+    auto n = std::make_shared<Node>(Y,
         (a->requires_grad || b->requires_grad),
         Op::Div, "/");
     n->inputs = { a, b };
     return n;
+
+
+    // const Tensor& A = a->value;
+    // const Tensor& B = b->value;
+
+    // if (A.shape() != B.shape()) {
+    //     throw std::runtime_error("div: tensor shapes must match for element-wise division");
+    // }
+
+    // Tensor C = Tensor::zeros_like(A);
+
+    // // Direct implementation of element-wise division
+    // const float* a_data = A.data();
+    // const float* b_data = B.data();
+    // float* c_data = C.data();
+    // const int64_t num_elements = A.numel();
+
+    // for (int64_t i = 0; i < num_elements; ++i) {
+    //     // Note: This does not explicitly handle division by zero.
+    //     // For better numerical stability, you might want to add a small epsilon to the divisor.
+    //     c_data[i] = a_data[i] / b_data[i];
+    // }
+
+
 }
 
         std::shared_ptr<Node> reci_nodeops(const std::shared_ptr<Node>& a){ 
-        Tensor y = Tensor::ones_like(a->value)/a->value; 
+            auto c = std::make_shared<Node>(Tensor::ones_like(a->value), false, Op::Leaf, "leaf");
+        Tensor y = div_nodeops(c, a)->value; 
         auto n = std::make_shared<Node>(y, a->requires_grad, Op::Reciprocal, "reciprocal"); 
         n->inputs = {a}; 
         ag::debug::on_node_created(n); 
@@ -672,8 +706,8 @@ std::shared_ptr<Node> div_nodeops(const std::shared_ptr<Node>& a, const std::sha
     }
 
      std::shared_ptr<Node> flodiv_nodeops(float b , const std::shared_ptr<Node>& a){ 
-        auto c = std::make_shared<Node>(b*Tensor::ones_like(a->value), false, Op::Leaf, "leaf");
-        Tensor y = c->value / a->value; 
+        auto c = std::make_shared<Node>(Tensor::vals_like(a->value,b), false, Op::Leaf, "leaf");
+        Tensor y = div_nodeops(c, a)->value; 
         auto n = std::make_shared<Node>(y, a->requires_grad || c->requires_grad, Op::Div, "/"); 
         n->inputs = {a, c}; 
         ag::debug::on_node_created(n); 
@@ -682,8 +716,8 @@ std::shared_ptr<Node> div_nodeops(const std::shared_ptr<Node>& a, const std::sha
 
 
      std::shared_ptr<Node> floadd_nodeops(float b , const std::shared_ptr<Node>& a){ 
-        auto c = std::make_shared<Node>(b*Tensor::ones_like(a->value), false, Op::Leaf, "leaf");
-        Tensor y = c->value + a->value; 
+        auto c = std::make_shared<Node>(Tensor::vals_like(a->value,b), false, Op::Leaf, "leaf");
+        Tensor y = add_nodeops(c, a)->value; 
         auto n = std::make_shared<Node>(y, a->requires_grad || c->requires_grad, Op::Add, "+"); 
         n->inputs = {a, c}; 
         ag::debug::on_node_created(n); 
@@ -705,20 +739,32 @@ std::shared_ptr<Node> div_nodeops(const std::shared_ptr<Node>& a, const std::sha
 //     }
 
 std::shared_ptr<Node> relumask_nodeops(const std::shared_ptr<Node>& x) {
-    const Tensor& xin = x->value;
-    Tensor y = Tensor::zeros_like(xin);
+        const Tensor& X = x->value;
+    Tensor Y = Tensor::zeros_like(X);
 
-    // Direct implementation of the ReLU mask
-    const float* x_data = xin.data();
-    float* y_data = y.data();
-    for (int64_t i = 0; i < xin.numel(); ++i) {
-        if (x_data[i] > 0) {
-            y_data[i] = 1.0f;
+    if (X.is_cpu()) {
+        auto fn = ag::kernels::cpu().relu;
+        if (fn) {
+            // --- NEW: Call the fast AVX2 kernel ---
+            fn(X.data(), Y.data(), X.numel());
+        } else {
+            // --- OLD: Fallback to generic C++ ---
+            Y = Tensor::relu(X);
+        }
+    } else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().relumask;
+        if (fn) {
+            fn(X.data(), Y.data(), Y.numel(), ag::current_stream());
+        } else {
+            throw std::runtime_error("ReLU forward on CUDA not implemented or loaded.");
         }
     }
 
-    auto n = std::make_shared<Node>(y, x->requires_grad, Op::Relumask, "relumask");
+    auto n = std::make_shared<Node>(Y, x->requires_grad, Op::Relu, "relu");
     n->inputs = {x};
+    ag::debug::on_node_created(n);
     return n;
 }
 
@@ -1236,11 +1282,31 @@ std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){
     }
     
     std::shared_ptr<Node> silu_nodeops(const std::shared_ptr<Node>& x){ 
-        Tensor y = Tensor::sigmoid(x->value); 
-        y = y * x->value; 
-        auto n=std::make_shared<Node>(y, x->requires_grad, Op::SiLU, "silu"); 
+        const Tensor& X = x->value;
+        Tensor Y = Tensor::zeros_like(X);
+
+        if (X.is_cpu()) {
+            // auto fn = ag::kernels::cpu().silu;
+            // if (fn) {
+            //     // --- NEW: Call the fast kernel ---
+            //     fn(X.data(), Y.data(), X.numel());
+            // } else {
+                // --- OLD: Fallback to generic C++ ---
+                Y = Tensor::silu(X); 
+       //     }
+        } else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().silu;
+        if (fn) {
+            fn(X.data(), Y.data(), Y.numel(), ag::current_stream());
+        } else {
+            // GPU path (when ready)
+            throw std::runtime_error("Gelu forward on CUDA not implemented yet!");
+        }
+    }
+        auto n = std::make_shared<Node>(Y, x->requires_grad, Op::SiLU, "silu"); 
         n->inputs={x}; 
-        ag::debug::on_node_created(n);  
         return n;
     }
 
@@ -1256,7 +1322,7 @@ std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){
     std::shared_ptr<Node> lisht_nodeops(const std::shared_ptr<Node>& x){ 
         Tensor y = x->value*Tensor::tanh(x->value); 
 
-        auto n=std::make_shared<Node>(y, x->requires_grad, Op::Parcon, "parcon"); 
+        auto n=std::make_shared<Node>(y, x->requires_grad, Op::LiSHT, "lisht"); 
         n->inputs={x}; 
         ag::debug::on_node_created(n);  
         return n;

@@ -34,6 +34,7 @@ extern void hard_swish_cuda  (const float*, float*, int64_t, ag_cuda_stream_t);
 extern void exp_cuda         (const float*, float*, int64_t, ag_cuda_stream_t);
 extern void log_cuda         (const float*, float*, int64_t, ag_cuda_stream_t);
 extern void softplus_cuda    (const float*, float*, int64_t, ag_cuda_stream_t);
+extern void relumask_cuda    (const float*, float*, int64_t, ag_cuda_stream_t);
 
 // Core ops
 extern void zero_cuda (float*, int64_t, ag_cuda_stream_t);
@@ -119,6 +120,7 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->matmul       = &mm_cuda;
   out->gemm       = &gemm_cuda;
   out->linear       = &linear_cuda;
+  out->relumask      = &relumask_cuda;
 
   // ========================================================
   // Backward (VJP)

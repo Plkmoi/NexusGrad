@@ -733,7 +733,7 @@ for (int y = 0; y < Bc; y++) {
 }
 
             // combine with running max/sum
-            float new_m = sigmoidf(row_m_prev)+row_m;
+            float new_m = APA(*act,row_m_prev)+row_m;
             float new_l = row_l_prev + row_l;  // Just sum the normalizers
 
             // accumulate O
@@ -792,15 +792,20 @@ void run_flashflex_forwardz(const float* Q, const float* K, const float* V, floa
     cudaMemset(d_l, 0, lm_size);
     cudaMemset(d_m, 0, lm_size); // init to -inf handled inside kernel
 
+    float* d_act;
+cudaMalloc(&d_act, N * sizeof(float));
+cudaMemcpy(d_act, act, N * sizeof(float), cudaMemcpyHostToDevice);
+
     dim3 grid_dim(B, nh, Tr);
     dim3 block_dim(Br, Tc);
     int shared_mem = (3 * Bc * d + Br * Bc) * sizeof(float);
 
         flash_flexforward_kerneleoo<<<grid_dim, block_dim, shared_mem, (cudaStream_t)s>>>(
         Q, K, V, O,
-        N, d, Tc, Tr, Bc, Br, d_l, d_m, act, softmax_scale
+        N, d, Tc, Tr, Bc, Br, d_l, d_m, d_act, softmax_scale
     );
     cudaDeviceSynchronize();
+    cudaFree(d_act);
     
 }
 

@@ -86,6 +86,13 @@ __global__ void k_relu(const float* __restrict__ x, float* __restrict__ y, int64
   }
 }
 
+__global__ void k_relumask(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+    y[i] = x[i] > 0.f ? 1.f : 0.f;
+  }
+}
+
 __global__ void k_leaky_relu(const float* __restrict__ x, float* __restrict__ y,
                              float slope, int64_t n) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -193,6 +200,9 @@ void clip_cuda(const float* x, float* y, float minv, float maxv, int64_t n, ag_c
 
 // Activations
 void relu_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
+  k_relu<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(x, y, n);
+}
+void relumask_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
   k_relu<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(x, y, n);
 }
 void leaky_relu_cuda(const float* x, float* y, float slope, int64_t n, ag_cuda_stream_t s) {

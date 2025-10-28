@@ -1330,9 +1330,18 @@ void vjp_Relu(Node* n, const Tensor& gy){
             Tensor dA = Tensor::relu_mask(X->value);
             X->grad.add_( rt( gy * dA, X->value) );
         }
-    } else {
+    } else  {
+        // GPU path (when ready)
+        auto fn = ag::kernels::cuda().vjp_relu;
+        if (fn) {
+            // --- NEW: Call the fast backward kernel ---
+            // The kernel takes the original input `x` to compute the derivative (sigmoid(x)).
+            fn(X->grad.data(),  X->value.data(), gy.data(), X->value.numel(), nullptr);
+        } else {
         // GPU path (when ready)
         throw std::runtime_error("ReLU backward on CUDA not implemented yet!");
+        }
+        // GPU path (when ready)
     }
 }
 
@@ -1621,7 +1630,15 @@ void vjp_SiLU(Node* n, const Tensor& gy){
         Tensor s = Tensor::sigmoid(X->value);
         X->grad.add_( rt( gy * ( s + X->value * ( s * (Tensor::ones_like(s)-s) ) ), X->value) );
     } else {
+        auto fn = ag::kernels::cuda().vjp_silu;
+        if (fn) {
+            // --- NEW: Call the fast backward kernel ---
+            // The kernel takes the original input `x` to compute the derivative (sigmoid(x)).
+            fn(X->grad.data(),  gy.data(), X->value.data(), X->value.numel(), nullptr);
+        } else {
+            // --- OLD: Fallback to generic C++ ---
         throw std::runtime_error("VJP for SiLU on CUDA not implemented yet!");
+        }
     }
 }
 
@@ -1682,8 +1699,15 @@ void vjp_GELU(Node* n, const Tensor& gy){
             X->grad.add_( rt( gy * dgelu, X->value) );
         }
     } else {
-        // GPU path (when ready)
+        auto fn = ag::kernels::cuda().vjp_gelu;
+        if (fn) {
+            // --- NEW: Call the fast backward kernel ---
+            // The kernel takes the original input `x` to compute the derivative (sigmoid(x)).
+            fn(X->grad.data(),  gy.data(), X->value.data(), X->value.numel(), nullptr);
+        } else {
+            // --- OLD: Fallback to generic C++ ---
         throw std::runtime_error("GELU backward on CUDA not implemented");
+        }
     }
 }
 
@@ -1949,7 +1973,15 @@ void vjp_Div(Node* n, const Tensor& gy){
         if (A->requires_grad) A->grad.add_( rt( gy * Tensor::reciprocal(B->value), A->value) );
         if (B->requires_grad) B->grad.add_( rt( -gy * Tensor::reciprocal(B->value) * Tensor::reciprocal(B->value) * A->value, B->value) );
     } else {
-        throw std::runtime_error("VJP for Div on CUDA not implemented yet!");
+auto* fn = ag::kernels::cuda().vjp_div;
+    if(fn){
+                   fn(A->grad.data(),B->grad.data(),gy.data(),A->value.data(),B->value.data(),gy.numel(),ag::current_stream());
+
+    }
+    
+        else{
+        throw std::runtime_error("VJP for Mul on CUDA not implemented yet!");
+        }
     }
 }
 void vjp_Reciprocal(Node* n, const Tensor& gy){

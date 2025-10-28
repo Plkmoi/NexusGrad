@@ -107,6 +107,7 @@ void load_cuda_plugin(const char* path) {
   g_cuda.hard_sigmoid = table.hard_sigmoid;
   g_cuda.hard_swish   = table.hard_swish;
   g_cuda.exp          = table.exp;
+  g_cuda.relumask = table.relumask;
 
   g_cuda.zero         = table.zero;
   g_cuda.matmul       = table.matmul;

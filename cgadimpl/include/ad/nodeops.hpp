@@ -78,6 +78,9 @@ std::shared_ptr<Node> relaynor_nodeops(const std::shared_ptr<Node>& x, float& b,
 std::shared_ptr<Node> mambassm_nodeops(const std::shared_ptr<Node>& z, const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d); // state space model
 
 
+
+//add, sub, hadmul, flomul, relu, matmul, atten, flodiv, reci, floadd, linear, div, relumask, exp. log, mish, tanh, sigmoid, softplus, leakyrelu, fmab, gelu, silu ARE GPU ACCELERATED
+
 // rowwise reductions / softmax family
 std::shared_ptr<Node> rowsum_nodeops(const std::shared_ptr<Node>& x); // [B,C] -> [B,1]
 std::shared_ptr<Node> rowmax_nodeops(const std::shared_ptr<Node>& x); // [B,C] -> [B,1]
