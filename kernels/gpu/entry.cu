@@ -4,11 +4,14 @@
 #include "ad/kernels_api.hpp"
 #include <cstdint>
 
+
 // ============================================================
 // Forward declarations (external linkage)
 // ============================================================
 
 // Arithmetic
+extern void run_flashflex_forwardz(const float* , const float* , const float* , float* ,
+                                     int , int , int , int , const float * , cudaStream_t );
 extern void add_cuda   (const float*, const float*, float*, int64_t, ag_cuda_stream_t);
 extern void sub_cuda   (const float*, const float*, float*, int64_t, ag_cuda_stream_t);
 extern void hadmul_cuda   (const float*, const float*, float*, int64_t, ag_cuda_stream_t);
@@ -29,6 +32,8 @@ extern void sigmoid_cuda     (const float*, float*, int64_t, ag_cuda_stream_t);
 extern void hard_sigmoid_cuda(const float*, float*, int64_t, ag_cuda_stream_t);
 extern void hard_swish_cuda  (const float*, float*, int64_t, ag_cuda_stream_t);
 extern void exp_cuda         (const float*, float*, int64_t, ag_cuda_stream_t);
+extern void log_cuda         (const float*, float*, int64_t, ag_cuda_stream_t);
+extern void softplus_cuda    (const float*, float*, int64_t, ag_cuda_stream_t);
 
 // Core ops
 extern void zero_cuda (float*, int64_t, ag_cuda_stream_t);
@@ -37,7 +42,10 @@ extern void gemm_cuda   (const float*, const float*, float*, float*, int, int, i
 extern void linear_cuda   (const float*, const float*, float*, float*, int, int, int, ag_cuda_stream_t);
 extern void run_flash_forward(const float* Q, const float* K, const float* V, float* O,
                        int B, int nh, int N, int d, ag_cuda_stream_t);
-
+extern void run_flashrelu_forward(const float* Q, const float* K, const float* V, float* O,
+                       int B, int nh, int N, int d, ag_cuda_stream_t);
+extern void run_flashsig_forward(const float* Q, const float* K, const float* V, float* O,
+                       int B, int nh, int N, int d, ag_cuda_stream_t);
 
 // ============================================================
 // Backward / VJP declarations
@@ -104,6 +112,8 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->hard_sigmoid = &hard_sigmoid_cuda;
   out->hard_swish   = &hard_swish_cuda;
   out->exp          = &exp_cuda;
+  out->log          = &log_cuda;
+  out->softplus          = &softplus_cuda;
 
   out->zero         = &zero_cuda;
   out->matmul       = &mm_cuda;
@@ -141,6 +151,9 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->vjp_sofba       = &vjp_sofba_cuda;
   out->vjp_log        = &vjp_log_cuda;
   out->flash         = &run_flash_forward;
+  out->reluflash = &run_flashrelu_forward;
+  out->sigflash        = &run_flashsig_forward;
+  out->flexflash        = &run_flashflex_forwardz;
 
   return 0;
 }

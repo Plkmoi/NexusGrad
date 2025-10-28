@@ -1,0 +1,2 @@
+FLASH(relu,"Relu")
+FLASH(sig,"Sigmoid")

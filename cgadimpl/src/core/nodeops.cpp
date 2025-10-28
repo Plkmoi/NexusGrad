@@ -92,6 +92,7 @@ std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::sha
     }
 
     Tensor Y = Tensor::zeros_like(a->value); // Create output tensor on the same device
+    std::cout<<"In add_nodeops\n"<<Y.is_cuda();
 
     if (a->value.is_cpu()  && b->value.is_cpu()) {
      //   auto fn = ag::kernels::cpu().add;
@@ -108,7 +109,6 @@ std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::sha
         // This will correctly dispatch to your existing CUDA ReLU kernel.
         auto fn = ag::kernels::cuda().add;
         if (fn) {
-        Y.to(Device::CUDA);
         fn(a->value.data(), b->value.data(), Y.data(), Y.numel(), ag::current_stream());
         } 
         else {
@@ -178,7 +178,6 @@ std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::sha
         // This will correctly dispatch to your existing CUDA ReLU kernel.
         auto fn = ag::kernels::cuda().sub;
         if (fn) {
-        Y.to(Device::CUDA);
         fn(a->value.data(), b->value.data(), Y.data(), Y.numel(), ag::current_stream());
         } 
         else {
@@ -249,7 +248,6 @@ std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::sha
         // This will correctly dispatch to your existing CUDA ReLU kernel.
         auto fn = ag::kernels::cuda().hadmul;
         if (fn) {
-        Y.to(Device::CUDA);
         fn(a->value.data(), b->value.data(), Y.data(), Y.numel(), ag::current_stream());
         } 
         else {
@@ -266,7 +264,7 @@ std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::sha
 
   std::shared_ptr<Node> flomul_nodeops(const std::shared_ptr<Node>& a, float b){ 
         auto c = std::make_shared<Node>(b*Tensor::ones_like(a->value), false, Op::Leaf, "leaf");
-        Tensor y = a->value * c->value; 
+        Tensor y = mul_nodeops(a, c)->value; 
         auto n = std::make_shared<Node>(y, a->requires_grad || c->requires_grad, Op::Mul, "*"); 
         n->inputs = {a, c}; 
         ag::debug::on_node_created(n); 
@@ -322,7 +320,6 @@ std::shared_ptr<Node> relu_nodeops(const std::shared_ptr<Node>& x){
         // This will correctly dispatch to your existing CUDA ReLU kernel.
         auto fn = ag::kernels::cuda().relu;
         if (fn) {
-            Y.to(Device::CUDA);
             fn(X.data(), Y.data(), Y.numel(), ag::current_stream());
         } else {
             throw std::runtime_error("ReLU forward on CUDA not implemented or loaded.");
@@ -469,7 +466,6 @@ std::shared_ptr<Node> matmul_nodeops(const std::shared_ptr<Node>& a, const std::
         // This will correctly dispatch to your existing CUDA ReLU kernel.
         auto fn = ag::kernels::cuda().gemm;
         if (fn) {
-        Y.to(Device::CUDA);
         fn(a->value.data(), b->value.data(), c->value.data(), Y.data(), a->value.rows(), a->value.cols(),  b->value.cols(), ag::current_stream());
         } 
         else {
@@ -801,11 +797,10 @@ std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, const std::
         // This will correctly dispatch to your existing CUDA ReLU kernel.
         auto fn = ag::kernels::cuda().linear;
         if (fn) {
-        E.to(Device::CUDA);
         fn(a->value.data(), b->value.data(), c->value.data(), E.data(), a->value.rows(), a->value.cols(),  b->value.cols(), ag::current_stream());
         } 
         else {
-            throw std::runtime_error("GEMM forward on CUDA not implemented or loaded.");
+            throw std::runtime_error("Linear forward on CUDA not implemented or loaded.");
         }
     }
     auto n = std::make_shared<Node>(E,
@@ -984,7 +979,13 @@ std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){
         }
     } else {
         // GPU path (when ready)
-        throw std::runtime_error("Exp forward on CUDA not implemented yet!");
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().exp;
+        if (fn) {
+            fn(X.data(), Y.data(), Y.numel(), ag::current_stream());
+        } else {
+            throw std::runtime_error("Exp forward on CUDA not implemented or loaded.");
+        }
     }
 
     auto n = std::make_shared<Node>(Y, x->requires_grad, Op::Exp, "exp");
@@ -1016,7 +1017,13 @@ std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){
         }
     } else {
         // GPU path (when ready)
-        throw std::runtime_error("Log forward on CUDA not implemented yet!");
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().log;
+        if (fn) {
+            fn(X.data(), Y.data(), Y.numel(), ag::current_stream());
+        } else {
+            throw std::runtime_error("Log forward on CUDA not implemented or loaded.");
+        }
     }
 
     auto n = std::make_shared<Node>(Y, x->requires_grad, Op::Log, "log");
@@ -1027,11 +1034,36 @@ std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){
 
 
     std::shared_ptr<Node> mish_nodeops(const std::shared_ptr<Node>& x){ 
-        Tensor y = x->value * Tensor::tanh( Tensor::softplus(x->value) ); 
-        auto n=std::make_shared<Node>(y, x->requires_grad, Op::Mish, "mish"); 
-        n->inputs={x}; 
-        ag::debug::on_node_created(n);  
-        return n;
+
+
+
+            const Tensor& X = x->value;
+    Tensor Y = Tensor::zeros_like(X);
+
+    if (X.is_cpu()) {
+        // auto fn = ag::kernels::cpu().mish;
+        // if (fn) {
+        //     // --- NEW: Call the fast AVX2 kernel ---
+        //     fn(X.data(), Y.data(), X.numel());
+        // } else {
+            // --- OLD: Fallback to generic C++ ---
+        Y = x->value * Tensor::tanh( Tensor::softplus(x->value) ); 
+        // }
+    } else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().mish;
+        if (fn) {
+            fn(X.data(), Y.data(), Y.numel(), ag::current_stream());
+        } else {
+            throw std::runtime_error("Mish forward on CUDA not implemented or loaded.");
+        }
+    }
+
+        auto n=std::make_shared<Node>(Y, x->requires_grad, Op::Mish, "mish"); 
+            n->inputs = {x};
+    ag::debug::on_node_created(n);
+    return n;
     }
     
     // std::shared_ptr<Node> tanh_nodeops(const std::shared_ptr<Node>& x){ 
@@ -1057,7 +1089,13 @@ std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){
         }
     } else {
         // GPU path (when ready)
-        throw std::runtime_error("Tanh forward on CUDA not implemented yet!");
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().tanh;
+        if (fn) {
+            fn(X.data(), Y.data(), Y.numel(), ag::current_stream());
+        } else {
+            throw std::runtime_error("Tanh forward on CUDA not implemented or loaded.");
+        }
     }
 
     auto n = std::make_shared<Node>(Y, x->requires_grad, Op::Tanh, "tanh");
@@ -1092,10 +1130,17 @@ std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){
                 // --- OLD: Fallback to generic C++ ---
                 Y = Tensor::sigmoid(X); 
             }
+        } 
+        else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().sigmoid;
+        if (fn) {
+            fn(X.data(), Y.data(), Y.numel(), ag::current_stream());
         } else {
-            // GPU path (when ready)
             throw std::runtime_error("Sigmoid forward on CUDA not implemented");
         }
+    }
 
         auto n = std::make_shared<Node>(Y, x->requires_grad, Op::Sigmoid, "sigmoid"); 
         n->inputs={x}; 
@@ -1125,9 +1170,17 @@ std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){
                 Y = Tensor::softplus(X);
             }
         } else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().softplus;
+        if (fn) {
+            fn(X.data(), Y.data(), Y.numel(), ag::current_stream());
+        } else {
             // GPU path (when ready)
             throw std::runtime_error("Softplus forward on CUDA not implemented yet!");
         }
+    }
+            
 
         auto n = std::make_shared<Node>(Y, x->requires_grad, Op::Softplus, "softplus");
         n->inputs = {x};
@@ -1157,10 +1210,16 @@ std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){
                 Y = Tensor::gelu_tanh(X); 
             }
         } else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().gelu;
+        if (fn) {
+            fn(X.data(), Y.data(), Y.numel(), ag::current_stream());
+        } else {
             // GPU path (when ready)
-            throw std::runtime_error("GELU forward on CUDA not implemented");
+            throw std::runtime_error("Gelu forward on CUDA not implemented yet!");
         }
-
+    }
         auto n = std::make_shared<Node>(Y, x->requires_grad, Op::GELU, "gelu"); 
         n->inputs={x}; 
         return n;
@@ -1218,9 +1277,17 @@ std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){
                 Y = Tensor::leaky_relu(X, alpha); 
             }
         } else {
-            // GPU path (when ready)
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().leaky_relu;
+        if (fn) {
+            fn(X.data(), Y.data(), alpha, Y.numel(), ag::current_stream());
+        } else {
+         // GPU path (when ready)
             throw std::runtime_error("LeakyReLU forward on CUDA not implemented");
         }
+    }
+            
 
         // This part remains the same. It correctly adds alpha to the graph
         // so the backward pass can find it.

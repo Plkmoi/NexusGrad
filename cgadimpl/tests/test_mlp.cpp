@@ -118,9 +118,9 @@ std::cout << "dL/dA[0,0] = " << a.grad()
 << "dL/dbias[0,0] = " << bias.grad() << endl<< "dL/dq = " << q.grad() << endl;
 zero_grad(y);
 backward(y);
-     q =   linear(a, b, c); // [2,2]
+     q =   a+b; // [2,2]
     //auto m=q*c;
-     y=q * d;
+     y=q;
 std::cout << "y = " << y.val()
 <<","<< endl<< "A = " << a.val()
 <<","<< endl<< "B = " << b.val()<<","<< endl

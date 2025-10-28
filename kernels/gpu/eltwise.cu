@@ -143,6 +143,16 @@ __global__ void k_exp(const float* __restrict__ x, float* __restrict__ y, int64_
   if (i < n) y[i] = __expf(x[i]);
 }
 
+__global__ void k_log(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) y[i] = __logf(x[i]);
+}
+
+__global__ void k_softplus(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) y[i] = __logf(1.0f + __expf(x[i]));
+}
+
 // =====================================================
 // Launch Helpers
 // =====================================================
@@ -211,4 +221,10 @@ void hard_swish_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
 }
 void exp_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
   k_exp<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(x, y, n);
+}
+void log_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
+  k_log<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(x, y, n);
+}
+void softplus_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
+  k_softplus<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(x, y, n);
 }

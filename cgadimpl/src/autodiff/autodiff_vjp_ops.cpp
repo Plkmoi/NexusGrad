@@ -1013,26 +1013,62 @@ inline Tensor rt(const Tensor& g, const Tensor& like){ return Tensor::reduce_to(
 
 // ----- elementwise binary -----
 void vjp_Add(Node* n, const Tensor& gy){
-    Node* A = n->inputs[0].get();
-    Node* B = n->inputs[1].get();
+    // Node* A = n->inputs[0].get();
+    // Node* B = n->inputs[1].get();
+    // if (!A->requires_cuda && !B->requires_cuda) {
+    //     if (A->requires_grad) A->grad.add_( rt(gy, A->value) );
+    //     if (B->requires_grad) B->grad.add_( rt(-gy, B->value) );
+    // } else {
+    //     throw std::runtime_error("VJP for Sub on CUDA not implemented yet!");
+    // }
+
+    Node* A = n->inputs[0].get(); Node* B = n->inputs[1].get();
     if (!n->requires_cuda) {
-        if (A->requires_grad) A->grad.add_( rt(gy, A->value) );
-        if (B->requires_grad) B->grad.add_( rt(gy, B->value) );
+        if (A->requires_grad) A->grad.add_( rt( gy * B->value, A->value) );
+        if (B->requires_grad) B->grad.add_( rt( gy * A->value, B->value) );
     } else {
-        std::cout<<"CUDA VJP Add called\n";
-        ag::kernels::cuda().vjp_add(A->grad.data(), B->grad.data(), gy.data(),
+auto* fn = ag::kernels::cuda().vjp_add;
+    if(fn){
+           fn(A->grad.data(), B->grad.data(), gy.data(),
                                     gy.numel(), ag::current_stream());
     }
-}
-void vjp_Sub(Node* n, const Tensor& gy){
-    Node* A = n->inputs[0].get(); Node* B = n->inputs[1].get();
-    if (!A->requires_cuda && !B->requires_cuda) {
-        if (A->requires_grad) A->grad.add_( rt(gy, A->value) );
-        if (B->requires_grad) B->grad.add_( rt(-gy, B->value) );
-    } else {
-        throw std::runtime_error("VJP for Sub on CUDA not implemented yet!");
+    
+        else{
+        throw std::runtime_error("VJP for Mul on CUDA not implemented yet!");
+        }
     }
 }
+
+
+void vjp_Sub(Node* n, const Tensor& gy){
+    // Node* A = n->inputs[0].get(); Node* B = n->inputs[1].get();
+    // if (!A->requires_cuda && !B->requires_cuda) {
+    //     if (A->requires_grad) A->grad.add_( rt(gy, A->value) );
+    //     if (B->requires_grad) B->grad.add_( rt(-gy, B->value) );
+    // } else {
+    //     throw std::runtime_error("VJP for Sub on CUDA not implemented yet!");
+    // }
+
+    Node* A = n->inputs[0].get(); Node* B = n->inputs[1].get();
+    if (!n->requires_cuda) {
+        if (A->requires_grad) A->grad.add_( rt( gy * B->value, A->value) );
+        if (B->requires_grad) B->grad.add_( rt( gy * A->value, B->value) );
+    } else {
+auto* fn = ag::kernels::cuda().vjp_sub;
+    if(fn){
+           fn(A->grad.data(), B->grad.data(), gy.data(),
+                                    gy.numel(), ag::current_stream());
+    }
+    
+        else{
+        throw std::runtime_error("VJP for Mul on CUDA not implemented yet!");
+        }
+    }
+
+
+}
+
+
 void vjp_Mul(Node* n, const Tensor& gy){
     Node* A = n->inputs[0].get(); Node* B = n->inputs[1].get();
     if (!n->requires_cuda) {
@@ -1052,6 +1088,9 @@ auto* fn = ag::kernels::cuda().vjp_hadmul;
 
 // ----- elementwise trinary & matmul -----
 void vjp_FMA(Node* n, const Tensor& gy){
+     // Assuming vjp_Linear is a composite and can be handled by its constituents (MatMul, Add)
+    // For a truly fused kernel, this would need a device-aware implementation.
+    std::cout<<n->value.is_cuda()<<"           "<<"frgfhjyh5ilnktmjm7kn";
     if (!n->requires_cuda) {
         Node* A = n->inputs[0].get();
         Node* B = n->inputs[1].get();
@@ -1068,8 +1107,27 @@ void vjp_FMA(Node* n, const Tensor& gy){
         }
         if (C->requires_grad) C->grad.add_( rt(gy, C->value) );
     } else {
-        throw std::runtime_error("VJP for FMA on CUDA not implemented yet!");
-    }
+
+std::cout<<"I am cuda";
+            Node* A = n->inputs[0].get();
+    Node* B = n->inputs[1].get();
+    Node* C = n->inputs[2].get();
+
+    // External kernel (if plugin loaded), else fallback to Tensor::matmul
+    auto* mm = ag::kernels::cuda().vjp_gemm;
+
+    // Shapes
+    auto At = A->value;
+    auto Bt = B->value;
+    auto [M, K]  = At.shape();
+    auto [K2, N] = Bt.shape();
+    (void)K2; // assume forward already checked
+
+    mm(A->grad.data(), B->grad.data(), C->grad.data(), gy.data(), A->value.data(), B->value.data(), C->value.data(), M, K, N, nullptr);
+  
+
+
+}
 }
 
 // ----- Normalization Layers -----

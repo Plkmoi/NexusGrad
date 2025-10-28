@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <string>
 #include <functional> // <--- FIX 1: Added the missing header for std::function
+#include <assert.h>
 
 // A simple helper to check if a test passes or fails as expected
 void run_test(const std::string& test_name, std::function<void()> test_func, bool should_throw) {
@@ -82,6 +83,22 @@ void test_gpu_backward_pass_fails() {
 
 
 int main() {
+    using namespace ag;
+    // ...
+    Value input = make_tensor(Tensor::randn(8, 10, 1337, Device::CUDA), "input");
+    
+    // --- DEMONSTRATION FOR YOUR TEAMMATE ---
+    std::cout << "--- Proving zeros_like behavior ---" << std::endl;
+    std::cout << "Input tensor is on CUDA: " << (input.val().is_cuda() ? "true" : "false") << std::endl;
+    
+    // Create a new tensor using zeros_like
+    Tensor zero_tensor = Tensor::zeros_like(input.val());
+    
+    std::cout << "Tensor created with zeros_like is on CUDA: " << (zero_tensor.is_cuda() ? "true" : "false") << std::endl;
+    assert(zero_tensor.is_cuda()); // This will pass.
+    std::cout << "--- Proof complete ---" << std::endl;
+    // --- END DEMONSTRATION ---
+
     // Test 1: Full forward/backward pass on the CPU. This should pass without error.
     run_test("CPU End-to-End Backward Pass", test_cpu_backward_pass, /*should_throw=*/false);
     

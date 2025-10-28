@@ -105,9 +105,9 @@ Tensor Yt(8, 8);
 
 auto bias = param(Tensor::zeros(8,8), "bias");
 
-    auto q =   attention(a, b, c, d, 1, 1); // [2,2]
+    auto q =   fmab(a,b,c); // [2,2]
     //auto m=q*c;
-    auto y=q *e;
+    auto y=q - d;
 std::cout << "y = " << y.val()
 <<","<< endl<< "A = " << a.val()
 <<","<< endl<< "B = " << b.val()<<","<< endl
@@ -117,6 +117,7 @@ std::cout << "dL/dA[0,0] = " << a.grad()
 <<","<< endl<< "dL/dB[0,0] = " << b.grad()<<","<< endl
 << "dL/dbias[0,0] = " << bias.grad() << endl<< "dL/dq = " << q.grad() << endl;
 zero_grad(y);
+backward(y);
 
 unisend(y);
 

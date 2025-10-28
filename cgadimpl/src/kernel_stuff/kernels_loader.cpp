@@ -113,6 +113,9 @@ void load_cuda_plugin(const char* path) {
   g_cuda.gemm       = table.gemm;
   g_cuda.linear       = table.linear;
   g_cuda.flash = table.flash;
+  g_cuda.reluflash      = table.reluflash;
+  g_cuda.sigflash       = table.sigflash;
+  g_cuda.flexflash       = table.flexflash;
 
   // Basic ops VJPs
   g_cuda.vjp_add    = table.vjp_add;
@@ -142,6 +145,8 @@ void load_cuda_plugin(const char* path) {
   g_cuda.vjp_hard_swish  = table.vjp_hard_swish;
   g_cuda.vjp_sofba       = table.vjp_sofba;
   g_cuda.vjp_log        = table.vjp_log;
+  g_cuda.log       = table.log;
+  g_cuda.softplus      = table.softplus;
 
 }
 

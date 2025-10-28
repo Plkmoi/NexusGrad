@@ -330,3 +330,4 @@ void vjp_log_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda
     int64_t blocks((unsigned int)((n + 255) / 256));
   k_vjp_log_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
 }
+

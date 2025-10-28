@@ -57,7 +57,10 @@ if [[ $CLEAN -eq 1 ]]; then
 fi
 
 echo "== Configuring core"
-cmake -S "$CORE_SRC" -B "$CORE_BUILD" -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
+cmake -S "$CORE_SRC" -B "$CORE_BUILD" \
+  -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
+  -DCMAKE_CUDA_COMPILER=/usr/local/cuda-13.0/bin/nvcc \
+  -DCMAKE_CUDA_ARCHITECTURES=86
 
 echo "== Building core"
 cmake --build "$CORE_BUILD" -j
@@ -65,10 +68,14 @@ cmake --build "$CORE_BUILD" -j
 echo "== Configuring kernels/cpu"
 cmake -S "$KERNELS_SRC" -B "$KERNELS_BUILD" \
   -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
-  -DCGADIMPL_INCLUDE_DIR="$CORE_INCLUDE"
+  -DCMAKE_CUDA_COMPILER=/usr/local/cuda-13.0/bin/nvcc \
+  -DCGADIMPL_INCLUDE_DIR="$CORE_INCLUDE" \
+  -DCMAKE_CUDA_ARCHITECTURES=86
+
 
 echo "== Building kernels/cpu"
 cmake --build "$KERNELS_BUILD" -j
+
 
 cmake -S "$CORE_SRC" -B "$CORE_BUILD" \
   -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \

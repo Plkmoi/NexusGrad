@@ -119,6 +119,8 @@ typedef void (*ag_sigmoid_cuda_fn)     (const float* x, float* y, int64_t n, ag_
 typedef void (*ag_hard_sigmoid_cuda_fn)(const float* x, float* y, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_hard_swish_cuda_fn)  (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_exp_cuda_fn)         (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_log_cuda_fn)         (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_softplus_cuda_fn)         (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
 
 // Core
 typedef void (*ag_zero_cuda_fn)  (float* x, int64_t n, ag_cuda_stream_t s);
@@ -127,8 +129,12 @@ typedef void (*ag_gemm_cuda_fn)(const float* A, const float* B, float* C, float*
 typedef void (*ag_linear_cuda_fn)(const float* A, const float* B, float* C, float* E, int M, int K, int N, ag_cuda_stream_t s);
 typedef void (*ag_flash_attention)(const float* Q, const float* K, const float* V, float* O,
                        int B, int nh, int N, int d, ag_cuda_stream_t);
-
-
+typedef void (*ag_reluflash_attention)(const float* Q, const float* K, const float* V, float* O,
+                       int B, int nh, int N, int d, ag_cuda_stream_t);
+typedef void (*ag_sigflash_attention)(const float* Q, const float* K, const float* V, float* O,
+                       int B, int nh, int N, int d, ag_cuda_stream_t);
+typedef void (*ag_flexflash_attention)(const float* Q, const float* K, const float* V, float* O,
+                       int B, int nh, int N, int d, const float * ww, ag_cuda_stream_t);
 
 // NEW: VJP (backward) function types for CUDA
 // Basic element-wise VJPs
@@ -217,6 +223,8 @@ struct ag_cuda_v1 {
   ag_hard_sigmoid_cuda_fn hard_sigmoid;
   ag_hard_swish_cuda_fn   hard_swish;
   ag_exp_cuda_fn          exp;
+  ag_log_cuda_fn          log;
+  ag_softplus_cuda_fn          softplus;
 
   // Core
   ag_zero_cuda_fn   zero;
@@ -224,6 +232,9 @@ struct ag_cuda_v1 {
   ag_gemm_cuda_fn gemm;
   ag_linear_cuda_fn       linear;
   ag_flash_attention flash;
+  ag_reluflash_attention reluflash;
+  ag_sigflash_attention sigflash;
+  ag_flexflash_attention flexflash;
 
   // ========================================================
   // Backward (VJP) ops
@@ -318,6 +329,7 @@ struct Cuda {
   ag_square_cuda_fn  square = nullptr;
   ag_neg_cuda_fn     neg    = nullptr;
   ag_clip_cuda_fn    clip   = nullptr;
+  ag_log_cuda_fn          log = nullptr;
 
   // Activations
   ag_relu_cuda_fn         relu         = nullptr;
@@ -333,6 +345,10 @@ struct Cuda {
   ag_gemm_cuda_fn         gemm         = nullptr;
   ag_linear_cuda_fn       linear         = nullptr;
   ag_flash_attention flash = nullptr;
+  ag_softplus_cuda_fn         softplus = nullptr;
+  ag_reluflash_attention reluflash = nullptr;
+  ag_sigflash_attention sigflash = nullptr;
+  ag_flexflash_attention flexflash = nullptr;
 
   // Core
   ag_zero_cuda_fn   zero   = nullptr;
