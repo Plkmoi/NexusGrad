@@ -12,7 +12,7 @@ namespace ag {
 
 
     Node::Node() = default;
-    Node::Node(const Tensor& v, bool rg, Op op_, const char* nm) : op(op_), value(v), grad(Tensor::zeros_like(v)), requires_grad(rg), debug_name(nm) {}
+    Node::Node(const Tensor& v, bool rg, Op op_, const char* nm) : op(op_), value(v), grad(Tensor::zeros_like(v)), requires_grad(rg), debug_name(nm) {} // MAKES GRADS TOO IN CUDA
 
 
     Value::Value() = default;

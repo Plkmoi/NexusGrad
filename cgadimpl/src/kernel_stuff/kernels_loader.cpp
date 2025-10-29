@@ -117,6 +117,7 @@ void load_cuda_plugin(const char* path) {
   g_cuda.reluflash      = table.reluflash;
   g_cuda.sigflash       = table.sigflash;
   g_cuda.flexflash       = table.flexflash;
+  g_cuda.sum = table.sum;
 
   // Basic ops VJPs
   g_cuda.vjp_add    = table.vjp_add;

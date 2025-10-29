@@ -207,6 +207,7 @@ if(AG_BUILD_TESTS)
 # add_test(NAME test_kernels_gpu COMMAND test_kernels_gpu)
   add_ag_testcuda(test_kernels_gpu tests/test_kernels_gpu.cpp)
   add_ag_testcuda(test_integpu tests/test_integpu.cpp)
+  add_ag_testcuda(test_forbac tests/test_forbac.cpp)
 
 endif()
 

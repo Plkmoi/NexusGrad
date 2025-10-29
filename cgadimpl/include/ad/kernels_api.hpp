@@ -122,6 +122,7 @@ typedef void (*ag_exp_cuda_fn)         (const float* x, float* y, int64_t n, ag_
 typedef void (*ag_log_cuda_fn)         (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_softplus_cuda_fn)         (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_relumask_cuda_fn)    (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_sum_cuda_fn)         (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
 
 // Core
 typedef void (*ag_zero_cuda_fn)  (float* x, int64_t n, ag_cuda_stream_t s);
@@ -237,6 +238,7 @@ struct ag_cuda_v1 {
   ag_reluflash_attention reluflash;
   ag_sigflash_attention sigflash;
   ag_flexflash_attention flexflash;
+  ag_sum_cuda_fn sum;
 
   // ========================================================
   // Backward (VJP) ops
@@ -352,6 +354,7 @@ struct Cuda {
   ag_reluflash_attention reluflash = nullptr;
   ag_sigflash_attention sigflash = nullptr;
   ag_flexflash_attention flexflash = nullptr;
+  ag_sum_cuda_fn sum = nullptr;
 
   // Core
   ag_zero_cuda_fn   zero   = nullptr;

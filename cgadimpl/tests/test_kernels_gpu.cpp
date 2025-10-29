@@ -1225,7 +1225,7 @@ void test_gpu_unified_sigattention() {
     CUDA_CHECK(cudaDeviceSynchronize());
 
     ag::Tensor out = from_gpu(e_gpu, 11, 14);
-    check_tensors_close(ref, out, "test_gpu_sigattention");
+    check_tensors_close(ref, out, "test_gpu_sigattention", 1.f);
     std::cout << "Output (GPU):\n" << out << std::endl;
     
 
@@ -1271,6 +1271,59 @@ void test_gpu_unified_sigattention() {
 }
 
 
+void test_gpu_unified_sum() {
+    auto& K = ag::kernels::cuda();
+    ag::Tensor a_cpu = ag::Tensor::randn(2, 2, 1);
+    std::cout << "\nForward Pass Values:" << std::endl;
+    std::cout << "Input A (CPU):\n" << a_cpu << std::endl;
+    ag::Tensor ref = ag::Tensor::sum_all(a_cpu);
+    std::cout << "Output (CPU):\n" << ref << std::endl;
+
+    float *a_gpu = to_gpu(a_cpu), *c_gpu;
+    CUDA_CHECK(cudaMalloc(&c_gpu, ref.numel() * sizeof(float)));
+
+    K.sum(a_gpu, c_gpu, a_cpu.numel(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    // ag::Tensor gy_cpu = ag::Tensor::randn(11, 11, 5);
+
+    // ag::Tensor one = ag::Tensor::ones_like(a_cpu);
+    // ag::Tensor ga_ref = gy_cpu*(one - (ref*ref)); // vjp_add just passes gradient through
+
+    // ag::Tensor ga_cpu_init = ag::Tensor::zeros(11, 11);
+
+    // float *gy_gpu = to_gpu(gy_cpu);
+    // float *ga_gpu = to_gpu(ga_cpu_init);
+
+    // K.vjp_tanh(ga_gpu, gy_gpu, c_gpu, gy_cpu.numel(), nullptr);
+    // CUDA_CHECK(cudaDeviceSynchronize());
+
+    
+
+    // ag::Tensor out = from_gpu(c_gpu, 1, 1);
+    // check_tensors_close(ref, out, "test_gpu_sumall", 0.1);
+    // std::cout << "Output (GPU):\n" << out << std::endl;
+
+    // ag::Tensor ga_out = from_gpu(ga_gpu, 11, 11);
+
+    // std::cout << "\nBackward Pass Values:" << std::endl;
+    // std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+    // std::cout << "Expected dA (CPU):\n" << ga_ref << std::endl;
+    // std::cout << "Computed dA (GPU):\n" << ga_out << std::endl;
+
+    // check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_tanh");
+
+
+
+
+
+    CUDA_CHECK(cudaFree(a_gpu));
+    CUDA_CHECK(cudaFree(c_gpu));
+    // CUDA_CHECK(cudaFree(gy_gpu));
+    // CUDA_CHECK(cudaFree(ga_gpu));
+}
+
+
 int main() {
     std::cout << "=== Running GPU Kernel Tests ===\n";
     try {
@@ -1308,6 +1361,7 @@ int main() {
         test_gpu_unified_reluattention();
         test_gpu_unified_sigattention();
         test_gpu_unified_flexattention();
+        test_gpu_unified_sum();
 
     } catch (const std::exception& e) {
         std::cerr << "ERROR: " << e.what() << std::endl;

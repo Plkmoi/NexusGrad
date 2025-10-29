@@ -10,6 +10,7 @@
 #include <cmath>
 #include <numeric>
 #include <cuda_runtime.h>
+#include <iostream>
 
 #define CUDA_CHECK(call) \
     do { \
@@ -78,6 +79,8 @@ Tensor Tensor::to(Device target_dev) const {
     } else {
         CUDA_CHECK(cudaMemcpy(new_tensor.data(), this->data(), n_bytes, cudaMemcpyDeviceToHost));
     }
+            std::cout<<" gerght " <<this->is_cuda();
+
     return new_tensor;
 }
 

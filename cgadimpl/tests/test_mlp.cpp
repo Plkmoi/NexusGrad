@@ -98,9 +98,9 @@ Tensor Yt(8, 8);
     std::uniform_int_distribution<int> pick(0, 2 - 1);
     for (int i = 0; i < 8; ++i) {
         int k = pick(gen);
-        for (int j = 0; j < 8; ++j) Yt(i, j) = (j == k) ? 1.f : 0.f;
+        for (int j = 0; j < 8; ++j) Yt(i, j) = (j == k) ? -5.f : 7.f;
     }
-    Value W = constant(Yt, "Y");
+    Value W = make_tensor(Yt, "Y");
 
 
 auto bias = param(Tensor::zeros(8,8), "bias");
@@ -143,6 +143,13 @@ std::cout << "y grad " << y.grad() << endl;
 std::cout << "dL/dA[0,0] = " << a.grad()
 <<","<< endl<< "dL/dB[0,0] = " << b.grad()<<","<< endl
 << "dL/dC = " << c.grad() << endl<< "dL/dD = " << d.grad() << endl;
+
+// //auto mma = W.node->value.to(ag::Device::CUDA); // no overwriting
+// W.node->value = W.node->value.to(ag::Device::CUDA); //  overwriting
+// auto sere = relu(W);
+// backward(sere);
+// auto mewo =             sere.node->value.to(Device::CPU);
+// std::cout << "  Now here  W = " << sere.node->value.is_cuda() << endl<< endl;
 
 
 

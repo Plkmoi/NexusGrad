@@ -110,6 +110,7 @@ std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::sha
         auto fn = ag::kernels::cuda().add;
         if (fn) {
         fn(a->value.data(), b->value.data(), Y.data(), Y.numel(), ag::current_stream());
+        std::cout<<a->grad.is_cuda()<<" YES "<<b->grad.is_cuda()<<" YES "<<Y.is_cuda();
         } 
         else {
             throw std::runtime_error("ReLU forward on CUDA not implemented or loaded.");

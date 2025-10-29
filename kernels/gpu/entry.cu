@@ -47,6 +47,7 @@ extern void run_flashrelu_forward(const float* Q, const float* K, const float* V
                        int B, int nh, int N, int d, ag_cuda_stream_t);
 extern void run_flashsig_forward(const float* Q, const float* K, const float* V, float* O,
                        int B, int nh, int N, int d, ag_cuda_stream_t);
+extern void sumall_cuda(const float* a, float* c, int64_t n, ag_cuda_stream_t s);
 
 // ============================================================
 // Backward / VJP declarations
@@ -121,6 +122,7 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->gemm       = &gemm_cuda;
   out->linear       = &linear_cuda;
   out->relumask      = &relumask_cuda;
+  out->sum = &sumall_cuda;
 
   // ========================================================
   // Backward (VJP)

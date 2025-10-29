@@ -172,7 +172,10 @@ static inline dim3 blocks_for(int64_t n, int tpb = 256) {
 // CUDA Launch Functions
 // =====================================================
 
-// Arithmetic
+
+void mseloss_cuda(const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s) {
+  k_add<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(a, b, c, n);
+}
 void add_cuda(const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s) {
   k_add<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(a, b, c, n);
 }

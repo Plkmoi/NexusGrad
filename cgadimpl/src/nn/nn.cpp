@@ -42,7 +42,7 @@ Linear::Linear(int in_features, int out_features, Device dev) {
 
 // Forward pass definition
 Value Linear::operator()(const Value& input) {   
-    return matmul(input, W) + b;
+    return fmab(input, W,  b);
 }
 
 
