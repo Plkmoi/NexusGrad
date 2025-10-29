@@ -1584,7 +1584,7 @@ std::shared_ptr<Node> mambassm_nodeops(const std::shared_ptr<Node>& z, const std
 
     std::shared_ptr<Node> mse_loss_nodeops(const std::shared_ptr<Node>& pred, const std::shared_ptr<Node>& target) {
     if (pred->value.device() != target->value.device()) {
-        throw std::runtime_error("add_nodeops: device mismatch between inputs.");
+        throw std::runtime_error("mseloss nodeops: device mismatch between inputs.");
     }
 
     Tensor loss = Tensor::zeros_like(pred->value); // Create output tensor on the same device
@@ -1611,7 +1611,7 @@ std::shared_ptr<Node> mambassm_nodeops(const std::shared_ptr<Node>& z, const std
     else {
         // GPU path (when ready)
         // This will correctly dispatch to your existing CUDA ReLU kernel.
-        auto fn = ag::kernels::cuda().hadmul;
+        auto fn = ag::kernels::cuda().mseloss;
         if (fn) {
         fn(pred->value.data(), target->value.data(), loss.data(), loss.numel(), ag::current_stream());
         } 
@@ -1627,13 +1627,42 @@ std::shared_ptr<Node> mambassm_nodeops(const std::shared_ptr<Node>& z, const std
 
 
     std::shared_ptr<Node> mae_loss_nodeops(const std::shared_ptr<Node>& pred, const std::shared_ptr<Node>& target) {
-    Tensor diff = pred->value - target->value;
+    if (pred->value.device() != target->value.device()) {
+        throw std::runtime_error("maeloss nodeops: device mismatch between inputs.");
+    }
+
+    Tensor loss = Tensor::zeros_like(pred->value); // Create output tensor on the same device
+  //  std::cout<<"In add_nodeops\n"<<Y.is_cuda();
+
+    if (pred->value.is_cpu()  && target->value.is_cpu()) {
+    
+        Tensor diff = pred->value - target->value;
     Tensor sq   = Tensor::abs(diff);               // elementwise
     Tensor s    = Tensor::sum_all(sq);                   // scalar [1,1]
     int B = pred->value.shape().first, C = pred->value.shape().second;
     Tensor scale = Tensor::ones(1,1);
     scale(0,0) = 1.0f / float(B * C);
-    Tensor loss = s * scale;                 // broadcast scalar
+    loss = s * scale;                 // broadcast scalar
+
+
+
+
+
+
+    }
+
+
+    else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().maeloss;
+        if (fn) {
+        fn(pred->value.data(), target->value.data(), loss.data(), loss.numel(), ag::current_stream());
+        } 
+        else {
+            throw std::runtime_error("ReLU forward on CUDA not implemented or loaded.");
+        }
+    }                // broadcast scalar
     auto n = std::make_shared<Node>(loss, pred->requires_grad || target->requires_grad, Op::MAELoss, "maeloss");
     n->inputs = {pred, target};
         ag::debug::on_node_created(n);  

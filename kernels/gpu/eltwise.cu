@@ -342,3 +342,28 @@ void log_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
 void softplus_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
   k_softplus<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(x, y, n);
 }
+
+__global__ void k_maeloss(const float* __restrict__ p, const float* __restrict__ t,
+                      float* __restrict__ c, int64_t n) {
+    float sum = 0.0f;
+
+    // grid-stride loop
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x;
+         i < n;
+         i += gridDim.x * blockDim.x)
+    {
+        float diff = p[i] - t[i];
+        sum += fabs(diff);
+    }
+
+    // block reduce
+    sum = blockReduceSum(sum);
+
+    if (threadIdx.x == 0)
+        atomicAdd(c, sum / (float)n);
+}
+
+
+void maeloss_cuda(const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s) {
+  k_maeloss<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(a, b, c, n);
+}

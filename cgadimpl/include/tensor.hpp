@@ -107,6 +107,7 @@ public:
     static Tensor softmax_row(const Tensor& Z);
     static Tensor logsumexp_row(const Tensor& Z);
     static Tensor mse_loss(const Tensor& Z, const Tensor& Y);
+    static Tensor mae_loss(const Tensor& Z, const Tensor& Y);
     static Tensor mean_all(const Tensor& X);
     friend std::ostream& operator<<(std::ostream& os, const Tensor& t);
 };

@@ -2219,7 +2219,7 @@ void vjp_MSELoss(Node* n, const Tensor& gy){
         if (Z->requires_grad) Z->grad.add_(gZ);
         if (Y->requires_grad) Y->grad.add_(gY);
     } else {
-auto* fn = ag::kernels::cuda().vjp_hadmul;
+auto* fn = ag::kernels::cuda().vjp_mseloss;
     if(fn){
         fn(Z->grad.data(),Y->grad.data(),gy.data(),Z->value.data(),Y->value.data(),gy.numel(),ag::current_stream());
     }
@@ -2236,12 +2236,19 @@ void vjp_MAELoss(Node* n, const Tensor& gy){
     if (!n->requires_cuda) {
         int N = Z->value.numel();
         Tensor diff = Tensor::sign(Z->value - Y->value);
-        Tensor gZ = diff * (1.0f / float(N));
-        Tensor gY = -diff * (1.0f / float(N));
+        Tensor gZ = diff * (1.0f / float(N))*gy;
+        Tensor gY = -diff * (1.0f / float(N))*gy;
         if (Z->requires_grad) Z->grad.add_(gZ);
         if (Y->requires_grad) Y->grad.add_(gY);
     } else {
-        throw std::runtime_error("VJP for MAELoss on CUDA not implemented yet!");
+auto* fn = ag::kernels::cuda().vjp_maeloss;
+    if(fn){
+        fn(Z->grad.data(),Y->grad.data(),gy.data(),Z->value.data(),Y->value.data(),gy.numel(),ag::current_stream());
+    }
+    
+        else{
+        throw std::runtime_error("VJP for Mse Loss on CUDA not implemented yet!");
+        }
     }
 }
 

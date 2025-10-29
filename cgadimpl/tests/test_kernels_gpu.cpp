@@ -1396,6 +1396,78 @@ CUDA_CHECK(cudaMemset(c_gpu, 0, sizeof(float)));  // ← important!
     CUDA_CHECK(cudaFree(gb_gpu));
 }
 
+void test_gpu_unified_maeloss() {
+        auto& K = ag::kernels::cuda();
+    ag::Tensor a_cpu = ag::Tensor::randn(11, 11, 11);
+    ag::Tensor b_cpu = ag::Tensor::randn(11, 11, 21);
+
+    ag::Tensor ref = ag::Tensor::mae_loss(a_cpu, b_cpu);
+
+    float *a_gpu = to_gpu(a_cpu), *b_gpu = to_gpu(b_cpu);
+    float *c_gpu;
+CUDA_CHECK(cudaMalloc(&c_gpu, sizeof(float)));
+CUDA_CHECK(cudaMemset(c_gpu, 0, sizeof(float)));  // ← important!
+
+    K.maeloss(a_gpu, b_gpu, c_gpu, a_cpu.numel(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    ag::Tensor gy_cpu = ag::Tensor::ones(11, 11);
+    
+
+    int N = a_cpu.numel();
+        ag::Tensor diff = ag::Tensor::sign(a_cpu - b_cpu);
+        ag::Tensor ga_ref = diff * (1.0f / float(N))*gy_cpu;
+        ag::Tensor gb_ref = -diff * (1.0f / float(N))*gy_cpu;
+
+
+    ag::Tensor ga_cpu_init = ag::Tensor::zeros(11, 11);
+    ag::Tensor gb_cpu_init = ag::Tensor::zeros(11, 11);
+
+    float *gy_gpu = to_gpu(gy_cpu);
+    float *ga_gpu = to_gpu(ga_cpu_init);
+    float *gb_gpu = to_gpu(gb_cpu_init);
+
+    K.vjp_maeloss(ga_gpu, gb_gpu, gy_gpu, a_gpu, b_gpu, gy_cpu.numel(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    ag::Tensor ga_out = from_gpu(ga_gpu, 11, 11);
+    ag::Tensor gb_out = from_gpu(gb_gpu, 11, 11);
+
+                std::cout << "\nForward Pass Values:" << std::endl;
+    std::cout << "Input A (CPU):\n" << a_cpu << std::endl;
+    std::cout << "Input B (CPU):\n" << b_cpu << std::endl;
+
+        ag::Tensor out = from_gpu(c_gpu, 1, 1);
+       // out = out;
+
+            check_tensors_close(ref, out, "test_gpu_maeloss");
+
+
+                std::cout << "Output (CPU):\n" << ref << std::endl;
+
+        std::cout << "Output (GPU):\n" << out << std::endl;
+
+        std::cout << "\n\n\nBackward Pass Values:" << std::endl;
+    std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+
+
+
+
+        std::cout << "Expected Gradients (CPU):" << std::endl;
+    std::cout << "dA:\n" << ga_ref << std::endl;
+    std::cout << "dB:\n" << gb_ref << std::endl;
+
+    std::cout << "Expected Gradients (GPU):" << std::endl;
+    std::cout << "dA:\n" << ga_out << std::endl;
+    std::cout << "dB:\n" << gb_out << std::endl;
+
+    check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_maeloss (pred dA)");
+    check_tensors_close(gb_ref, gb_out, "test_gpu_vjp_maeloss (target gB)");
+    CUDA_CHECK(cudaFree(gy_gpu));
+    CUDA_CHECK(cudaFree(ga_gpu));
+    CUDA_CHECK(cudaFree(gb_gpu));
+}
+
 
 
 int main() {
@@ -1438,6 +1510,7 @@ int main() {
         test_gpu_unified_sum();
 
         test_gpu_unified_mseloss();
+        test_gpu_unified_maeloss();
 
     } catch (const std::exception& e) {
         std::cerr << "ERROR: " << e.what() << std::endl;

@@ -21,6 +21,7 @@ extern void square_cuda(const float*, float*, int64_t, ag_cuda_stream_t);
 extern void neg_cuda   (const float*, float*, int64_t, ag_cuda_stream_t);
 extern void clip_cuda  (const float*, float*, float, float, int64_t, ag_cuda_stream_t);
 extern void mseloss_cuda   (const float*, const float*, float*, int64_t, ag_cuda_stream_t);
+extern void maeloss_cuda   (const float*, const float*, float*, int64_t, ag_cuda_stream_t);
 
 // Activations
 extern void relu_cuda        (const float*, float*, int64_t, ag_cuda_stream_t);
@@ -63,6 +64,7 @@ extern void vjp_gemm_cuda (float*, float*, float*, const float*, const float*, c
 extern void vjp_linear_cuda (float*, float*, float*, const float*, const float*, const float*, const float*, int, int, int, ag_cuda_stream_t);
 extern void vjp_sub_cuda    (float*, float*, const float*, int64_t, ag_cuda_stream_t);
 extern void vjp_mseloss_cuda    (float*, float*, const float*, const float*, const float*, int64_t, ag_cuda_stream_t);
+extern void vjp_maeloss_cuda    (float*, float*, const float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 
 // =========================================================
 // All CUDA VJP (Backward) Kernel Declarations
@@ -128,6 +130,7 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->relumask      = &relumask_cuda;
   out->sum = &sumall_cuda;
   out->mseloss       = &mseloss_cuda;
+  out->maeloss       = &maeloss_cuda;
 
   out->flash         = &run_flash_forward;
   out->reluflash = &run_flashrelu_forward;
@@ -153,6 +156,7 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->vjp_neg      = &vjp_neg_cuda;
   out->vjp_clip     = &vjp_clip_cuda;
   out->vjp_mseloss     = &vjp_mseloss_cuda;
+  out->vjp_maeloss     = &vjp_maeloss_cuda;
 
   // Link VJP functions for activation functions
   out->vjp_leaky_relu = &vjp_leaky_relu_cuda;

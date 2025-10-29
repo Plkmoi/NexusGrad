@@ -294,6 +294,17 @@ Tensor Tensor::mse_loss(const Tensor& pred, const Tensor& target) {
     return loss;
 }
 
+Tensor Tensor::mae_loss(const Tensor& pred, const Tensor& target) {
+    Tensor diff = pred - target;
+    Tensor sq   = Tensor::abs(diff);               // elementwise
+    Tensor loss    = Tensor::sum_all(sq)/ float(pred.shape().first * pred.shape().second);                   // scalar [1,1]
+    // int B = pred.shape().first, C = pred.shape().second;
+    // Tensor scale = Tensor::ones(1,1);
+    // scale(0,0) = 1.0f / float(B * C);
+    // Tensor loss = s * scale;                 // broadcast scalar
+    return loss;
+}
+
 
 Tensor Tensor::abs (const Tensor& x) {
     REQUIRE_CPU(x, "abs");
