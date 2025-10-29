@@ -331,3 +331,30 @@ void vjp_log_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda
   k_vjp_log_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
 }
 
+
+__global__ void k_vjp_mseloss_accum(float* gA, float* gB, const float* A, const float* B, const float* gy, int64_t n) {
+    int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) {
+        atomicAdd(&gA[i], gy[i]*(A[i]-B[i])*2.f/n);
+        atomicAdd(&gB[i], gy[i]*(B[i]-A[i])*2.f/n);
+    }
+}
+
+void vjp_mseloss_cuda(float* gA, float* gB, const float* gy, const float* A, const float* B, 
+                  int64_t n, ag_cuda_stream_t s) {
+    dim3 blocks( (unsigned int)((n + 255) / 256) );
+    k_vjp_mseloss_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gA, gB, A, B, gy, n);
+}
+
+__global__ void k_vjp_sum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+
+    atomicAdd(&gX[i], gy[i]);
+  }
+}
+void vjp_sum_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda_stream_t s) {
+    int64_t blocks((unsigned int)((n + 255) / 256));
+  k_vjp_sum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
+}
+

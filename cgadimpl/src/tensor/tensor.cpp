@@ -162,6 +162,7 @@ Tensor& Tensor::add_(const Tensor& g) {
     return *this;
 }
 
+
 // --- Math Functions (CPU-only implementations) ---
 #define REQUIRE_CPU(tensor, func_name) \
     if ((tensor).is_cuda()) throw std::runtime_error(std::string(func_name) + " is CPU-only for now.")
@@ -281,6 +282,18 @@ Tensor Tensor::reciprocal(const Tensor &x) {
     for(size_t i=0; i < x.numel(); ++i) y.data()[i] = 1.0f / x.data()[i];
     return y;
 }
+
+Tensor Tensor::mse_loss(const Tensor& pred, const Tensor& target) {
+    Tensor diff = pred - target;
+    Tensor sq   = diff * diff;               // elementwise
+    Tensor loss    = Tensor::sum_all(sq)/ float(pred.shape().first * pred.shape().second);                   // scalar [1,1]
+    // int B = pred.shape().first, C = pred.shape().second;
+    // Tensor scale = Tensor::ones(1,1);
+    // scale(0,0) = 1.0f / float(B * C);
+    // Tensor loss = s * scale;                 // broadcast scalar
+    return loss;
+}
+
 
 Tensor Tensor::abs (const Tensor& x) {
     REQUIRE_CPU(x, "abs");

@@ -1869,8 +1869,18 @@ void vjp_Sum(Node* n, const Tensor& gy){
     if (!n->requires_cuda) {
         float s = gy(0,0);
         X->grad.add_( Tensor::ones_like(X->value) * s );
-    } else {
-        throw std::runtime_error("VJP for Sum on CUDA not implemented yet!");
+    }  else  {
+        // GPU path (when ready)
+        auto fn = ag::kernels::cuda().vjp_sum;
+        if (fn) {
+            // --- NEW: Call the fast backward kernel ---
+            // The kernel takes the original input `x` to compute the derivative (sigmoid(x)).
+            fn(X->grad.data(),  X->value.data(), gy.data(), X->value.numel(), nullptr);
+        } else {
+        // GPU path (when ready)
+        throw std::runtime_error("Sum backward on CUDA not implemented yet!");
+        }
+        // GPU path (when ready)
     }
 }
 void vjp_RowSum(Node* n, const Tensor& gy){
@@ -2204,12 +2214,19 @@ void vjp_MSELoss(Node* n, const Tensor& gy){
     if (!n->requires_cuda) {
         int N = Z->value.numel();
         Tensor diff = Z->value - Y->value;
-        Tensor gZ = diff * (2.0f / float(N));
-        Tensor gY = -diff * (2.0f / float(N));
+        Tensor gZ = diff * (2.0f / float(N))*gy;
+        Tensor gY = -diff * (2.0f / float(N))*gy;
         if (Z->requires_grad) Z->grad.add_(gZ);
         if (Y->requires_grad) Y->grad.add_(gY);
     } else {
-        throw std::runtime_error("VJP for MSELoss on CUDA not implemented yet!");
+auto* fn = ag::kernels::cuda().vjp_hadmul;
+    if(fn){
+        fn(Z->grad.data(),Y->grad.data(),gy.data(),Z->value.data(),Y->value.data(),gy.numel(),ag::current_stream());
+    }
+    
+        else{
+        throw std::runtime_error("VJP for Mse Loss on CUDA not implemented yet!");
+        }
     }
 }
 

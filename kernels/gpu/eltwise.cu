@@ -158,7 +158,80 @@ __global__ void k_log(const float* __restrict__ x, float* __restrict__ y, int64_
 __global__ void k_softplus(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) y[i] = __logf(1.0f + __expf(x[i]));
+
+
 }
+
+
+
+
+
+
+__inline__ __device__ float warpReduceSum(float val) {
+    for (int offset = warpSize / 2; offset > 0; offset /= 2)
+        val += __shfl_down_sync(0xffffffff, val, offset);
+    return val;
+}
+
+__inline__ __device__ float blockReduceSum(float val) {
+    __shared__ float shared[32]; // supports up to 1024 threads
+    int lane = threadIdx.x % warpSize;
+    int wid  = threadIdx.x / warpSize;
+
+    // reduce within warp
+    val = warpReduceSum(val);
+
+    // write warp sum to shared memory
+    if (lane == 0) shared[wid] = val;
+    __syncthreads();
+
+    // read warp sums and reduce them in warp 0
+    val = (threadIdx.x < blockDim.x / warpSize) ? shared[lane] : 0.0f;
+    if (wid == 0) val = warpReduceSum(val);
+    return val;
+}
+
+__global__ void k_sumall(const float* __restrict__ g_idata,
+                         float* __restrict__ g_odata,
+                         int N)
+{
+    float sum = 0.0f;
+
+    // grid-stride loop
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < N; i += gridDim.x * blockDim.x)
+        sum += g_idata[i];
+
+    // block-wide reduction
+    sum = blockReduceSum(sum);
+
+    // one thread per block writes result
+    if (threadIdx.x == 0)
+        atomicAdd(g_odata, sum);
+}
+
+
+// __inline__ __device__ void kaa_sumall(const float* __restrict__ g_idata,
+//                          float* __restrict__ g_odata,
+//                          int N)
+// {
+//     float sum = 0.0f;
+
+//     // grid-stride loop
+//     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < N; i += gridDim.x * blockDim.x)
+//         sum += g_idata[i];
+
+//     // block-wide reduction
+//     sum = blockReduceSum(sum);
+
+//     // one thread per block writes result
+//     if (threadIdx.x == 0)
+//         atomicAdd(g_odata, sum);
+// }
+
+
+
+
+
 
 // =====================================================
 // Launch Helpers
@@ -172,9 +245,37 @@ static inline dim3 blocks_for(int64_t n, int tpb = 256) {
 // CUDA Launch Functions
 // =====================================================
 
+void sumall_cuda(const float* a, float* c, int64_t n, ag_cuda_stream_t s) {
+  k_sumall<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(a, c, n);
+}
+
+
+
+
+
+__global__ void k_mseloss(const float* __restrict__ p, const float* __restrict__ t,
+                      float* __restrict__ c, int64_t n) {
+    float sum = 0.0f;
+
+    // grid-stride loop
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x;
+         i < n;
+         i += gridDim.x * blockDim.x)
+    {
+        float diff = p[i] - t[i];
+        sum += diff * diff;
+    }
+
+    // block reduce
+    sum = blockReduceSum(sum);
+
+    if (threadIdx.x == 0)
+        atomicAdd(c, sum / (float)n);
+}
+
 
 void mseloss_cuda(const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s) {
-  k_add<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(a, b, c, n);
+  k_mseloss<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(a, b, c, n);
 }
 void add_cuda(const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s) {
   k_add<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(a, b, c, n);

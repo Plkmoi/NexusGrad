@@ -107,6 +107,7 @@ typedef void (*ag_pow_cuda_fn)   (const float* a, const float* b, float* c, int6
 typedef void (*ag_square_cuda_fn)(const float* x, float* y, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_neg_cuda_fn)   (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_clip_cuda_fn)  (const float* x, float* y, float minv, float maxv, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_mseloss_cuda_fn)   (const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s);
 
 // Activations
 typedef void (*ag_relu_cuda_fn)        (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
@@ -156,6 +157,9 @@ typedef void (*ag_vjp_matmul_cuda_fn)(float* gA, float* gB, const float* gy,
 typedef void (*ag_vjp_div_cuda_fn)(float* gA, float* gB, const float* gy,
                                    const float* A, const float* B,
                                    int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_vjp_mseloss_cuda_fn)(float* gA, float* gB, const float* gy,
+                                   const float* A, const float* B,
+                                   int64_t n, ag_cuda_stream_t s);
 
 // Additional VJP function types for arithmetic ops
 typedef void (*ag_vjp_pow_cuda_fn)(float* gA, float* gB, const float* gy,
@@ -197,6 +201,9 @@ typedef void (*ag_vjp_gemm_cuda_fn)(float* gA, float* gB, float* gC, const float
 typedef void (*ag_vjp_linear_cuda_fn)(float* gA, float* gB, float* gC, const float* gy,
                                       const float* A, const float* B, const float* C,
                                       int M, int K, int N, ag_cuda_stream_t s);
+typedef void (*ag_vjp_sum_cuda_fn)(float* gX, const float* gy, const float* X,
+                                   int64_t n, ag_cuda_stream_t s);
+
 // CUDA function table
 struct ag_cuda_v1 {
   uint32_t abi_version;
@@ -239,6 +246,7 @@ struct ag_cuda_v1 {
   ag_sigflash_attention sigflash;
   ag_flexflash_attention flexflash;
   ag_sum_cuda_fn sum;
+  ag_mseloss_cuda_fn        mseloss;
 
   // ========================================================
   // Backward (VJP) ops
@@ -271,6 +279,8 @@ struct ag_cuda_v1 {
   ag_vjp_hard_swish_cuda_fn   vjp_hard_swish;
   ag_vjp_softplusback_cuda_fn    vjp_sofba;
   ag_vjp_log_cuda_fn        vjp_log       ;
+  ag_vjp_mseloss_cuda_fn        vjp_mseloss;
+  ag_vjp_sum_cuda_fn        vjp_sum;
 };
 
 // Every CUDA plugin must export this symbol.
@@ -335,6 +345,7 @@ struct Cuda {
   ag_clip_cuda_fn    clip   = nullptr;
   ag_log_cuda_fn          log = nullptr;
   ag_relumask_cuda_fn     relumask = nullptr;
+  ag_mseloss_cuda_fn        mseloss       = nullptr;
 
   // Activations
   ag_relu_cuda_fn         relu         = nullptr;
@@ -388,6 +399,8 @@ struct Cuda {
   ag_vjp_hard_swish_cuda_fn   vjp_hard_swish = nullptr;
   ag_vjp_softplusback_cuda_fn    vjp_sofba       = nullptr;
   ag_vjp_log_cuda_fn        vjp_log       = nullptr;
+  ag_vjp_mseloss_cuda_fn        vjp_mseloss       = nullptr;
+  ag_vjp_sum_cuda_fn        vjp_sum       = nullptr;
 };
 Cuda& cuda();
 void load_cuda_plugin(const char* path);

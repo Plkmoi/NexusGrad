@@ -20,6 +20,7 @@ extern void pow_cuda   (const float*, const float*, float*, int64_t, ag_cuda_str
 extern void square_cuda(const float*, float*, int64_t, ag_cuda_stream_t);
 extern void neg_cuda   (const float*, float*, int64_t, ag_cuda_stream_t);
 extern void clip_cuda  (const float*, float*, float, float, int64_t, ag_cuda_stream_t);
+extern void mseloss_cuda   (const float*, const float*, float*, int64_t, ag_cuda_stream_t);
 
 // Activations
 extern void relu_cuda        (const float*, float*, int64_t, ag_cuda_stream_t);
@@ -61,6 +62,8 @@ extern void vjp_tanh_cuda   (float*, const float*, const float*, int64_t, ag_cud
 extern void vjp_gemm_cuda (float*, float*, float*, const float*, const float*, const float*, const float*, int, int, int, ag_cuda_stream_t);
 extern void vjp_linear_cuda (float*, float*, float*, const float*, const float*, const float*, const float*, int, int, int, ag_cuda_stream_t);
 extern void vjp_sub_cuda    (float*, float*, const float*, int64_t, ag_cuda_stream_t);
+extern void vjp_mseloss_cuda    (float*, float*, const float*, const float*, const float*, int64_t, ag_cuda_stream_t);
+
 // =========================================================
 // All CUDA VJP (Backward) Kernel Declarations
 // =========================================================
@@ -80,6 +83,7 @@ extern void vjp_hard_sigmoid_cuda  (float*, const float*, const float*, int64_t,
 extern void vjp_hard_swish_cuda    (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 extern void vjp_sofba_cuda       (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 extern void vjp_log_cuda       (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
+extern void vjp_sum_cuda           (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 
 
 
@@ -123,6 +127,12 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->linear       = &linear_cuda;
   out->relumask      = &relumask_cuda;
   out->sum = &sumall_cuda;
+  out->mseloss       = &mseloss_cuda;
+
+  out->flash         = &run_flash_forward;
+  out->reluflash = &run_flashrelu_forward;
+  out->sigflash        = &run_flashsig_forward;
+  out->flexflash        = &run_flashflex_forwardz;
 
   // ========================================================
   // Backward (VJP)
@@ -142,6 +152,7 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->vjp_square   = &vjp_square_cuda;
   out->vjp_neg      = &vjp_neg_cuda;
   out->vjp_clip     = &vjp_clip_cuda;
+  out->vjp_mseloss     = &vjp_mseloss_cuda;
 
   // Link VJP functions for activation functions
   out->vjp_leaky_relu = &vjp_leaky_relu_cuda;
@@ -154,10 +165,8 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->vjp_hard_swish  = &vjp_hard_swish_cuda;
   out->vjp_sofba       = &vjp_sofba_cuda;
   out->vjp_log        = &vjp_log_cuda;
-  out->flash         = &run_flash_forward;
-  out->reluflash = &run_flashrelu_forward;
-  out->sigflash        = &run_flashsig_forward;
-  out->flexflash        = &run_flashflex_forwardz;
+  out->vjp_sum = &vjp_sum_cuda;
+
 
   return 0;
 }

@@ -973,12 +973,28 @@ std::shared_ptr<Node> sqrt_nodeops(const std::shared_ptr<Node>& x){
 
 
     std::shared_ptr<Node> sum_nodeops(const std::shared_ptr<Node>& x){ 
-        Tensor y = Tensor::sum_all(x->value); 
-        auto n = std::make_shared<Node>(y, x->requires_grad, Op::Sum, "sum"); 
+        const Tensor& X = x->value;
+    Tensor y = Tensor::zeros_like(X);
+
+    if (X.is_cpu()) {
+        y = Tensor::sum_all(x->value); 
+
+    }
+    else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().sum;
+        if (fn) {
+            fn(X.data(), y.data(), y.numel(), ag::current_stream());
+        } else {
+            throw std::runtime_error("Sum forward on CUDA not implemented or loaded.");
+        }
+    }
+            auto n = std::make_shared<Node>(y, x->requires_grad, Op::Sum, "sum"); 
         n->inputs = {x}; 
         ag::debug::on_node_created(n);  
         return n; 
-    }
+}
 
     std::shared_ptr<Node> transpose_nodeops(const std::shared_ptr<Node>& x){ 
         Tensor y = Tensor::transpose(x->value); 
@@ -1567,13 +1583,42 @@ std::shared_ptr<Node> mambassm_nodeops(const std::shared_ptr<Node>& z, const std
     }
 
     std::shared_ptr<Node> mse_loss_nodeops(const std::shared_ptr<Node>& pred, const std::shared_ptr<Node>& target) {
-    Tensor diff = pred->value - target->value;
+    if (pred->value.device() != target->value.device()) {
+        throw std::runtime_error("add_nodeops: device mismatch between inputs.");
+    }
+
+    Tensor loss = Tensor::zeros_like(pred->value); // Create output tensor on the same device
+  //  std::cout<<"In add_nodeops\n"<<Y.is_cuda();
+
+    if (pred->value.is_cpu()  && target->value.is_cpu()) {
+    
+        Tensor diff = pred->value - target->value;
     Tensor sq   = diff * diff;               // elementwise
     Tensor s    = Tensor::sum_all(sq);                   // scalar [1,1]
     int B = pred->value.shape().first, C = pred->value.shape().second;
     Tensor scale = Tensor::ones(1,1);
     scale(0,0) = 1.0f / float(B * C);
-    Tensor loss = s * scale;                 // broadcast scalar
+    loss = s * scale;                 // broadcast scalar
+
+
+
+
+
+
+    }
+
+
+    else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().hadmul;
+        if (fn) {
+        fn(pred->value.data(), target->value.data(), loss.data(), loss.numel(), ag::current_stream());
+        } 
+        else {
+            throw std::runtime_error("ReLU forward on CUDA not implemented or loaded.");
+        }
+    }
     auto n = std::make_shared<Node>(loss, pred->requires_grad || target->requires_grad, Op::MSELoss, "mseloss");
     n->inputs = {pred, target};
         ag::debug::on_node_created(n);  

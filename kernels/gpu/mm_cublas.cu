@@ -808,33 +808,3 @@ cudaMemcpy(d_act, act, N * sizeof(float), cudaMemcpyHostToDevice);
     cudaFree(d_act);
     
 }
-
-__global__ void k_sumall(const float* g_idata, float* g_odata, int n)
-{
-    extern __shared__ float sdata[];
-    unsigned int tid = threadIdx.x;
-    unsigned int i = blockIdx.x * blockDim.x + threadIdx.x;
-
-    // load data into shared memory
-    sdata[tid] = (i < n) ? g_idata[i] : 0.0f;
-    __syncthreads();
-
-    // reduction in shared memory
-    for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
-        if (tid < s)
-            sdata[tid] += sdata[tid + s];
-        __syncthreads();
-    }
-
-    // write block result to output (atomic add for global sum)
-    if (tid == 0)
-        atomicAdd(g_odata, sdata[0]);
-}
-
-static inline dim3 blocks_for(int64_t n, int tpb = 256) {
-  return dim3(int((n + tpb - 1) / tpb));
-}
-
-void sumall_cuda(const float* a, float* c, int64_t n, ag_cuda_stream_t s) {
-  k_sumall<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(a, c, n);
-}

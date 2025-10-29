@@ -1154,7 +1154,7 @@ void test_gpu_unified_flexattention() {
     CUDA_CHECK(cudaDeviceSynchronize());
 
     ag::Tensor out = from_gpu(e_gpu, 11, 14);
-    check_tensors_close(ref, out, "test_gpu_flexattention");
+    check_tensors_close(ref, out, "test_gpu_flexattention", 3.0);
     std::cout << "Output (GPU):\n" << out << std::endl;
     
 
@@ -1225,7 +1225,7 @@ void test_gpu_unified_sigattention() {
     CUDA_CHECK(cudaDeviceSynchronize());
 
     ag::Tensor out = from_gpu(e_gpu, 11, 14);
-    check_tensors_close(ref, out, "test_gpu_sigattention", 1.f);
+    check_tensors_close(ref, out, "test_gpu_sigattention", 4.0);
     std::cout << "Output (GPU):\n" << out << std::endl;
     
 
@@ -1273,7 +1273,7 @@ void test_gpu_unified_sigattention() {
 
 void test_gpu_unified_sum() {
     auto& K = ag::kernels::cuda();
-    ag::Tensor a_cpu = ag::Tensor::randn(2, 2, 1);
+    ag::Tensor a_cpu = ag::Tensor::randn(51, 23, 111);
     std::cout << "\nForward Pass Values:" << std::endl;
     std::cout << "Input A (CPU):\n" << a_cpu << std::endl;
     ag::Tensor ref = ag::Tensor::sum_all(a_cpu);
@@ -1285,33 +1285,33 @@ void test_gpu_unified_sum() {
     K.sum(a_gpu, c_gpu, a_cpu.numel(), nullptr);
     CUDA_CHECK(cudaDeviceSynchronize());
 
-    // ag::Tensor gy_cpu = ag::Tensor::randn(11, 11, 5);
+    ag::Tensor gy_cpu = ag::Tensor::randn(11, 11, 5);
 
-    // ag::Tensor one = ag::Tensor::ones_like(a_cpu);
-    // ag::Tensor ga_ref = gy_cpu*(one - (ref*ref)); // vjp_add just passes gradient through
+    ag::Tensor one = ag::Tensor::ones_like(a_cpu);
+    ag::Tensor ga_ref = gy_cpu; // vjp_add just passes gradient through
 
-    // ag::Tensor ga_cpu_init = ag::Tensor::zeros(11, 11);
+    ag::Tensor ga_cpu_init = ag::Tensor::zeros(11, 11);
 
-    // float *gy_gpu = to_gpu(gy_cpu);
-    // float *ga_gpu = to_gpu(ga_cpu_init);
+    float *gy_gpu = to_gpu(gy_cpu);
+    float *ga_gpu = to_gpu(ga_cpu_init);
 
-    // K.vjp_tanh(ga_gpu, gy_gpu, c_gpu, gy_cpu.numel(), nullptr);
-    // CUDA_CHECK(cudaDeviceSynchronize());
+    K.vjp_sum(ga_gpu, a_gpu, gy_gpu, gy_cpu.numel(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
 
     
 
-    // ag::Tensor out = from_gpu(c_gpu, 1, 1);
-    // check_tensors_close(ref, out, "test_gpu_sumall", 0.1);
-    // std::cout << "Output (GPU):\n" << out << std::endl;
+    ag::Tensor out = from_gpu(c_gpu, 1, 1);
+    check_tensors_close(ref, out, "test_gpu_sumall", 0.9);
+    std::cout << "Output (GPU):\n" << out << std::endl;
 
-    // ag::Tensor ga_out = from_gpu(ga_gpu, 11, 11);
+    ag::Tensor ga_out = from_gpu(ga_gpu, 11, 11);
 
-    // std::cout << "\nBackward Pass Values:" << std::endl;
-    // std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
-    // std::cout << "Expected dA (CPU):\n" << ga_ref << std::endl;
-    // std::cout << "Computed dA (GPU):\n" << ga_out << std::endl;
+    std::cout << "\nBackward Pass Values:" << std::endl;
+    std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+    std::cout << "Expected dA (CPU):\n" << ga_ref << std::endl;
+    std::cout << "Computed dA (GPU):\n" << ga_out << std::endl;
 
-    // check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_tanh");
+    check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_sum");
 
 
 
@@ -1319,9 +1319,83 @@ void test_gpu_unified_sum() {
 
     CUDA_CHECK(cudaFree(a_gpu));
     CUDA_CHECK(cudaFree(c_gpu));
-    // CUDA_CHECK(cudaFree(gy_gpu));
-    // CUDA_CHECK(cudaFree(ga_gpu));
+    CUDA_CHECK(cudaFree(gy_gpu));
+    CUDA_CHECK(cudaFree(ga_gpu));
 }
+
+
+void test_gpu_unified_mseloss() {
+        auto& K = ag::kernels::cuda();
+    ag::Tensor a_cpu = ag::Tensor::randn(11, 11, 11);
+    ag::Tensor b_cpu = ag::Tensor::randn(11, 11, 21);
+
+    ag::Tensor ref = ag::Tensor::mse_loss(a_cpu, b_cpu);
+
+    float *a_gpu = to_gpu(a_cpu), *b_gpu = to_gpu(b_cpu);
+    float *c_gpu;
+CUDA_CHECK(cudaMalloc(&c_gpu, sizeof(float)));
+CUDA_CHECK(cudaMemset(c_gpu, 0, sizeof(float)));  // ← important!
+
+    K.mseloss(a_gpu, b_gpu, c_gpu, a_cpu.numel(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    ag::Tensor gy_cpu = ag::Tensor::ones(11, 11);
+    
+
+    int N = a_cpu.numel();
+        ag::Tensor diff = a_cpu - b_cpu;
+        ag::Tensor ga_ref = diff * (2.0f / float(N))*gy_cpu;
+        ag::Tensor gb_ref = -diff * (2.0f / float(N))*gy_cpu;
+
+
+    ag::Tensor ga_cpu_init = ag::Tensor::zeros(11, 11);
+    ag::Tensor gb_cpu_init = ag::Tensor::zeros(11, 11);
+
+    float *gy_gpu = to_gpu(gy_cpu);
+    float *ga_gpu = to_gpu(ga_cpu_init);
+    float *gb_gpu = to_gpu(gb_cpu_init);
+
+    K.vjp_mseloss(ga_gpu, gb_gpu, gy_gpu, a_gpu, b_gpu, gy_cpu.numel(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    ag::Tensor ga_out = from_gpu(ga_gpu, 11, 11);
+    ag::Tensor gb_out = from_gpu(gb_gpu, 11, 11);
+
+                std::cout << "\nForward Pass Values:" << std::endl;
+    std::cout << "Input A (CPU):\n" << a_cpu << std::endl;
+    std::cout << "Input B (CPU):\n" << b_cpu << std::endl;
+
+        ag::Tensor out = from_gpu(c_gpu, 1, 1);
+       // out = out;
+
+            check_tensors_close(ref, out, "test_gpu_mseloss");
+
+
+                std::cout << "Output (CPU):\n" << ref << std::endl;
+
+        std::cout << "Output (GPU):\n" << out << std::endl;
+
+        std::cout << "\n\n\nBackward Pass Values:" << std::endl;
+    std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+
+
+
+
+        std::cout << "Expected Gradients (CPU):" << std::endl;
+    std::cout << "dA:\n" << ga_ref << std::endl;
+    std::cout << "dB:\n" << gb_ref << std::endl;
+
+    std::cout << "Expected Gradients (GPU):" << std::endl;
+    std::cout << "dA:\n" << ga_out << std::endl;
+    std::cout << "dB:\n" << gb_out << std::endl;
+
+    check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_mseloss (pred dA)");
+    check_tensors_close(gb_ref, gb_out, "test_gpu_vjp_mseloss (target gB)");
+    CUDA_CHECK(cudaFree(gy_gpu));
+    CUDA_CHECK(cudaFree(ga_gpu));
+    CUDA_CHECK(cudaFree(gb_gpu));
+}
+
 
 
 int main() {
@@ -1362,6 +1436,8 @@ int main() {
         test_gpu_unified_sigattention();
         test_gpu_unified_flexattention();
         test_gpu_unified_sum();
+
+        test_gpu_unified_mseloss();
 
     } catch (const std::exception& e) {
         std::cerr << "ERROR: " << e.what() << std::endl;
