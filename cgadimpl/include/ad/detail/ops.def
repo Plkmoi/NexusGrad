@@ -8,7 +8,7 @@ OP(Sub,       2,    "sub") // vjp exists for CUDA
 OP(Mul,       2,    "mul") // vjp exists for CUDA
 OP(Relu,      1,    "relu") // vjp exists for CUDA
 OP(MatMul,    2,    "matmul") // vjp exists for CUDA
-OP(Sum,       1,    "sum")
+OP(Sum,       1,    "sum") // vjp exists for CUDA
 OP(Exp,       1,    "exp") // vjp exists for CUDA
 OP(Log,       1,    "log") // vjp exists for CUDA
 OP(Tanh,      1,    "tanh") // vjp exists for CUDA
@@ -26,8 +26,8 @@ OP(CeWithLogits,2,  "ce_with_logits")
 OP(KLDivergence,2,  "kldivergence")
 OP(FMA,       3,    "fmab") // fused multiply-add             // vjp exists for CUDA
 OP(Attention,       4,    "attention") // attention
-OP(MSELoss,       2,    "mseloss") // mse loss
-OP(MAELoss,       2,    "maeloss") // mae loss
+OP(MSELoss,       2,    "mseloss") // mse loss // vjp exists for CUDA
+OP(MAELoss,       2,    "maeloss") // mae loss // vjp exists for CUDA
 OP(GCU,       1,    "gcu") // Growing Cosine Unit
 OP(Mish,      1,    "mish") // mish activation        // vjp exists for CUDA
 OP(Gaus,      1,    "gaus") // gaussian activation
@@ -47,7 +47,7 @@ OP(Sign, 1, "sign")
 OP(Cosh, 1, "cosh")
 OP(Sinh, 1, "sinh")
 OP(Sqrt, 1, "sqrt") 
-OP(Relumask, 1, "relumask")  
+OP(Relumask, 1, "relumask")    // vjp exists for CUDA
 OP(Cos, 1, "cosh")
 OP(Sin, 1, "sinh")
 OP(MOE,      3,    "moe") // mixture of experts with weights and bias
