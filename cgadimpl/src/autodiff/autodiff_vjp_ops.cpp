@@ -1738,9 +1738,18 @@ void vjp_LeakyRelu(Node* n, const Tensor& gy){
             }
             X->grad.add_( g );
         }
-    } else {
+    } else  {
         // GPU path (when ready)
-        throw std::runtime_error("LeakyReLU backward on CUDA not implemented");
+        auto fn = ag::kernels::cuda().vjp_leaky_relu;
+        if (fn) {
+            // --- NEW: Call the fast backward kernel ---
+            // The kernel takes the original input `x` to compute the derivative (sigmoid(x)).
+            fn(X->grad.data(),  X->value.data(), gy.data(), alpha, X->value.numel(), nullptr);
+        } else {
+        // GPU path (when ready)
+        throw std::runtime_error("ReLU backward on CUDA not implemented yet!");
+        }
+        // GPU path (when ready)
     }
 }
 
@@ -1888,8 +1897,18 @@ void vjp_RowSum(Node* n, const Tensor& gy){
     if (!X->requires_grad) return;
     if (!n->requires_cuda) {
         X->grad.add_( gy * Tensor::ones_like(X->value) );
-    } else {
-        throw std::runtime_error("VJP for RowSum on CUDA not implemented yet!");
+    } else  {
+        // GPU path (when ready)
+        auto fn = ag::kernels::cuda().vjp_sum;
+        if (fn) {
+            // --- NEW: Call the fast backward kernel ---
+            // The kernel takes the original input `x` to compute the derivative (sigmoid(x)).
+            fn(X->grad.data(),  X->value.data(), gy.data(), X->value.numel(), nullptr);
+        } else {
+        // GPU path (when ready)
+        throw std::runtime_error("Sum backward on CUDA not implemented yet!");
+        }
+        // GPU path (when ready)
     }
 }
 void vjp_RowMax(Node* n, const Tensor& gy){
@@ -2140,13 +2159,14 @@ void vjp_Relumask(Node* n, const Tensor& gy){
         // GPU path (when ready)
         // This will correctly dispatch to your existing CUDA ReLU kernel.
     //    auto b = Tensor::zeros_like(n->value);
-        auto fn = ag::kernels::cuda().add;
+        auto fn = ag::kernels::cuda().relumask;
         if (fn) {
         // fn(n->value.data(), b.data(), n->grad.data(), n->grad.numel(), ag::current_stream());
         } 
         else {
             throw std::runtime_error("ReLUmask forward on CUDA not implemented or loaded.");
         }
+    }
 }
 
 void vjp_RELUAtt(Node* n, const Tensor& gy){

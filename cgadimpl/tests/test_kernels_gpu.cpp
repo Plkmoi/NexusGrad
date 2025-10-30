@@ -1470,6 +1470,121 @@ CUDA_CHECK(cudaMemset(c_gpu, 0, sizeof(float)));  // ← important!
 
 
 
+void test_gpu_unified_rowsum() {
+    auto& K = ag::kernels::cuda();
+    ag::Tensor a_cpu = ag::Tensor::randn(2, 2, 111);
+    std::cout << "\nForward Pass Values:" << std::endl;
+    std::cout << "Input A (CPU):\n" << a_cpu << std::endl;
+    ag::Tensor ref = ag::Tensor::row_sum(a_cpu);
+    std::cout << "Output (CPU):\n" << ref << std::endl;
+
+    float *a_gpu = to_gpu(a_cpu), *c_gpu;
+    CUDA_CHECK(cudaMalloc(&c_gpu, ref.numel() * sizeof(float)));
+
+    K.rowsum(a_gpu, c_gpu, a_cpu.rows(), a_cpu.cols(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    ag::Tensor gy_cpu = ag::Tensor::randn(11, 17, 5);
+
+    ag::Tensor one = ag::Tensor::ones_like(a_cpu);
+    ag::Tensor ga_ref = gy_cpu; // vjp_add just passes gradient through
+
+    ag::Tensor ga_cpu_init = ag::Tensor::zeros(11, 17);
+
+    float *gy_gpu = to_gpu(gy_cpu);
+    float *ga_gpu = to_gpu(ga_cpu_init);
+
+    K.vjp_sum(ga_gpu, a_gpu, gy_gpu, gy_cpu.numel(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    
+
+    ag::Tensor out = from_gpu(c_gpu, ref.rows(), ref.cols());
+    check_tensors_close(ref, out, "test_gpu_rowsum", 0.9);
+    std::cout << "Output (GPU):\n" << out << std::endl;
+
+    ag::Tensor ga_out = from_gpu(ga_gpu, 11, 17);
+
+    std::cout << "\nBackward Pass Values:" << std::endl;
+    std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+    std::cout << "Expected dA (CPU):\n" << ga_ref << std::endl;
+    std::cout << "Computed dA (GPU):\n" << ga_out << std::endl;
+
+    check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_rowsum");
+
+
+
+
+
+    CUDA_CHECK(cudaFree(a_gpu));
+    CUDA_CHECK(cudaFree(c_gpu));
+    CUDA_CHECK(cudaFree(gy_gpu));
+    CUDA_CHECK(cudaFree(ga_gpu));
+}
+
+
+
+
+void test_gpu_unified_rowmax() {
+    auto& K = ag::kernels::cuda();
+    ag::Tensor a_cpu = ag::Tensor::randn(11, 17, 12);
+    std::cout << "\nForward Pass Values:" << std::endl;
+    std::cout << "Input A (CPU):\n" << a_cpu << std::endl;
+    ag::Tensor ref = ag::Tensor::row_max(a_cpu);
+    std::cout << "Output (CPU):\n" << ref << std::endl;
+
+    float *a_gpu = to_gpu(a_cpu), *c_gpu;
+    CUDA_CHECK(cudaMalloc(&c_gpu, ref.numel() * sizeof(float)));
+
+    K.rowmax(a_gpu, c_gpu, a_cpu.rows(), a_cpu.cols(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    ag::Tensor gy_cpu = ag::Tensor::randn(11, 1, 5);
+
+ //   ag::Tensor one = ag::Tensor::ones_like(a_cpu);
+    ag::Tensor g = ag::Tensor::zeros_like(a_cpu);
+        for(int i=0; i<a_cpu.rows(); ++i) for(int j=0; j<a_cpu.cols(); ++j)
+            g(i,j) = (a_cpu(i,j)==ref(i,0)) ? gy_cpu(i,0) : 0.f;
+
+    ag::Tensor ga_ref = g; // vjp_add just passes gradient through
+
+    ag::Tensor ga_cpu_init = ag::Tensor::zeros(11, 17);
+
+    float *gy_gpu = to_gpu(gy_cpu);
+    float *ga_gpu = to_gpu(ga_cpu_init);
+
+    K.vjp_rowmax(ga_gpu, a_gpu, c_gpu, gy_gpu, a_cpu.rows(), a_cpu.cols(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    
+
+    ag::Tensor out = from_gpu(c_gpu, ref.rows(), ref.cols());
+    check_tensors_close(ref, out, "test_gpu_rowmax", 0.9);
+    std::cout << "Output (GPU):\n" << out << std::endl;
+
+    ag::Tensor ga_out = from_gpu(ga_gpu, 11, 17);
+
+    std::cout << "\nBackward Pass Values:" << std::endl;
+    std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+    std::cout << "Expected dA (CPU):\n" << ga_ref << std::endl;
+    std::cout << "Computed dA (GPU):\n" << ga_out << std::endl;
+
+    check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_rowmax");
+
+
+
+
+
+    CUDA_CHECK(cudaFree(a_gpu));
+    CUDA_CHECK(cudaFree(c_gpu));
+    CUDA_CHECK(cudaFree(gy_gpu));
+    CUDA_CHECK(cudaFree(ga_gpu));
+}
+
+
+
+
+
 int main() {
     std::cout << "=== Running GPU Kernel Tests ===\n";
     try {
@@ -1511,6 +1626,8 @@ int main() {
 
         test_gpu_unified_mseloss();
         test_gpu_unified_maeloss();
+        test_gpu_unified_rowsum();
+        test_gpu_unified_rowmax();
 
     } catch (const std::exception& e) {
         std::cerr << "ERROR: " << e.what() << std::endl;

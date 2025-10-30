@@ -1383,7 +1383,25 @@ std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){
 
 
     std::shared_ptr<Node> rowsum_nodeops(const std::shared_ptr<Node>& x){ 
+
+                const Tensor& X = x->value;
+    Tensor y = Tensor::zeros_like(X);
+
+    if (X.is_cpu()) {
         Tensor y = Tensor::row_sum(x->value); 
+
+    }
+    else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().rowsum;
+        if (fn) {
+            fn(X.data(), y.data(), x->value.rows(), x->value.cols(), ag::current_stream());
+        } else {
+            throw std::runtime_error("Sum forward on CUDA not implemented or loaded.");
+        }
+    }
+        
         auto n=std::make_shared<Node>(y, x->requires_grad, Op::RowSum, "rowsum"); 
         n->inputs={x}; 
         ag::debug::on_node_created(n);  

@@ -50,6 +50,8 @@ extern void run_flashrelu_forward(const float* Q, const float* K, const float* V
 extern void run_flashsig_forward(const float* Q, const float* K, const float* V, float* O,
                        int B, int nh, int N, int d, ag_cuda_stream_t);
 extern void sumall_cuda(const float* a, float* c, int64_t n, ag_cuda_stream_t s);
+extern void rowsum_cuda(const float* a, float* c, int64_t n, int64_t w, ag_cuda_stream_t s);
+extern void rowmax_cuda(const float* a, float* c, int64_t n, int64_t w, ag_cuda_stream_t s);
 
 // ============================================================
 // Backward / VJP declarations
@@ -87,6 +89,7 @@ extern void vjp_sofba_cuda       (float*, const float*, const float*, int64_t, a
 extern void vjp_log_cuda       (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 extern void vjp_sum_cuda           (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 
+void vjp_rowmax_cuda(float* , const float* , const float* , const float* , int64_t , int64_t , ag_cuda_stream_t ); 
 
 
 
@@ -128,14 +131,17 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->gemm       = &gemm_cuda;
   out->linear       = &linear_cuda;
   out->relumask      = &relumask_cuda;
-  out->sum = &sumall_cuda;
-  out->mseloss       = &mseloss_cuda;
-  out->maeloss       = &maeloss_cuda;
 
   out->flash         = &run_flash_forward;
   out->reluflash = &run_flashrelu_forward;
   out->sigflash        = &run_flashsig_forward;
   out->flexflash        = &run_flashflex_forwardz;
+
+  out->sum = &sumall_cuda;
+  out->mseloss       = &mseloss_cuda;
+  out->maeloss       = &maeloss_cuda;
+  out->rowsum = &rowsum_cuda;
+  out->rowmax = &rowmax_cuda;
 
   // ========================================================
   // Backward (VJP)
@@ -170,7 +176,7 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->vjp_sofba       = &vjp_sofba_cuda;
   out->vjp_log        = &vjp_log_cuda;
   out->vjp_sum = &vjp_sum_cuda;
-
+  out->vjp_rowmax = &vjp_rowmax_cuda;
 
   return 0;
 }

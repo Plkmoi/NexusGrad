@@ -4,6 +4,7 @@
 #include <cuda_runtime.h>
 #include <cstdint>
 #include "ad/kernels_api.hpp"
+#include <cfloat>
 
 __device__ __forceinline__ float sigmoidf(float x) {
   return 1.f / (1.f + __expf(-x));
@@ -38,6 +39,26 @@ void vjp_relu_cuda(float* gX, const float* gy, const float* X, int64_t n, ag_cud
     dim3 blocks( (unsigned int)((n + 255) / 256) );
     k_vjp_relu_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, gy, X, n);
 }
+
+// __global__ void k_vjp_leaky_relu_accum(float* gX, const float* gy, const float* X, const float * slope, int64_t n) {
+//     int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+//     if (i < n) {
+//         // Only add the gradient if the original input (X) was positive.
+//         if (X[i] > 0.0f) {
+//             atomicAdd(&gX[i], gy[i]);
+//         }
+//         else{
+// atomicAdd(&gX[i], gy[i]*slope[0]);
+
+//         }
+//     }
+// }
+
+// void vjp_leaky_relu_cuda(float* gX, const float* gy, const float* X, const float * slope, int64_t n, ag_cuda_stream_t s) {
+//     dim3 blocks( (unsigned int)((n + 255) / 256) );
+//     k_vjp_leaky_relu_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, gy, X, slope, n);
+// }
+
 
 
 __global__ void k_vjp_tanh_accum(float* gX, const float* gy, const float* X, int64_t n) {
@@ -371,5 +392,33 @@ void vjp_maeloss_cuda(float* gA, float* gB, const float* gy, const float* A, con
                   int64_t n, ag_cuda_stream_t s) {
     dim3 blocks( (unsigned int)((n + 255) / 256) );
     k_vjp_maeloss_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gA, gB, A, B, gy, n);
+}
+
+
+__global__ void k_vjp_rowmax(float* gX, 
+                              const float* __restrict__ X, 
+                              const float* __restrict__ Y,  // Forward pass output (rowmax values)
+                              const float* __restrict__ gy, 
+                              int rows, int cols) {
+    // Each thread handles one row
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= rows) return;
+
+    // Load the max value and gradient for this row
+    float row_max = Y[row];
+    float grad = gy[row];
+
+    // Loop over all columns of this row
+    for (int col = 0; col < cols; col++) {
+        int idx = row * cols + col;
+
+        // If the input equals the max value, assign grad; else 0
+        gX[idx] = (X[idx] == row_max) ? gy[row] : 0.0f;
+    }
+}
+
+void vjp_rowmax_cuda(float* gX, const float* X, const float* Y, const float* gy, int64_t n, int64_t w, ag_cuda_stream_t s) {
+    dim3 blocks( (unsigned int)((n + 255) / 256) );
+  k_vjp_rowmax<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, Y, gy, n, w);
 }
 

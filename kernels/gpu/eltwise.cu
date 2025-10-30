@@ -3,6 +3,8 @@
 #include <cstdint>
 #include "ad/kernels_api.hpp"
 #include <math_constants.h>
+#include <cstdio>
+#include <cfloat>
 
 
 __device__ __forceinline__ float sigmoidf(float x) {
@@ -209,6 +211,78 @@ __global__ void k_sumall(const float* __restrict__ g_idata,
         atomicAdd(g_odata, sum);
 }
 
+__global__ void k_rowsum(const float* __restrict__ input,
+                         float* __restrict__ output,
+                         int rows, int cols)
+{
+     // Each block handles multiple rows
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= rows) return;  // Ensure we're within bounds
+
+    // Initialize sum for this thread
+    float sum = 0.0f;
+
+    // Each thread will sum over all columns in its row
+    for (int col = 0; col < cols; col++) {
+        int idx = row * cols + col;
+        sum += input[idx];
+    }
+
+    // Atomic add to accumulate the row sum in global memory
+    atomicAdd(&output[row], sum);
+}
+
+
+// __inline__ __device__ float warpReduceMax(float val) {
+//     // Perform warp-level reduction for max operation
+//     for (int offset = warpSize / 2; offset > 0; offset /= 2) {
+//         val = max(val, __shfl_down_sync(0xffffffff, val, offset));
+//     }
+//     return val;
+// }
+
+// __inline__ __device__ float blockReduceMax(float val) {
+//     __shared__ float shared[32]; // supports up to 1024 threads
+
+//     int lane = threadIdx.x % warpSize;
+//     int wid  = threadIdx.x / warpSize;
+
+//     // reduce within warp (max operation)
+//     val = warpReduceMax(val);
+
+//     // write warp max to shared memory
+//     if (lane == 0) shared[wid] = val;
+//     __syncthreads();
+
+//     // read warp maxes and reduce them in warp 0
+//     val = (threadIdx.x < blockDim.x / warpSize) ? shared[lane] : -FLT_MAX;  // Initialize with smallest possible value
+//     if (wid == 0) val = warpReduceMax(val);
+//     return val;
+// }
+
+__global__ void k_rowmax(const float* __restrict__ input,
+                         float* __restrict__ output,
+                         int rows, int cols)
+{
+    // Each block handles multiple rows (same as k_rowsum)
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= rows) return;  // Ensure we're within bounds
+    
+    // Initialize max for this thread
+    float row_max = -FLT_MAX;
+    
+    // Each thread will find max over all columns in its row
+    for (int col = 0; col < cols; col++) {
+        int idx = row * cols + col;
+        row_max = max(row_max, input[idx]);
+    }
+    
+    // Write the max value for this row (no atomic needed, each thread writes to different location)
+    output[row] = row_max;
+}
+
+
+
 
 // __inline__ __device__ void kaa_sumall(const float* __restrict__ g_idata,
 //                          float* __restrict__ g_odata,
@@ -249,8 +323,33 @@ void sumall_cuda(const float* a, float* c, int64_t n, ag_cuda_stream_t s) {
   k_sumall<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(a, c, n);
 }
 
+void rowsum_cuda(const float* a, float* c, int64_t n, int64_t w, ag_cuda_stream_t s) {
+  k_rowsum<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(a, c, n, w);
 
+//   float* output_host = (float*)malloc(n * sizeof(float));
+// cudaMemcpy(output_host, c, n * sizeof(float), cudaMemcpyDeviceToHost);
 
+// // Print results on the host
+// for (int i = 0; i < n; i++) {
+//     printf("Row %d sum: %f\n", i, output_host[i]);
+// }
+
+// free(output_host);
+}
+
+void rowmax_cuda(const float* a, float* c, int64_t n, int64_t w, ag_cuda_stream_t s) {
+  k_rowmax<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(a, c, n, w);
+
+//   float* output_host = (float*)malloc(n * sizeof(float));
+// cudaMemcpy(output_host, c, n * sizeof(float), cudaMemcpyDeviceToHost);
+
+// // Print results on the host
+// for (int i = 0; i < n; i++) {
+//     printf("Row %d sum: %f\n", i, output_host[i]);
+// }
+
+// free(output_host);
+}
 
 
 __global__ void k_mseloss(const float* __restrict__ p, const float* __restrict__ t,

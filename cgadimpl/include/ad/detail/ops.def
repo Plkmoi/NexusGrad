@@ -16,7 +16,7 @@ OP(Sigmoid,   1,    "sigmoid") // vjp exists for CUDA
 OP(Softplus,  1,    "softplus") // vjp exists for CUDA
 OP(SiLU,      1,    "silu") // vjp exists for CUDA
 OP(GELU,      1,    "gelu") // vjp exists for CUDA
-OP(LeakyRelu, 2,    "leakyrelu")
+OP(LeakyRelu, 2,    "leakyrelu")  // vjp exists for CUDA
 OP(RowSum,    1,    "rowsum")
 OP(RowMax,    1,    "rowmax")
 OP(MeanAll,   1,    "meanall")
