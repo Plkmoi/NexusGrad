@@ -476,7 +476,7 @@ __global__ void k_vjp_rowsum(float* gX,
     if (row >= rows) return;
 
     // Load the max value and gradient for this row
-    float row_max = Y[row];
+    // float row_max = Y[row];
     float grad = gy[row];
 
     // Loop over all columns of this row

@@ -315,7 +315,7 @@ void run_flash_forward(const float* Q, const float* K, const float* V, float* O,
     const int Tr = (N + Br - 1) / Br;
     const float softmax_scale = 1.0f / sqrtf((float)d);
 
-    size_t qkv_size = B * nh * N * d * sizeof(float);
+  //  size_t qkv_size = B * nh * N * d * sizeof(float);
     size_t lm_size  = B * nh * N * sizeof(float);
 
     float *d_l, *d_m;
@@ -466,7 +466,7 @@ void run_flashrelu_forward(const float* Q, const float* K, const float* V, float
     const int Tr = (N + Br - 1) / Br;
     const float softmax_scale = 1.0f / sqrtf((float)d);
 
-    size_t qkv_size = B * nh * N * d * sizeof(float);
+ //   size_t qkv_size = B * nh * N * d * sizeof(float);
     size_t lm_size  = B * nh * N * sizeof(float);
 
     float *d_l, *d_m;
@@ -621,7 +621,7 @@ void run_flashsig_forward(const float* Q, const float* K, const float* V, float*
     const int Tr = (N + Br - 1) / Br;
     const float softmax_scale = 1.0f / sqrtf((float)d);
 
-    size_t qkv_size = B * nh * N * d * sizeof(float);
+  //  size_t qkv_size = B * nh * N * d * sizeof(float);
     size_t lm_size  = B * nh * N * sizeof(float);
 
     float *d_l, *d_m;
@@ -780,7 +780,7 @@ void run_flashflex_forwardz(const float* Q, const float* K, const float* V, floa
     const int Tr = (N + Br - 1) / Br;
     const float softmax_scale = 1.0f / sqrtf((float)d);
 
-    size_t qkv_size = B * nh * N * d * sizeof(float);
+    // size_t qkv_size = B * nh * N * d * sizeof(float);
     size_t lm_size  = B * nh * N * sizeof(float);
 
     float *d_l, *d_m;

@@ -80,15 +80,83 @@
 #include "optim.hpp"
 #include <random>
 #include <iomanip>
+#include <unordered_set>
 using namespace ag;
+
+std::shared_ptr<Node> simplify(std::shared_ptr<Node> n) {
+    if (!n) return n;
+
+    if (n->debug_name == "sub") {
+        n = ag::detail::add_nodeops(n->inputs[0], n->inputs[1]);
+        n->requires_grad = true;
+    }
+
+    // for (auto& p : n->inputs)
+    //     p = simplify(p);
+
+    return n;
+}
+
+std::vector<std::shared_ptr<Node>> neutopo_from(std::shared_ptr<Node> root) {
+    std::vector<std::shared_ptr<Node>> order;
+    std::unordered_set<Node*> vis;
+
+    std::function<void(std::shared_ptr<Node>)> dfs = [&](std::shared_ptr<Node> n) {
+        auto w = simplify(n);
+        std::cout<<"                  "<<w->debug_name<<"                           ";
+
+        if (!w || vis.count(w.get())) return;
+        vis.insert(w.get());
+
+        for (auto& p : w->inputs)
+            dfs(p);
+
+        order.push_back(w);
+    };
+
+    dfs(root);
+    return order;
+}
+
+
+void neubackward(const Value& root, const Tensor* grad_seed){
+    auto order = neutopo_from(root.node);
+
+    // seed
+    if (root.node->requires_grad) {
+        root.node->grad = grad_seed ? *grad_seed
+                                    : (root.node->value.size()==1 ? Tensor::ones(1,1)
+                                                                  : Tensor::ones_like(root.node->value));
+    }
+
+    // reverse topo
+    for (auto it = order.rbegin(); it != order.rend(); ++it) {
+        auto n = *it;
+if(n->value.is_cuda()) n->requires_cuda=true;
+
+        if (!n->requires_grad) continue;
+        const Tensor& gy = n->grad;
+   //     ag::debug::on_backprop_step(n, gy); // (optional) prints one line per node
+
+        if (n->is_checkpoint && n->value.size() == 0) {
+        if (!ag::checkpoint_impl::recompute_subgraph(n->shared_from_this())) {
+            throw std::runtime_error("autodiff: failed to recompute checkpointed node during backward");
+        }
+        }
+        VjpFn fn = vjp_lookup(n->op);
+        if (fn) fn(n.get(), gy); // handler accumulates into parents
+
+    }
+}
+
 
 
 int main(){
 using namespace std;
 using namespace ag;
 
-auto a = make_tensor(Tensor::randn(8,8, 444,ag::Device::CUDA), "A",true);
-auto b = make_tensor(Tensor::randn(8,8, 777,ag::Device::CUDA), "B",true);
+auto a = make_tensor(Tensor::randn(8,8, 444,ag::Device::CPU), "A",true);
+auto b = make_tensor(Tensor::randn(8,8, 777,ag::Device::CPU), "B",true);
 
 auto c = make_tensor(Tensor::randn(8,8, 329,ag::Device::CUDA), "C",true);
 auto d = make_tensor(Tensor::randn(8,8, 170,ag::Device::CUDA), "D",true);
@@ -105,9 +173,10 @@ Tensor Yt(8, 8);
 
 auto bias = param(Tensor::zeros(8,8), "bias");
 
-    auto q =   linear(a, b, c); // [2,2]
+    auto y =   a-b; // [2,2]
     //auto m=q*c;
-    auto y=q * d;
+    auto q=c ;
+    neubackward(y , nullptr);
 std::cout << "y = " << y.val()
 <<","<< endl<< "A = " << a.val()
 <<","<< endl<< "B = " << b.val()<<","<< endl
@@ -116,11 +185,13 @@ std::cout << "y grad " << y.grad() << endl;
 std::cout << "dL/dA[0,0] = " << a.grad()
 <<","<< endl<< "dL/dB[0,0] = " << b.grad()<<","<< endl
 << "dL/dbias[0,0] = " << bias.grad() << endl<< "dL/dq = " << q.grad() << endl;
-zero_grad(y);
-backward(y);
-     q =   a+b; // [2,2]
-    //auto m=q*c;
-     y=q;
+
+
+// zero_grad(y);
+
+    //  q =   a+b; // [2,2]
+    // //auto m=q*c;
+    //  y=q;
 std::cout << "y = " << y.val()
 <<","<< endl<< "A = " << a.val()
 <<","<< endl<< "B = " << b.val()<<","<< endl
@@ -129,20 +200,20 @@ std::cout << "y grad " << y.grad() << endl;
 std::cout << "dL/dA[0,0] = " << a.grad()
 <<","<< endl<< "dL/dB[0,0] = " << b.grad()<<","<< endl
 << "dL/dbias[0,0] = " << bias.grad() << endl<< "dL/dq = " << q.grad() << endl;
-zero_grad(y);
-backward(y);
+// zero_grad(y);
+// backward(y);
 
-valsend(y);
-grasend(y);
+// valsend(y);
+// grasend(y);
 
-std::cout << "y = " << y.val()
-<<","<< endl<< "A = " << a.val()
-<<","<< endl<< "B = " << b.val()<<","<< endl
-<< "D = " << d.val() << endl<< "C = " << c.val() << endl;
-std::cout << "y grad " << y.grad() << endl;
-std::cout << "dL/dA[0,0] = " << a.grad()
-<<","<< endl<< "dL/dB[0,0] = " << b.grad()<<","<< endl
-<< "dL/dC = " << c.grad() << endl<< "dL/dD = " << d.grad() << endl;
+// std::cout << "y = " << y.val()
+// <<","<< endl<< "A = " << a.val()
+// <<","<< endl<< "B = " << b.val()<<","<< endl
+// << "D = " << d.val() << endl<< "C = " << c.val() << endl;
+// std::cout << "y grad " << y.grad() << endl;
+// std::cout << "dL/dA[0,0] = " << a.grad()
+// <<","<< endl<< "dL/dB[0,0] = " << b.grad()<<","<< endl
+// << "dL/dC = " << c.grad() << endl<< "dL/dD = " << d.grad() << endl;
 
 // //auto mma = W.node->value.to(ag::Device::CUDA); // no overwriting
 // W.node->value = W.node->value.to(ag::Device::CUDA); //  overwriting

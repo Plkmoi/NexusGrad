@@ -51,10 +51,33 @@ namespace ag {
         return Value(std::make_shared<Node>(v,true ,Op::Leaf,name));
     }
 
+
+// Node* simplify(Node* n) {
+//     if (!n) return n;
+//     if (n->debug_name == "sub") {
+//         Node* s = ag::detail::add_nodeops(n->inputs[0], n->inputs[1]).get(); // must return raw
+//         n = s;
+//     }
+//     for (auto& p : n->inputs)
+//         p.reset(simplify(p.get())); // assumes p is a shared_ptr
+//     return n;
+// }
+
+
+
+
     std::vector<Node*> topo_from(Node* root){
         std::vector<Node*> order; order.reserve(256);
         std::unordered_set<Node*> vis; vis.reserve(256);
-        std::function<void(Node*)> dfs = [&](Node* n){ if(!n || vis.count(n)) return; vis.insert(n); for(auto& p : n->inputs) dfs(p.get()); order.push_back(n); };
+        std::function<void(Node*)> dfs = [&](Node* n){ 
+            // simplify(n);
+            
+            if(!n || vis.count(n)) return; 
+            vis.insert(n); 
+            for(auto& p : n->inputs) 
+            dfs(p.get()); 
+            order.push_back(n); 
+        };
         dfs(root);
         return order; // parents before child
     }

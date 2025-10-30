@@ -186,7 +186,7 @@ std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::sha
         }
     }
 
-        auto n = std::make_shared<Node>(Y, a->requires_grad || b->requires_grad, Op::Sub, "-"); 
+        auto n = std::make_shared<Node>(Y, a->requires_grad || b->requires_grad, Op::Sub, "sub"); 
         n->inputs = {a, b}; 
         ag::debug::on_node_created(n); 
         return n; 
