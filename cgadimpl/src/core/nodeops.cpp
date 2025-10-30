@@ -859,7 +859,28 @@ std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, const std::
 
 
     std::shared_ptr<Node> cosh_nodeops(const std::shared_ptr<Node>& x){ 
-        Tensor y = Tensor::cosh(x->value); 
+                const Tensor& X = x->value;
+    Tensor y = Tensor::zeros_like(X);
+
+    if (X.is_cpu()) {
+        // auto fn = ag::kernels::cpu().sinh;
+        // if (fn) {
+        //     // --- NEW: Call the fast AVX2 kernel ---
+        //     fn(X.data(), Y.data(), X.numel());
+        // } else {
+            // --- OLD: Fallback to generic C++ ---
+            y = Tensor::cosh(X);
+        // }
+    } else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().cosh;
+        if (fn) {
+            fn(X.data(), y.data(), y.numel(), ag::current_stream());
+        } else {
+            throw std::runtime_error("Tanh forward on CUDA not implemented or loaded.");
+        }
+    } 
         auto n=std::make_shared<Node>(y, x->requires_grad, Op::Cosh, "cosh"); 
         n->inputs={x}; 
         ag::debug::on_node_created(n);  
@@ -867,7 +888,28 @@ std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, const std::
     }
 
      std::shared_ptr<Node> sinh_nodeops(const std::shared_ptr<Node>& x){ 
-        Tensor y = Tensor::sinh(x->value); 
+          const Tensor& X = x->value;
+    Tensor y = Tensor::zeros_like(X);
+
+    if (X.is_cpu()) {
+        // auto fn = ag::kernels::cpu().sinh;
+        // if (fn) {
+        //     // --- NEW: Call the fast AVX2 kernel ---
+        //     fn(X.data(), Y.data(), X.numel());
+        // } else {
+            // --- OLD: Fallback to generic C++ ---
+            y = Tensor::sinh(X);
+        // }
+    } else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().sinh;
+        if (fn) {
+            fn(X.data(), y.data(), y.numel(), ag::current_stream());
+        } else {
+            throw std::runtime_error("Tanh forward on CUDA not implemented or loaded.");
+        }
+    } 
         auto n=std::make_shared<Node>(y, x->requires_grad, Op::Sinh, "sinh"); 
         n->inputs={x}; 
         ag::debug::on_node_created(n);  
@@ -876,16 +918,58 @@ std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, const std::
 
 
      std::shared_ptr<Node> cos_nodeops(const std::shared_ptr<Node>& x){ 
-        Tensor y = Tensor::cosh(x->value); 
-        auto n=std::make_shared<Node>(y, x->requires_grad, Op::Cosh, "cosh"); 
+          const Tensor& X = x->value;
+    Tensor y = Tensor::zeros_like(X);
+
+    if (X.is_cpu()) {
+        // auto fn = ag::kernels::cpu().sinh;
+        // if (fn) {
+        //     // --- NEW: Call the fast AVX2 kernel ---
+        //     fn(X.data(), Y.data(), X.numel());
+        // } else {
+            // --- OLD: Fallback to generic C++ ---
+            y = Tensor::cos(X);
+        // }
+    } else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().cos;
+        if (fn) {
+            fn(X.data(), y.data(), y.numel(), ag::current_stream());
+        } else {
+            throw std::runtime_error("Tanh forward on CUDA not implemented or loaded.");
+        }
+    } 
+        auto n=std::make_shared<Node>(y, x->requires_grad, Op::Cos, "cos"); 
         n->inputs={x}; 
         ag::debug::on_node_created(n);  
         return n;
     }
 
      std::shared_ptr<Node> sin_nodeops(const std::shared_ptr<Node>& x){ 
-        Tensor y = Tensor::sinh(x->value); 
-        auto n=std::make_shared<Node>(y, x->requires_grad, Op::Sinh, "sinh"); 
+        const Tensor& X = x->value;
+    Tensor y = Tensor::zeros_like(X);
+
+    if (X.is_cpu()) {
+        // auto fn = ag::kernels::cpu().sinh;
+        // if (fn) {
+        //     // --- NEW: Call the fast AVX2 kernel ---
+        //     fn(X.data(), Y.data(), X.numel());
+        // } else {
+            // --- OLD: Fallback to generic C++ ---
+            y = Tensor::sin(X);
+        // }
+    } else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().sin;
+        if (fn) {
+            fn(X.data(), y.data(), y.numel(), ag::current_stream());
+        } else {
+            throw std::runtime_error("Tanh forward on CUDA not implemented or loaded.");
+        }
+    } 
+        auto n=std::make_shared<Node>(y, x->requires_grad, Op::Sin, "sin"); 
         n->inputs={x}; 
         ag::debug::on_node_created(n);  
         return n;
@@ -893,8 +977,28 @@ std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, const std::
 
 
         std::shared_ptr<Node> sign_nodeops(const std::shared_ptr<Node>& x){ 
-        Tensor y = Tensor::sign(x->value); 
+const Tensor& X = x->value;
+    Tensor y = Tensor::zeros_like(X);
 
+    if (X.is_cpu()) {
+        // auto fn = ag::kernels::cpu().sinh;
+        // if (fn) {
+        //     // --- NEW: Call the fast AVX2 kernel ---
+        //     fn(X.data(), Y.data(), X.numel());
+        // } else {
+            // --- OLD: Fallback to generic C++ ---
+        Tensor y = Tensor::sign(x->value); 
+        // }
+    } else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().sign;
+        if (fn) {
+            fn(X.data(), y.data(), y.numel(), ag::current_stream());
+        } else {
+            throw std::runtime_error("Tanh forward on CUDA not implemented or loaded.");
+        }
+    } 
         auto n=std::make_shared<Node>(y, x->requires_grad, Op::Sign, "sign"); 
         n->inputs={x}; 
         ag::debug::on_node_created(n);  
@@ -1409,7 +1513,26 @@ std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){
     }
     
     std::shared_ptr<Node> rowmax_nodeops(const std::shared_ptr<Node>& x){ 
+
+
+                const Tensor& X = x->value;
+    Tensor y = Tensor::zeros_like(X);
+
+    if (X.is_cpu()) {
         Tensor y = Tensor::row_max(x->value); 
+
+    }
+    else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().rowmax;
+        if (fn) {
+            fn(X.data(), y.data(), x->value.rows(), x->value.cols(), ag::current_stream());
+        } else {
+            throw std::runtime_error("Sum forward on CUDA not implemented or loaded.");
+        }
+    }
+
         auto n=std::make_shared<Node>(y, x->requires_grad, Op::RowMax, "rowmax"); 
         n->inputs={x}; 
         ag::debug::on_node_created(n);  

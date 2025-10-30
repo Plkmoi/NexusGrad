@@ -103,6 +103,14 @@ __global__ void k_leaky_relu(const float* __restrict__ x, float* __restrict__ y,
   }
 }
 
+__global__ void k_sign(const float* __restrict__ x, float* __restrict__ y,
+                             int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+    y[i] = x[i] > 0.f ? 1.f : -1.f;
+  }
+}
+
 __global__ void k_gelu(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) y[i] = gelu_func(x[i]);
@@ -155,6 +163,26 @@ __global__ void k_exp(const float* __restrict__ x, float* __restrict__ y, int64_
 __global__ void k_log(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) y[i] = __logf(x[i]);
+}
+
+__global__ void k_cos(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) y[i] = cos(x[i]);
+}
+
+__global__ void k_sin(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) y[i] = sin(x[i]);
+}
+
+__global__ void k_cosh(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) y[i] = cosh(x[i]);
+}
+
+__global__ void k_sinh(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) y[i] = sinh(x[i]);
 }
 
 __global__ void k_softplus(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
@@ -281,6 +309,27 @@ __global__ void k_rowmax(const float* __restrict__ input,
     output[row] = row_max;
 }
 
+// __inline__ __device__ void kaa_rowmax(const float* __restrict__ input,
+//                          float* __restrict__ output,
+//                          int rows, int cols)
+// {
+//     // Each block handles multiple rows (same as k_rowsum)
+//     int row = blockIdx.x * blockDim.x + threadIdx.x;
+//     if (row >= rows) return;  // Ensure we're within bounds
+    
+//     // Initialize max for this thread
+//     float row_max = -FLT_MAX;
+    
+//     // Each thread will find max over all columns in its row
+//     for (int col = 0; col < cols; col++) {
+//         int idx = row * cols + col;
+//         row_max = max(row_max, input[idx]);
+//     }
+    
+//     // Write the max value for this row (no atomic needed, each thread writes to different location)
+//     output[row] = row_max;
+// }
+
 
 
 
@@ -302,8 +351,59 @@ __global__ void k_rowmax(const float* __restrict__ input,
 //         atomicAdd(g_odata, sum);
 // }
 
+// __inline__ __device__ void kaa_rowsum(const float* __restrict__ input,
+//                          float* __restrict__ output,
+//                          int rows, int cols)
+// {
+//      // Each block handles multiple rows
+//     int row = blockIdx.x * blockDim.x + threadIdx.x;
+//     if (row >= rows) return;  // Ensure we're within bounds
+
+//     // Initialize sum for this thread
+//     float sum = 0.0f;
+
+//     // Each thread will sum over all columns in its row
+//     for (int col = 0; col < cols; col++) {
+//         int idx = row * cols + col;
+//         sum += input[idx];
+//     }
+
+//     // Atomic add to accumulate the row sum in global memory
+//     atomicAdd(&output[row], sum);
+// }
 
 
+__inline__ __device__ float kaa_rowmax(const float* input, int row, int cols) {
+    float max_val = -FLT_MAX;
+    for (int col = 0; col < cols; ++col)
+        max_val = fmaxf(max_val, input[row * cols + col]);
+    return max_val;
+}
+
+__inline__ __device__ float kaa_rowsum(const float* input, int row, int cols) {
+    float sum_val = 0.0f;
+    for (int col = 0; col < cols; ++col)
+        sum_val += input[row * cols + col];
+    return sum_val;
+}
+
+__inline__ __device__ void kaa_rowexp(const float* input, float* output, int row, int cols, float row_max) {
+    for (int col = 0; col < cols; ++col)
+        output[row * cols + col] = __expf(input[row * cols + col] - row_max);
+}
+
+__global__ void k_softmax(const float* input, float* output, int rows, int cols) {
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= rows) return;
+
+    float max_val = kaa_rowmax(input, row, cols);
+
+    kaa_rowexp(input, output, row, cols, max_val);
+
+    float sum_val = kaa_rowsum(output, row, cols);
+    for (int col = 0; col < cols; ++col)
+        output[row * cols + col] /= sum_val;
+}
 
 
 
@@ -336,6 +436,21 @@ void rowsum_cuda(const float* a, float* c, int64_t n, int64_t w, ag_cuda_stream_
 
 // free(output_host);
 }
+
+void softmax_cuda(const float* a, float* c, int64_t n, int64_t w, ag_cuda_stream_t s) {
+  k_softmax<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(a, c, n, w);
+
+//   float* output_host = (float*)malloc(n * sizeof(float));
+// cudaMemcpy(output_host, c, n * sizeof(float), cudaMemcpyDeviceToHost);
+
+// // Print results on the host
+// for (int i = 0; i < n; i++) {
+//     printf("Row %d sum: %f\n", i, output_host[i]);
+// }
+
+// free(output_host);
+}
+
 
 void rowmax_cuda(const float* a, float* c, int64_t n, int64_t w, ag_cuda_stream_t s) {
   k_rowmax<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(a, c, n, w);
@@ -401,7 +516,23 @@ void clip_cuda(const float* x, float* y, float minv, float maxv, int64_t n, ag_c
   k_clip<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(x, y, minv, maxv, n);
 }
 
+
 // Activations
+void sign_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
+  k_sign<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(x, y, n);
+}
+void cos_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
+  k_cos<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(x, y, n);
+}
+void sin_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
+  k_sin<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(x, y, n);
+}
+void cosh_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
+  k_cosh<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(x, y, n);
+}
+void sinh_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
+  k_sinh<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(x, y, n);
+}
 void relu_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
   k_relu<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(x, y, n);
 }

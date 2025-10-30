@@ -336,6 +336,50 @@ void vjp_sofba_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cu
   k_vjp_sofba_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
 }
 
+__global__ void k_vjp_sin_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+    atomicAdd(&gX[i], gy[i] * cos(X[i]));
+  }
+}
+void vjp_sin_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda_stream_t s) {
+    int64_t blocks((unsigned int)((n + 255) / 256));
+  k_vjp_sin_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
+}
+
+__global__ void k_vjp_cos_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+    atomicAdd(&gX[i], -gy[i] * sin(X[i]));
+  }
+}
+void vjp_cos_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda_stream_t s) {
+    int64_t blocks((unsigned int)((n + 255) / 256));
+  k_vjp_cos_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
+}
+
+__global__ void k_vjp_sinh_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+    atomicAdd(&gX[i], gy[i] * cosh(X[i]));
+  }
+}
+void vjp_sinh_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda_stream_t s) {
+    int64_t blocks((unsigned int)((n + 255) / 256));
+  k_vjp_sinh_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
+}
+
+__global__ void k_vjp_cosh_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+    atomicAdd(&gX[i], gy[i] * sinh(X[i]));
+  }
+}
+void vjp_cosh_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda_stream_t s) {
+    int64_t blocks((unsigned int)((n + 255) / 256));
+  k_vjp_cosh_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
+}
+
 
 __global__ void k_vjp_log_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -356,8 +400,8 @@ void vjp_log_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda
 __global__ void k_vjp_mseloss_accum(float* gA, float* gB, const float* A, const float* B, const float* gy, int64_t n) {
     int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n) {
-        atomicAdd(&gA[i], gy[i]*(A[i]-B[i])*2.f/n);
-        atomicAdd(&gB[i], gy[i]*(B[i]-A[i])*2.f/n);
+        atomicAdd(&gA[i], gy[0]*(A[i]-B[i])*2.f/n);
+        atomicAdd(&gB[i], gy[0]*(B[i]-A[i])*2.f/n);
     }
 }
 
@@ -371,7 +415,7 @@ __global__ void k_vjp_sum(float* gX, const float* __restrict__ X, const float* _
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) {
 
-    atomicAdd(&gX[i], gy[i]);
+    atomicAdd(&gX[i], gy[0]);
   }
 }
 void vjp_sum_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda_stream_t s) {
@@ -383,8 +427,8 @@ void vjp_sum_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda
 __global__ void k_vjp_maeloss_accum(float* gA, float* gB, const float* A, const float* B, const float* gy, int64_t n) {
     int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n) {
-        atomicAdd(&gA[i], gy[i]* ( (A[i]-B[i]) >0 ? 1.f :((A[i]-B[i]) <0 )?-1.f:0.f)  *1.f/n);
-        atomicAdd(&gB[i], gy[i]*  ( (B[i]-A[i]) >0 ? 1.f :((B[i]-A[i]) <0 )?-1.f:0.f) *1.f/n);
+        atomicAdd(&gA[i], gy[0]* ( (A[i]-B[i]) >0 ? 1.f :((A[i]-B[i]) <0 )?-1.f:0.f)  *1.f/n);
+        atomicAdd(&gB[i], gy[0]*  ( (B[i]-A[i]) >0 ? 1.f :((B[i]-A[i]) <0 )?-1.f:0.f) *1.f/n);
     }
 }
 
@@ -400,20 +444,19 @@ __global__ void k_vjp_rowmax(float* gX,
                               const float* __restrict__ Y,  // Forward pass output (rowmax values)
                               const float* __restrict__ gy, 
                               int rows, int cols) {
-    // Each thread handles one row
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     if (row >= rows) return;
 
-    // Load the max value and gradient for this row
     float row_max = Y[row];
     float grad = gy[row];
 
-    // Loop over all columns of this row
     for (int col = 0; col < cols; col++) {
         int idx = row * cols + col;
 
-        // If the input equals the max value, assign grad; else 0
-        gX[idx] = (X[idx] == row_max) ? gy[row] : 0.0f;
+        // Accumulate gradient, not overwrite
+        if (X[idx] == row_max) {
+            atomicAdd(&gX[idx], grad);
+        }
     }
 }
 
@@ -441,7 +484,7 @@ __global__ void k_vjp_rowsum(float* gX,
         int idx = row * cols + col;
 
         // If the input equals the max value, assign grad; else 0
-        gX[idx] = gy[row];
+        atomicAdd(&gX[idx], gy[row]);
     }
 }
 
@@ -450,3 +493,68 @@ void vjp_rowsum_cuda(float* gX, const float* X, const float* Y, const float* gy,
   k_vjp_rowsum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, Y, gy, n, w);
 }
 
+
+
+__inline__ __device__ float blockReduceSum(float val) {
+    static __shared__ float shared[32]; // warp reduce
+    int lane = threadIdx.x % 32;
+    int wid  = threadIdx.x / 32;
+
+    // warp reduce
+    for (int offset = 16; offset > 0; offset /= 2)
+        val += __shfl_down_sync(0xffffffff, val, offset);
+
+    if (lane == 0)
+        shared[wid] = val;
+
+    __syncthreads();
+
+    val = (threadIdx.x < blockDim.x / 32) ? shared[lane] : 0.0f;
+
+    // final warp reduce
+    if (wid == 0) {
+        for (int offset = 16; offset > 0; offset /= 2)
+            val += __shfl_down_sync(0xffffffff, val, offset);
+    }
+    return val;
+}
+
+// =====================================================
+// Kernel for VJP(SoftmaxRow): dX = y * (gy - sum(gy * y))
+// =====================================================
+__global__ void k_vjp_softmaxrow(float* gZ,
+                                 const float* y,
+                                 const float* gy,
+                                 int rows, int cols)
+{
+    int row = blockIdx.x;
+    int tid = threadIdx.x;
+
+    // Step 1️⃣ — compute dot = sum(gy * y) for this row
+    float dot = 0.0f;
+    for (int c = tid; c < cols; c += blockDim.x)
+        dot += gy[row * cols + c] * y[row * cols + c];
+
+    dot = blockReduceSum(dot);
+    __shared__ float dot_shared;
+    if (threadIdx.x == 0) dot_shared = dot;
+    __syncthreads();
+
+    // Step 2️⃣ — compute gZ_i = y_i * (gy_i - dot)
+    for (int c = tid; c < cols; c += blockDim.x) {
+        int idx = row * cols + c;
+        float yi = y[idx];
+        float gyi = gy[idx];
+        gZ[idx] += yi * (gyi - dot_shared);
+    }
+}
+
+// =====================================================
+// Host wrapper
+// =====================================================
+void vjp_softmax_cuda(float* gZ, const float* y, const float* gy, int64_t n, int64_t w, ag_cuda_stream_t s)
+{
+    dim3 blocks( (unsigned int)(((n) + 255) / 256) );
+
+    k_vjp_softmaxrow<<<blocks, 256, 0, (cudaStream_t)s>>>(gZ, y, gy, n, w);
+}

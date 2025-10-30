@@ -37,6 +37,11 @@ extern void exp_cuda         (const float*, float*, int64_t, ag_cuda_stream_t);
 extern void log_cuda         (const float*, float*, int64_t, ag_cuda_stream_t);
 extern void softplus_cuda    (const float*, float*, int64_t, ag_cuda_stream_t);
 extern void relumask_cuda    (const float*, float*, int64_t, ag_cuda_stream_t);
+extern void sin_cuda         (const float*, float*, int64_t, ag_cuda_stream_t);
+extern void cos_cuda         (const float*, float*, int64_t, ag_cuda_stream_t);
+extern void sinh_cuda         (const float*, float*, int64_t, ag_cuda_stream_t);
+extern void cosh_cuda         (const float*, float*, int64_t, ag_cuda_stream_t);
+extern void sign_cuda         (const float*, float*, int64_t, ag_cuda_stream_t);
 
 // Core ops
 extern void zero_cuda (float*, int64_t, ag_cuda_stream_t);
@@ -52,6 +57,7 @@ extern void run_flashsig_forward(const float* Q, const float* K, const float* V,
 extern void sumall_cuda(const float* a, float* c, int64_t n, ag_cuda_stream_t s);
 extern void rowsum_cuda(const float* a, float* c, int64_t n, int64_t w, ag_cuda_stream_t s);
 extern void rowmax_cuda(const float* a, float* c, int64_t n, int64_t w, ag_cuda_stream_t s);
+extern void softmax_cuda(const float* a, float* c, int64_t n, int64_t w, ag_cuda_stream_t s);
 
 // ============================================================
 // Backward / VJP declarations
@@ -88,9 +94,14 @@ extern void vjp_hard_swish_cuda    (float*, const float*, const float*, int64_t,
 extern void vjp_sofba_cuda       (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 extern void vjp_log_cuda       (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 extern void vjp_sum_cuda           (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
+extern void vjp_sin_cuda           (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
+extern void vjp_cos_cuda           (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
+extern void vjp_sinh_cuda           (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
+extern void vjp_cosh_cuda           (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 
 void vjp_rowmax_cuda(float* , const float* , const float* , const float* , int64_t , int64_t , ag_cuda_stream_t ); 
 void vjp_rowsum_cuda(float* , const float* , const float* , const float* , int64_t , int64_t , ag_cuda_stream_t ); 
+void vjp_softmax_cuda(float* , const float* , const float* , int64_t , int64_t , ag_cuda_stream_t ); 
 
 
 
@@ -143,6 +154,12 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->maeloss       = &maeloss_cuda;
   out->rowsum = &rowsum_cuda;
   out->rowmax = &rowmax_cuda;
+  out->sin          = &sin_cuda;
+  out->cos          = &cos_cuda;
+  out->sinh          = &sinh_cuda;
+  out->cosh          = &cosh_cuda;
+  out->sign          = &sign_cuda;
+  out->softmax          = &softmax_cuda;
 
   // ========================================================
   // Backward (VJP)
@@ -176,9 +193,15 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->vjp_hard_swish  = &vjp_hard_swish_cuda;
   out->vjp_sofba       = &vjp_sofba_cuda;
   out->vjp_log        = &vjp_log_cuda;
+
   out->vjp_sum = &vjp_sum_cuda;
   out->vjp_rowmax = &vjp_rowmax_cuda;
   out->vjp_rowsum = &vjp_rowsum_cuda;
+  out->vjp_sin        = &vjp_sin_cuda;
+  out->vjp_cos        = &vjp_cos_cuda;
+  out->vjp_sinh        = &vjp_sinh_cuda;
+  out->vjp_cosh        = &vjp_cosh_cuda;  
+  out->vjp_softmax        = &vjp_softmax_cuda;  
 
   return 0;
 }

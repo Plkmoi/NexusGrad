@@ -1899,14 +1899,14 @@ void vjp_RowSum(Node* n, const Tensor& gy){
         X->grad.add_( gy * Tensor::ones_like(X->value) );
     } else  {
         // GPU path (when ready)
-        auto fn = ag::kernels::cuda().vjp_sum;
+        auto fn = ag::kernels::cuda().vjp_rowsum;
         if (fn) {
             // --- NEW: Call the fast backward kernel ---
             // The kernel takes the original input `x` to compute the derivative (sigmoid(x)).
-            fn(X->grad.data(),  X->value.data(), gy.data(), X->value.numel(), nullptr);
+            fn(X->grad.data(),  X->value.data(), n->value.data(), gy.data(), X->value.rows(), X->value.cols(),nullptr);
         } else {
         // GPU path (when ready)
-        throw std::runtime_error("Sum backward on CUDA not implemented yet!");
+        throw std::runtime_error("Rowsum backward on CUDA not implemented yet!");
         }
         // GPU path (when ready)
     }
@@ -1920,8 +1920,18 @@ void vjp_RowMax(Node* n, const Tensor& gy){
         for(int i=0; i<X->value.rows(); ++i) for(int j=0; j<X->value.cols(); ++j)
             g(i,j) = (X->value(i,j)==m(i,0)) ? gy(i,0) : 0.f;
         X->grad.add_( g );
-    } else {
+    } else  {
+        // GPU path (when ready)
+        auto fn = ag::kernels::cuda().vjp_rowmax;
+        if (fn) {
+            // --- NEW: Call the fast backward kernel ---
+            // The kernel takes the original input `x` to compute the derivative (sigmoid(x)).
+            fn(X->grad.data(),  X->value.data(), n->value.data(), gy.data(), X->value.rows(), X->value.cols(),nullptr);
+        } else {
+        // GPU path (when ready)
         throw std::runtime_error("VJP for RowMax on CUDA not implemented yet!");
+        }
+        // GPU path (when ready)
     }
 }
 void vjp_MeanAll(Node* n, const Tensor& gy){
@@ -2073,7 +2083,16 @@ void vjp_Cosh(Node* n, const Tensor& gy){
     if (!n->requires_cuda) {
         X->grad.add_( rt( gy * Tensor::sinh(X->value), X->value) );
     } else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+    //    auto b = Tensor::zeros_like(n->value);
+        auto fn = ag::kernels::cuda().vjp_cos;
+        if (fn) {
+        // fn(n->value.data(), b.data(), n->grad.data(), n->grad.numel(), ag::current_stream());
+        } 
+        else {
         throw std::runtime_error("VJP for Cosh on CUDA not implemented yet!");
+        }
     }
 }
 
@@ -2083,7 +2102,16 @@ void vjp_Sinh(Node* n, const Tensor& gy){
     if (!n->requires_cuda) {
         X->grad.add_( rt( gy * Tensor::cosh(X->value), X->value) );
     } else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+    //    auto b = Tensor::zeros_like(n->value);
+        auto fn = ag::kernels::cuda().vjp_sinh;
+        if (fn) {
+        // fn(n->value.data(), b.data(), n->grad.data(), n->grad.numel(), ag::current_stream());
+        } 
+        else {
         throw std::runtime_error("VJP for Sinh on CUDA not implemented yet!");
+        }
     }
 }
 
@@ -2093,7 +2121,16 @@ void vjp_Sign(Node* n, const Tensor& gy){
     if (!n->requires_cuda) {
         X->grad.add_( rt( gy * 0.0f, X->value) ); // Gradient of sign is 0 almost everywhere
     } else {
-        throw std::runtime_error("VJP for Sign on CUDA not implemented yet!");
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+    //    auto b = Tensor::zeros_like(n->value);
+        auto fn = ag::kernels::cuda().relumask;
+        if (fn) {
+        // fn(n->value.data(), b.data(), n->grad.data(), n->grad.numel(), ag::current_stream());
+        } 
+        else {
+            throw std::runtime_error("ReLUmask forward on CUDA not implemented or loaded.");
+        }
     }
 }
 
@@ -2103,7 +2140,16 @@ void vjp_Cos(Node* n, const Tensor& gy){
     if (!n->requires_cuda) {
         X->grad.add_( rt( -1.0 * gy* Tensor::sin(X->value), X->value) );
     } else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+    //    auto b = Tensor::zeros_like(n->value);
+        auto fn = ag::kernels::cuda().vjp_cos;
+        if (fn) {
+        // fn(n->value.data(), b.data(), n->grad.data(), n->grad.numel(), ag::current_stream());
+        } 
+        else {
         throw std::runtime_error("VJP for Cos on CUDA not implemented yet!");
+        }
     }
 }
 
@@ -2113,7 +2159,16 @@ void vjp_Sin(Node* n, const Tensor& gy){
     if (!n->requires_cuda) {
         X->grad.add_( rt( gy * Tensor::cos(X->value), X->value) );
     } else {
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+    //    auto b = Tensor::zeros_like(n->value);
+        auto fn = ag::kernels::cuda().vjp_sin;
+        if (fn) {
+        // fn(n->value.data(), b.data(), n->grad.data(), n->grad.numel(), ag::current_stream());
+        } 
+        else {
         throw std::runtime_error("VJP for Sin on CUDA not implemented yet!");
+        }
     }
 }
 

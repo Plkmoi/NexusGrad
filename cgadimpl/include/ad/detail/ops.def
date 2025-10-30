@@ -17,8 +17,8 @@ OP(Softplus,  1,    "softplus") // vjp exists for CUDA
 OP(SiLU,      1,    "silu") // vjp exists for CUDA
 OP(GELU,      1,    "gelu") // vjp exists for CUDA
 OP(LeakyRelu, 2,    "leakyrelu")  // vjp exists for CUDA
-OP(RowSum,    1,    "rowsum")
-OP(RowMax,    1,    "rowmax")
+OP(RowSum,    1,    "rowsum") // vjp exists for CUDA
+OP(RowMax,    1,    "rowmax") // vjp exists for CUDA
 OP(MeanAll,   1,    "meanall")
 OP(SoftmaxRow,1,    "softmax_row")
 OP(LogSumExpRow,1,  "logsumexp_row")
@@ -40,16 +40,16 @@ OP(RMSNorm,      1,    "rmsnorm")
 OP(Dyntanh,      4,    "dyntanh") 
 OP(RealLayerNorm,      4,    "reallayernorm") 
 OP(AlibiAttention,      3,    "alibiattention")
-OP(RealRMSNorm,      1,    "rmsnorm")
+OP(RealRMSNorm,      1,    "realrmsnorm")
 OP(Div,       2,    "div") // vjp exists for CUDA
 OP(Reciprocal,       1,    "reciprocal")
-OP(Sign, 1, "sign")
-OP(Cosh, 1, "cosh")
-OP(Sinh, 1, "sinh")
+OP(Sign, 1, "sign") // vjp exists for CUDA
+OP(Cosh, 1, "cosh")  // vjp exists for CUDA
+OP(Sinh, 1, "sinh")  // vjp exists for CUDA
 OP(Sqrt, 1, "sqrt") 
-OP(Relumask, 1, "relumask")    // vjp exists for CUDA
-OP(Cos, 1, "cosh")
-OP(Sin, 1, "sinh")
+OP(Relumask, 1, "relumask")                                         // vjp exists for CUDA
+OP(Cos, 1, "cosh")                                                      // vjp exists for CUDA
+OP(Sin, 1, "sinh")                                                // vjp exists for CUDA
 OP(MOE,      3,    "moe") // mixture of experts with weights and bias
 OP(RELUAtt,     4,    "reluatt") // relu attention
 OP(SigAtt,    4,    "sigatt") // sigmoid attention

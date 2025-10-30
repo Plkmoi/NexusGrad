@@ -127,6 +127,12 @@ typedef void (*ag_relumask_cuda_fn)    (const float* x, float* y, int64_t n, ag_
 typedef void (*ag_sum_cuda_fn)         (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_rowsum_cuda_fn)         (const float* x, float* y, int64_t n, int64_t w, ag_cuda_stream_t s);
 typedef void (*ag_rowmax_cuda_fn)         (const float* x, float* y, int64_t n, int64_t w, ag_cuda_stream_t s);
+typedef void (*ag_sin_cuda_fn)         (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_cos_cuda_fn)         (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_sinh_cuda_fn)         (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_cosh_cuda_fn)         (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_sign_cuda_fn)         (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_softmax_cuda_fn)         (const float* x, float* y, int64_t n, int64_t w, ag_cuda_stream_t s);
 
 // Core
 typedef void (*ag_zero_cuda_fn)  (float* x, int64_t n, ag_cuda_stream_t s);
@@ -209,11 +215,22 @@ typedef void (*ag_vjp_linear_cuda_fn)(float* gA, float* gB, float* gC, const flo
                                       int M, int K, int N, ag_cuda_stream_t s);
 typedef void (*ag_vjp_sum_cuda_fn)(float* gX, const float* gy, const float* X,
                                    int64_t n, ag_cuda_stream_t s);
+
+typedef void (*ag_vjp_softmax_cuda_fn)(float* gX, const float* gy, const float* Y,
+                                   int64_t n, int64_t w, ag_cuda_stream_t s); 
 typedef void (*ag_vjp_rowmax_cuda_fn)(float* gX, const float* gy, const float* X, const float* Y,
                                    int64_t n, int64_t w, ag_cuda_stream_t s);  
 typedef void (*ag_vjp_rowsum_cuda_fn)(float* gX, const float* gy, const float* X, const float* Y,
                                    int64_t n, int64_t w, ag_cuda_stream_t s);  
-                                   
+typedef void (*ag_vjp_sin_cuda_fn)(float* gX, const float* gy, const float* X,
+                                  int64_t n, ag_cuda_stream_t s);    
+typedef void (*ag_vjp_cos_cuda_fn)(float* gX, const float* gy, const float* X,
+                                  int64_t n, ag_cuda_stream_t s);      
+typedef void (*ag_vjp_sinh_cuda_fn)(float* gX, const float* gy, const float* X,
+                                  int64_t n, ag_cuda_stream_t s);    
+typedef void (*ag_vjp_cosh_cuda_fn)(float* gX, const float* gy, const float* X,
+                                  int64_t n, ag_cuda_stream_t s); 
+
 // CUDA function table
 struct ag_cuda_v1 {
   uint32_t abi_version;
@@ -261,6 +278,13 @@ struct ag_cuda_v1 {
   ag_rowsum_cuda_fn        rowsum;
   ag_rowmax_cuda_fn        rowmax;
 
+  ag_sin_cuda_fn        sin; 
+  ag_cos_cuda_fn        cos;
+  ag_sinh_cuda_fn        sinh; 
+  ag_cosh_cuda_fn        cosh;
+  ag_sign_cuda_fn        sign; 
+  ag_softmax_cuda_fn        softmax; 
+
   // ========================================================
   // Backward (VJP) ops
   // ========================================================
@@ -298,6 +322,12 @@ struct ag_cuda_v1 {
   ag_vjp_maeloss_cuda_fn        vjp_maeloss;
   ag_vjp_rowmax_cuda_fn        vjp_rowmax;
   ag_vjp_rowsum_cuda_fn        vjp_rowsum;
+  ag_vjp_sin_cuda_fn        vjp_sin; 
+  ag_vjp_cos_cuda_fn        vjp_cos;
+  ag_vjp_sinh_cuda_fn        vjp_sinh; 
+  ag_vjp_cosh_cuda_fn        vjp_cosh;
+  ag_vjp_softmax_cuda_fn        vjp_softmax; 
+
 };
 
 // Every CUDA plugin must export this symbol.
@@ -386,6 +416,12 @@ struct Cuda {
   ag_sum_cuda_fn sum = nullptr;
   ag_rowsum_cuda_fn        rowsum       = nullptr;
   ag_rowmax_cuda_fn        rowmax       = nullptr;
+  ag_sin_cuda_fn        sin = nullptr; 
+  ag_cos_cuda_fn        cos = nullptr;
+  ag_sinh_cuda_fn        sinh = nullptr; 
+  ag_cosh_cuda_fn        cosh = nullptr;
+  ag_sign_cuda_fn        sign = nullptr; 
+  ag_softmax_cuda_fn        softmax = nullptr; 
 
   // Core
   ag_zero_cuda_fn   zero   = nullptr;
@@ -424,7 +460,11 @@ struct Cuda {
   ag_vjp_maeloss_cuda_fn        vjp_maeloss       = nullptr;
   ag_vjp_rowmax_cuda_fn        vjp_rowmax = nullptr; 
   ag_vjp_rowsum_cuda_fn        vjp_rowsum = nullptr;
-
+  ag_vjp_sin_cuda_fn        vjp_sin = nullptr; 
+  ag_vjp_cos_cuda_fn        vjp_cos = nullptr;
+  ag_vjp_sinh_cuda_fn        vjp_sinh = nullptr; 
+  ag_vjp_cosh_cuda_fn        vjp_cosh = nullptr;
+  ag_vjp_softmax_cuda_fn        vjp_softmax = nullptr; 
 };
 Cuda& cuda();
 void load_cuda_plugin(const char* path);

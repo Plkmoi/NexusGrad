@@ -124,6 +124,12 @@ void load_cuda_plugin(const char* path) {
   g_cuda.maeloss       = table.maeloss;
   g_cuda.rowsum = table.rowsum;
   g_cuda.rowmax = table.rowmax;
+  g_cuda.sin           = table.sin;
+  g_cuda.cos           = table.cos;
+  g_cuda.sinh           = table.sinh;
+  g_cuda.cosh          = table.cosh;
+  g_cuda.sign           = table.sign;
+  g_cuda.softmax           = table.softmax;
 
   // Basic ops VJPs
   g_cuda.vjp_add    = table.vjp_add;
@@ -158,6 +164,12 @@ void load_cuda_plugin(const char* path) {
   g_cuda.vjp_maeloss        = table.vjp_maeloss;
   g_cuda.vjp_rowmax        = table.vjp_rowmax;
   g_cuda.vjp_rowsum        = table.vjp_rowsum;
+  g_cuda.vjp_sin           = table.vjp_sin;
+  g_cuda.vjp_cos           = table.vjp_cos;
+  g_cuda.vjp_sinh           = table.vjp_sinh;
+  g_cuda.vjp_cosh          = table.vjp_cosh;
+  g_cuda.vjp_softmax           = table.vjp_softmax;
+
 }
 
 #ifndef AG_NO_AUTOLOAD_KERNELS
