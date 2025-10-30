@@ -422,3 +422,31 @@ void vjp_rowmax_cuda(float* gX, const float* X, const float* Y, const float* gy,
   k_vjp_rowmax<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, Y, gy, n, w);
 }
 
+
+__global__ void k_vjp_rowsum(float* gX, 
+                              const float* __restrict__ X, 
+                              const float* __restrict__ Y,  // Forward pass output (rowmax values)
+                              const float* __restrict__ gy, 
+                              int rows, int cols) {
+    // Each thread handles one row
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= rows) return;
+
+    // Load the max value and gradient for this row
+    float row_max = Y[row];
+    float grad = gy[row];
+
+    // Loop over all columns of this row
+    for (int col = 0; col < cols; col++) {
+        int idx = row * cols + col;
+
+        // If the input equals the max value, assign grad; else 0
+        gX[idx] = gy[row];
+    }
+}
+
+void vjp_rowsum_cuda(float* gX, const float* X, const float* Y, const float* gy, int64_t n, int64_t w, ag_cuda_stream_t s) {
+    dim3 blocks( (unsigned int)((n + 255) / 256) );
+  k_vjp_rowsum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, Y, gy, n, w);
+}
+

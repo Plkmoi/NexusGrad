@@ -90,6 +90,7 @@ extern void vjp_log_cuda       (float*, const float*, const float*, int64_t, ag_
 extern void vjp_sum_cuda           (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 
 void vjp_rowmax_cuda(float* , const float* , const float* , const float* , int64_t , int64_t , ag_cuda_stream_t ); 
+void vjp_rowsum_cuda(float* , const float* , const float* , const float* , int64_t , int64_t , ag_cuda_stream_t ); 
 
 
 
@@ -177,6 +178,7 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->vjp_log        = &vjp_log_cuda;
   out->vjp_sum = &vjp_sum_cuda;
   out->vjp_rowmax = &vjp_rowmax_cuda;
+  out->vjp_rowsum = &vjp_rowsum_cuda;
 
   return 0;
 }

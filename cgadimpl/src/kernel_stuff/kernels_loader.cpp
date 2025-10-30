@@ -157,6 +157,7 @@ void load_cuda_plugin(const char* path) {
   g_cuda.vjp_sum = table.vjp_sum;
   g_cuda.vjp_maeloss        = table.vjp_maeloss;
   g_cuda.vjp_rowmax        = table.vjp_rowmax;
+  g_cuda.vjp_rowsum        = table.vjp_rowsum;
 }
 
 #ifndef AG_NO_AUTOLOAD_KERNELS

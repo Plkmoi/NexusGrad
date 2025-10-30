@@ -211,7 +211,9 @@ typedef void (*ag_vjp_sum_cuda_fn)(float* gX, const float* gy, const float* X,
                                    int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_vjp_rowmax_cuda_fn)(float* gX, const float* gy, const float* X, const float* Y,
                                    int64_t n, int64_t w, ag_cuda_stream_t s);  
-
+typedef void (*ag_vjp_rowsum_cuda_fn)(float* gX, const float* gy, const float* X, const float* Y,
+                                   int64_t n, int64_t w, ag_cuda_stream_t s);  
+                                   
 // CUDA function table
 struct ag_cuda_v1 {
   uint32_t abi_version;
@@ -290,10 +292,12 @@ struct ag_cuda_v1 {
   ag_vjp_hard_swish_cuda_fn   vjp_hard_swish;
   ag_vjp_softplusback_cuda_fn    vjp_sofba;
   ag_vjp_log_cuda_fn        vjp_log       ;
+
   ag_vjp_mseloss_cuda_fn        vjp_mseloss;
   ag_vjp_sum_cuda_fn        vjp_sum;
   ag_vjp_maeloss_cuda_fn        vjp_maeloss;
   ag_vjp_rowmax_cuda_fn        vjp_rowmax;
+  ag_vjp_rowsum_cuda_fn        vjp_rowsum;
 };
 
 // Every CUDA plugin must export this symbol.
@@ -419,6 +423,7 @@ struct Cuda {
   ag_vjp_sum_cuda_fn        vjp_sum       = nullptr;
   ag_vjp_maeloss_cuda_fn        vjp_maeloss       = nullptr;
   ag_vjp_rowmax_cuda_fn        vjp_rowmax = nullptr; 
+  ag_vjp_rowsum_cuda_fn        vjp_rowsum = nullptr;
 
 };
 Cuda& cuda();
