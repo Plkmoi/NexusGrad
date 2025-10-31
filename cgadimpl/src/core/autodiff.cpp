@@ -12,7 +12,24 @@ namespace ag {
 
 void zero_grad(const Value& root){
     auto order = topo_from(root.node.get());
-    for (Node* n : order) if (n->requires_grad) n->grad = Tensor::zeros_like(n->value);
+    for (Node* n : order) {if (n->requires_grad){ n->grad = Tensor::zeros_like(n->value);
+
+        if(n->op==Op::Sub)
+        {
+            n->op=Op::Add;
+            n->value = ag::detail::add_nodeops(n->inputs[0],n->inputs[1])->value;
+
+
+        }
+    
+    std::cout << "Captured Node: " << op_name(n->op)
+          << " | shape: [" << n->value.rows() << ", " << n->value.cols() << "]"
+          << " | device: " << (n->value.is_cuda() ? "CUDA" : "CPU") << "\n";
+    
+    
+    }};
+    
+    
 }
 
 void backward(const Value& root, const Tensor* grad_seed){
@@ -102,7 +119,7 @@ void unisend(const Value& root)
         Node* n = *it;
         
         if (!n->requires_grad || !(n->grad.is_cuda()) || !(n->value.is_cuda())) continue;
-        std::cout << "(" << n->value.numel() << ")\n";
+        std::cout << "\n(" << n->value.numel() << ")\n";
 
         if (n->grad.numel()> 0 || n->value.numel()> 0) {
             n->requires_cuda = true;
@@ -111,13 +128,7 @@ void unisend(const Value& root)
 
         }
 
-        std::cout << "[CUDA UNISEND output]: ";
-        for (int i = 0; i < 10; ++i)
-          {  std::cout << n->value.data()[i] << " ";
-        std::cout << "(" << n->debug_name << ")\n";
-        std::cout << n->grad.data()[i] << " ";
-        std::cout << "(" << n->debug_name << ")\n";;
-}
+
     }
     
 }
@@ -149,5 +160,21 @@ Tensor jvp(const Value& root, const std::unordered_map<Node*, Tensor>& seed){
     }
     return T[root.node.get()];
 }
+
+// Tensor forward_pass(const Value& root) {
+//     if (!root.node) return Tensor{};
+//     auto order = topo_from(root.node.get());
+    
+//     for (Node* n : order) {
+//         if (n->op == Op::Leaf) continue; // already has value
+//         auto fn = (n->op);
+//         if (fn) {
+//             n->value = fn(n);
+//         } else {
+//             throw std::runtime_error("No forward fn for op " + std::to_string((int)n->op));
+//         }
+//     }
+//     return root.node->value;
+// }
 
 } // namespace ag

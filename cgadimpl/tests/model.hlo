@@ -1,0 +1,8 @@
+module attributes { mhlo.dynamic_shape="false" } {
+  func.func @compute(%arg0: tensor<8x8xf32>, %arg1: tensor<8x8xf32>, %arg2: tensor<8x8xf32>, %arg3: tensor<8x8xf32>) -> tensor<8x8xf32> {
+  %v0 = stablehlo.multiply %arg0, %arg1 : tensor<8x8xf32>
+  %v1 = stablehlo.add %v0, %arg2 : tensor<8x8xf32>
+  %v2 = stablehlo.add %v1, %arg3 : tensor<8x8xf32>
+  return %v2 : tensor<8x8xf32>
+  }
+}

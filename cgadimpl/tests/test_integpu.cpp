@@ -80,6 +80,7 @@
 #include "optim.hpp"
 #include <random>
 #include <iomanip>
+#include "ad/export_hlo.hpp"
 using namespace ag;
 
 
@@ -120,6 +121,7 @@ zero_grad(y);
 backward(y);
 
 unisend(y);
+ag::hlo::dump_stablehlo(y, "cgadimpl/tests/model.hlo");
 
 std::cout << "y = " << y.val()
 <<","<< endl<< "A = " << a.val()

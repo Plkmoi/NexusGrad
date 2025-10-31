@@ -406,6 +406,24 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
                 break;
             }
 
+            case Op::FMA: {
+    // fma(a, b, c) = a*b + c
+    std::string a = in_name(0);
+    std::string b = in_name(1);
+    std::string c = in_name(2);
+
+    std::string mul = newv();
+    out << "  " << mul << " = stablehlo.multiply " << a << ", " << b
+        << " : " << ty2d(n->value) << "\n";
+
+    std::string v = newv();
+    out << "  " << v << " = stablehlo.add " << mul << ", " << c
+        << " : " << ty2d(n->value) << "\n";
+
+    name[n] = v;
+    break;
+}
+
             // ----- Loss -----
             case Op::CeWithLogits: {
                 // CE = -mean( sum( Y * (Z - lse(Z)) , axis=1) )

@@ -92,7 +92,7 @@ std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::sha
     }
 
     Tensor Y = Tensor::zeros_like(a->value); // Create output tensor on the same device
-    std::cout<<"In add_nodeops\n"<<Y.is_cuda();
+    // std::cout<<"In add_nodeops\n"<<Y.is_cuda();
 
     if (a->value.is_cpu()  && b->value.is_cpu()) {
      //   auto fn = ag::kernels::cpu().add;
@@ -110,7 +110,7 @@ std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::sha
         auto fn = ag::kernels::cuda().add;
         if (fn) {
         fn(a->value.data(), b->value.data(), Y.data(), Y.numel(), ag::current_stream());
-        std::cout<<a->grad.is_cuda()<<" YES "<<b->grad.is_cuda()<<" YES "<<Y.is_cuda();
+   //     std::cout<<a->grad.is_cuda()<<" YES "<<b->grad.is_cuda()<<" YES "<<Y.is_cuda();
         } 
         else {
             throw std::runtime_error("ReLU forward on CUDA not implemented or loaded.");
@@ -1809,6 +1809,15 @@ std::shared_ptr<Node> mambassm_nodeops(const std::shared_ptr<Node>& z, const std
         ag::debug::on_node_created(n);  
     return n;                 // broadcast scalar
 }
+
+// FwdFn vjp_lookup(Op op){
+//     switch(op){
+// #define OP(name, arity, str) case Op::name: return &detail::##name_nodeops;
+// #include "ad/detail/ops.def"
+// #undef OP
+//         default: return nullptr;
+//     }
+// }
 
     // Tensor forward_eval_node_impl(const std::shared_ptr<Node>& node) {
     //     if (!node) throw std::runtime_error("forward_eval_node: null node");

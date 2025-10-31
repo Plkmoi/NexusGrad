@@ -79,7 +79,7 @@ Tensor Tensor::to(Device target_dev) const {
     } else {
         CUDA_CHECK(cudaMemcpy(new_tensor.data(), this->data(), n_bytes, cudaMemcpyDeviceToHost));
     }
-            std::cout<<" gerght " <<this->is_cuda();
+            // std::cout<<" gerght " <<this->is_cuda();
 
     return new_tensor;
 }

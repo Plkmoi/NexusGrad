@@ -121,6 +121,69 @@ set(CMAKE_CUDA_FLAGS_DEBUG "-G -lineinfo")
 
 find_package(CUDAToolkit REQUIRED)
 
+# --- MLIR + LLVM integration ---
+set(LLVM_PROJECT_DIR "${CMAKE_SOURCE_DIR}/../llvm-project")
+set(LLVM_BUILD_DIR "${LLVM_PROJECT_DIR}/build")
+set(STABLEHLO_DIR "${CMAKE_SOURCE_DIR}/../stablehlo")
+set(STABLEHLO_BUILD_DIR "${CMAKE_SOURCE_DIR}/../../stablehlo/build")
+
+# MLIR/LLVM include directories
+include_directories(
+  ${LLVM_PROJECT_DIR}/llvm/include
+  ${LLVM_PROJECT_DIR}/mlir/include
+  ${LLVM_BUILD_DIR}/include
+  ${LLVM_BUILD_DIR}/tools/mlir/include
+  ${STABLEHLO_DIR}
+  ${LLVM_PROJECT_DIR}/stablehlo
+  ${LLVM_PROJECT_DIR}/stablehlo/dialect
+)
+
+
+# set(LLVM_PROJECT_DIR "${CMAKE_SOURCE_DIR}/../llvm-project")
+# set(STABLEHLO_DIR "${CMAKE_SOURCE_DIR}/../stablehlo")
+
+# # MLIR + StableHLO includes
+# include_directories(
+#   ${LLVM_PROJECT_DIR}/llvm/include
+#   ${LLVM_PROJECT_DIR}/mlir/include
+#   ${LLVM_PROJECT_DIR}/build/include
+#   ${LLVM_PROJECT_DIR}/build/tools/mlir/include
+#   ${STABLEHLO_DIR}
+#   ${STABLEHLO_DIR}/stablehlo
+# )
+
+# # Optional: link the StableHLO build directory
+# link_directories(${STABLEHLO_DIR}/build)
+
+# In CMakeLists.txt
+# --- StableHLO integration ---
+# set(STABLEHLO_BUILD_DIR "${CMAKE_SOURCE_DIR}/../../stablehlo/build")
+
+# # Include StableHLO headers
+# include_directories(
+#   ${STABLEHLO_BUILD_DIR}/include
+#   ${CMAKE_SOURCE_DIR}/../../stablehlo/include
+# )
+
+# # Optionally use StableHLO’s CMake package if it exists
+# if(EXISTS "${STABLEHLO_BUILD_DIR}/lib/cmake/stablehlo/StableHLOConfig.cmake")
+#   find_package(StableHLO REQUIRED CONFIG PATHS "${STABLEHLO_BUILD_DIR}/lib/cmake/stablehlo")
+# else()
+#   message(WARNING "StableHLO CMake config not found — using direct includes only.")
+# endif()
+
+# # Link StableHLO as a dependency
+# target_link_libraries(cgadimpl PRIVATE stablehlo)
+
+# Optionally find MLIR CMake package (if it’s installed/built)
+if(EXISTS "${LLVM_BUILD_DIR}/lib/cmake/mlir/MLIRConfig.cmake")
+  find_package(MLIR REQUIRED CONFIG PATHS "${LLVM_BUILD_DIR}/lib/cmake/mlir")
+else()
+  message(WARNING "MLIR CMake config not found — building with includes only.")
+endif()
+
+
+
 # ---- Options ----
 option(AG_PACKAGING    "Enable install + find_package exports" OFF)
 option(AG_GLOB_SOURCES "Glob all .cpp under src/ (simplifies dev)" ON)
