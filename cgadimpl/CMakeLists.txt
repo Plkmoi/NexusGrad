@@ -124,8 +124,6 @@ find_package(CUDAToolkit REQUIRED)
 # --- MLIR + LLVM integration ---
 set(LLVM_PROJECT_DIR "${CMAKE_SOURCE_DIR}/../llvm-project")
 set(LLVM_BUILD_DIR "${LLVM_PROJECT_DIR}/build")
-set(STABLEHLO_DIR "${CMAKE_SOURCE_DIR}/../stablehlo")
-set(STABLEHLO_BUILD_DIR "${CMAKE_SOURCE_DIR}/../../stablehlo/build")
 
 # MLIR/LLVM include directories
 include_directories(
@@ -133,47 +131,13 @@ include_directories(
   ${LLVM_PROJECT_DIR}/mlir/include
   ${LLVM_BUILD_DIR}/include
   ${LLVM_BUILD_DIR}/tools/mlir/include
-  ${STABLEHLO_DIR}
+
+  # ✅ Add StableHLO source + generated include dirs
+  ${LLVM_PROJECT_DIR}/stablehlo/stablehlo
+  ${LLVM_PROJECT_DIR}/stablehlo_build
   ${LLVM_PROJECT_DIR}/stablehlo
-  ${LLVM_PROJECT_DIR}/stablehlo/dialect
+  ${LLVM_PROJECT_DIR}/stablehlo_build/stablehlo
 )
-
-
-# set(LLVM_PROJECT_DIR "${CMAKE_SOURCE_DIR}/../llvm-project")
-# set(STABLEHLO_DIR "${CMAKE_SOURCE_DIR}/../stablehlo")
-
-# # MLIR + StableHLO includes
-# include_directories(
-#   ${LLVM_PROJECT_DIR}/llvm/include
-#   ${LLVM_PROJECT_DIR}/mlir/include
-#   ${LLVM_PROJECT_DIR}/build/include
-#   ${LLVM_PROJECT_DIR}/build/tools/mlir/include
-#   ${STABLEHLO_DIR}
-#   ${STABLEHLO_DIR}/stablehlo
-# )
-
-# # Optional: link the StableHLO build directory
-# link_directories(${STABLEHLO_DIR}/build)
-
-# In CMakeLists.txt
-# --- StableHLO integration ---
-# set(STABLEHLO_BUILD_DIR "${CMAKE_SOURCE_DIR}/../../stablehlo/build")
-
-# # Include StableHLO headers
-# include_directories(
-#   ${STABLEHLO_BUILD_DIR}/include
-#   ${CMAKE_SOURCE_DIR}/../../stablehlo/include
-# )
-
-# # Optionally use StableHLO’s CMake package if it exists
-# if(EXISTS "${STABLEHLO_BUILD_DIR}/lib/cmake/stablehlo/StableHLOConfig.cmake")
-#   find_package(StableHLO REQUIRED CONFIG PATHS "${STABLEHLO_BUILD_DIR}/lib/cmake/stablehlo")
-# else()
-#   message(WARNING "StableHLO CMake config not found — using direct includes only.")
-# endif()
-
-# # Link StableHLO as a dependency
-# target_link_libraries(cgadimpl PRIVATE stablehlo)
 
 # Optionally find MLIR CMake package (if it’s installed/built)
 if(EXISTS "${LLVM_BUILD_DIR}/lib/cmake/mlir/MLIRConfig.cmake")
@@ -225,6 +189,21 @@ if(AG_BUILD_TESTS)
     target_link_libraries(${name} PRIVATE cgadimpl CUDA::cudart dl)
     # ======================================================================
 
+    link_directories(${CMAKE_SOURCE_DIR}/../llvm-project/stablehlo/build/lib)
+
+    target_link_libraries(${name}
+      PRIVATE
+        MLIRIR
+        MLIRParser
+        MLIRSupport
+        MLIRFuncDialect
+        StablehloOps
+        StablehloDialect
+        StablehloPasses
+        LLVMCore
+        LLVMSupport
+    )
+
     add_test(NAME ${name} COMMAND ${name})
   endfunction()
 
@@ -258,6 +237,7 @@ if(AG_BUILD_TESTS)
   add_ag_test(test_nodeops           tests/test_nodeops.cpp)
   add_ag_test(test_kernels_cpu       tests/test_kernels_cpu.cpp)
   add_ag_test(test_vjp_kernels       tests/test_end_to_end_gpu.cpp)
+  add_ag_test(test_mlir       tests/test_mlirte.cpp)
 # --- Define the GPU test MANUALLY to force the CUDA compiler ---
 # add_executable(test_kernels_gpu tests/test_kernels_gpu.cpp)
 # add_executable()
