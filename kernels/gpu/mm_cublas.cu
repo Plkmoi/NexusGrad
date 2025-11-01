@@ -808,3 +808,75 @@ cudaMemcpy(d_act, act, N * sizeof(float), cudaMemcpyHostToDevice);
     cudaFree(d_act);
     
 }
+
+
+
+
+__global__ void sigmoidline(float * val, float * sal, float j) {
+    // Perform warp-level reduction for max operation
+    int i =  blockDim.x*blockDim.x + threadIdx.x ;
+    if(i<j)
+     val[i] = (val[i] * sal[i] )/ (1.f + __expf(-val[i]));
+
+}
+
+
+                        
+void swiglu_cuda(const float* A, const float* B, const float* D, const float* F, const float* G, float* C, float* E,
+                 int M, int K, int N,// int W, // W is used for, 
+                 ag_cuda_stream_t s) {
+    // Semantics: A: (M,K), B: (N,K)  -> compute C += A @ B^T  (C is MxN row-major)
+    assert(A && B && C);
+    static thread_local cublasHandle_t handle = nullptr;
+    if (!handle) {
+        if (cublasCreate(&handle) != CUBLAS_STATUS_SUCCESS) {
+            fprintf(stderr, "linear_cuda: cublasCreate failed\n");
+            return;
+        }
+    }
+    cublasSetStream(handle, s);
+
+    const float alpha = 1.0f;
+    const float beta  = 1.0f; // match "GEMM worked as C += A@B", use 1.0f for accumulation
+
+    cudaMemcpy(E, D, M*N*sizeof(float), cudaMemcpyDeviceToDevice);
+    cudaMemcpy(C, G, M*N*sizeof(float), cudaMemcpyDeviceToDevice);
+
+    // Explanation:
+    // We want E = D + A @ B^T (row-major)
+    // Map to column-major cuBLAS: compute C^T = B * A^T
+    // call: cublasSgemm(handle, opA=CUBLAS_OP_N (B), opB=CUBLAS_OP_T (A), m=N, n=M, k=K, ...)
+    // Leading dims:
+    //   B is row-major (N x K), but used as (K x N) in column-major view -> lda = K
+    //   A is row-major (M x K), used as (K x M) when transposed -> ldb = K
+    //   C is row-major (M x N), used as (N x M) in column-major view -> ldc = N
+cublasSgemm(handle,
+    CUBLAS_OP_T,  // <- transpose B
+    CUBLAS_OP_N,  // <- don't transpose A
+    N, M, K,      // m=N, n=M, k=K
+    &alpha,
+    B, K,         // B is (N, K) so lda = K
+    A, K,         // A is (M, K) so ldb = K
+    &beta,
+    E, N);        // C (M,N), ldc = N
+
+    // We want C = G + A @ F^T (row-major)
+
+cublasSgemm(handle,
+    CUBLAS_OP_T,  // <- transpose B
+    CUBLAS_OP_N,  // <- don't transpose A
+    N, M, K,      // m=N, n=M, k=K
+    &alpha,
+    F, K,         // B is (N, K) so lda = K
+    A, K,         // A is (M, K) so ldb = K
+    &beta,
+    C, N);        // C (M,N), ldc = N
+int64_t blocks((unsigned int)(((M*N) + 255) / 256));
+    sigmoidline<<<blocks, 256, 0, (cudaStream_t)s>>>(E, C, M*N);
+
+
+    //   B is row-major (N x K), but used as (K x N) in column-major view -> lda = K
+    //   A is row-major (M x K), used as (K x M) when transposed -> ldb = K
+    //   C is row-major (M x N), used as (N x M) in column-major view -> ldc = N
+
+}

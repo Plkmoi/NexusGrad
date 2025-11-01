@@ -109,10 +109,12 @@ extern void vjp_parcon_cuda        (float*, const float*, const float*, int64_t,
 extern void vjp_lisht_cuda         (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 extern void vjp_reci_cuda          (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 
-void vjp_rowmax_cuda(float* , const float* , const float* , const float* , int64_t , int64_t , ag_cuda_stream_t ); 
-void vjp_rowsum_cuda(float* , const float* , const float* , const float* , int64_t , int64_t , ag_cuda_stream_t ); 
-void vjp_softmax_cuda(float* , const float* , const float* , int64_t , int64_t , ag_cuda_stream_t ); 
-
+extern void vjp_rowmax_cuda(float* , const float* , const float* , const float* , int64_t , int64_t , ag_cuda_stream_t ); 
+extern void vjp_rowsum_cuda(float* , const float* , const float* , const float* , int64_t , int64_t , ag_cuda_stream_t ); 
+extern void vjp_softmax_cuda(float* , const float* , const float* , int64_t , int64_t , ag_cuda_stream_t ); 
+extern void swiglu_cuda(const float* , const float* , const float* , const float* , const float* , float* , float* ,
+                 int , int , int , //int , // W is used for, 
+                 ag_cuda_stream_t );
 
 
 // ============================================================
@@ -175,6 +177,7 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->reci         = &reci_cuda;
   out->sign          = &sign_cuda;
   out->softmax          = &softmax_cuda;
+  out->swiglu = &swiglu_cuda;
 
   // ========================================================
   // Backward (VJP)

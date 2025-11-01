@@ -136,6 +136,7 @@ void load_cuda_plugin(const char* path) {
   g_cuda.parcon = table.parcon;
   g_cuda.lisht = table.lisht;
   g_cuda.reci = table.reci;
+  g_cuda.swiglu = table.swiglu;
 
   // Basic ops VJPs
   g_cuda.vjp_add    = table.vjp_add;

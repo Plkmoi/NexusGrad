@@ -154,6 +154,11 @@ typedef void (*ag_sigflash_attention)(const float* Q, const float* K, const floa
                        int B, int nh, int N, int d, ag_cuda_stream_t);
 typedef void (*ag_flexflash_attention)(const float* Q, const float* K, const float* V, float* O,
                        int B, int nh, int N, int d, const float * ww, ag_cuda_stream_t);
+typedef void (*ag_swiglu_cuda_fn)(const float* A, const float* B, const float* D, const float* F, const float* G, float* C, float* E, int M, int K, int N, // int W, 
+  ag_cuda_stream_t s);
+
+
+
 
 // NEW: VJP (backward) function types for CUDA
 // Basic element-wise VJPs
@@ -303,6 +308,7 @@ struct ag_cuda_v1 {
   ag_cosh_cuda_fn        cosh;
   ag_sign_cuda_fn        sign; 
   ag_softmax_cuda_fn        softmax; 
+  ag_swiglu_cuda_fn        swiglu;
 
   // ========================================================
   // Backward (VJP) ops
@@ -447,6 +453,7 @@ struct Cuda {
   ag_cosh_cuda_fn        cosh = nullptr;
   ag_sign_cuda_fn        sign = nullptr; 
   ag_softmax_cuda_fn        softmax = nullptr; 
+  ag_swiglu_cuda_fn        swiglu = nullptr;
 
   // Custom elementwise ops
   ag_gcu_cuda_fn gcu = nullptr;

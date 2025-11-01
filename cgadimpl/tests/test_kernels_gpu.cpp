@@ -1791,6 +1791,80 @@ void test_gpu_unified_reci() {
     CUDA_CHECK(cudaFree(ga_gpu));
 }
 
+
+
+void test_gpu_unified_swiglu() {
+    auto& K = ag::kernels::cuda();
+    ag::Tensor a_cpu = ag::Tensor::randn(11, 17, 3);
+    ag::Tensor b_cpu = ag::Tensor::randn(9, 17, 4);
+    ag::Tensor d_cpu = ag::Tensor::randn(11, 9, 5);
+    ag::Tensor f_cpu = ag::Tensor::randn(9, 17, 2);
+    ag::Tensor g_cpu = ag::Tensor::randn(11, 9, 46);
+    ag::Tensor e_cpu = ag::Tensor::zeros(11, 9);
+    ag::Tensor c_cpu = ag::Tensor::zeros(11, 9);
+    std::cout << "\nForward Pass Values (SWIGLU):" << std::endl;
+    // std::cout << "Input A (CPU):\n" << a_cpu << std::endl;
+    // std::cout << "Input B (CPU):\n" << b_cpu << std::endl;
+    // std::cout << "Input D (CPU):\n" << d_cpu << std::endl;
+    ag::Tensor ref = ag::Tensor::matmul(a_cpu, ag::Tensor::transpose( b_cpu)) + d_cpu;
+    std::cout << "Output (CPU):\n" << ref << std::endl;
+
+    float *a_gpu = to_gpu(a_cpu), *b_gpu = to_gpu(b_cpu), *d_gpu = to_gpu(d_cpu), *e_gpu=to_gpu(e_cpu), *f_gpu=to_gpu(f_cpu), *g_gpu=to_gpu(g_cpu), *c_gpu=to_gpu(c_cpu);
+
+    K.swiglu(a_gpu, b_gpu, d_gpu, f_gpu, g_gpu, c_gpu, e_gpu, 11, 17, 9, nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    ag::Tensor out = from_gpu(e_gpu, 11, 9);
+    check_tensors_close(ref, out, "test_gpu_SWIGLU");
+    std::cout << "Output (GPU):\n" << out << std::endl;
+    
+
+    // ag::Tensor gy_cpu = ag::Tensor::randn(11, 9, 11);
+
+    //     // Reference calculation on CPU
+    // ag::Tensor ga_ref = ag::Tensor::matmul(gy_cpu, (b_cpu))+ag::Tensor::ones_like(a_cpu);
+    // ag::Tensor gb_ref = ag::Tensor::transpose(ag::Tensor::matmul(ag::Tensor::transpose(a_cpu), gy_cpu))+ag::Tensor::ones_like(b_cpu);
+    // ag::Tensor gc_ref = gy_cpu+ag::Tensor::ones_like(d_cpu);
+
+    // float *gy_gpu = to_gpu(gy_cpu);
+    // float *ga_gpu = to_gpu(ag::Tensor::ones_like(a_cpu)), *gb_gpu = to_gpu(ag::Tensor::ones_like(b_cpu)),  *gc_gpu = to_gpu(ag::Tensor::ones_like(c_cpu));
+
+
+
+    // K.vjp_linear(ga_gpu, gb_gpu, gc_gpu, gy_gpu, a_gpu, b_gpu, d_gpu, 11, 17, 9, nullptr);
+    // CUDA_CHECK(cudaDeviceSynchronize());
+
+    // ag::Tensor ga_out = from_gpu(ga_gpu, 11, 17);
+    // ag::Tensor gb_out = from_gpu(gb_gpu, 9, 17);
+    // ag::Tensor gc_out = from_gpu(gc_gpu, 11, 9);
+
+    // std::cout << "\nBackward Pass Values (Linear):" << std::endl;
+    // std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+    // std::cout << "Expected dA (CPU):\n" << ga_ref << std::endl;
+    // std::cout << "Computed dA (GPU):\n" << ga_out << std::endl;
+    // std::cout << "Expected dB (CPU):\n" << gb_ref << std::endl;
+    // std::cout << "Computed dB (GPU):\n" << gb_out << std::endl;
+    // std::cout << "Expected dC (CPU):\n" << gc_ref << std::endl;
+    // std::cout << "Computed dC (GPU):\n" << gc_out << std::endl;
+
+    // check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_linear (gA)");
+    // check_tensors_close(gb_ref, gb_out, "test_gpu_vjp_linear (gB)");
+    // check_tensors_close(gc_ref, gc_out, "test_gpu_vjp_linear (gC)");
+
+    CUDA_CHECK(cudaFree(a_gpu));
+    CUDA_CHECK(cudaFree(b_gpu));
+    CUDA_CHECK(cudaFree(c_gpu));
+    CUDA_CHECK(cudaFree(d_gpu));
+    CUDA_CHECK(cudaFree(e_gpu));
+    CUDA_CHECK(cudaFree(f_gpu));
+    CUDA_CHECK(cudaFree(g_gpu));
+    // CUDA_CHECK(cudaFree(gy_gpu));
+    // CUDA_CHECK(cudaFree(ga_gpu));
+    // CUDA_CHECK(cudaFree(gb_gpu));
+    // CUDA_CHECK(cudaFree(gc_gpu));
+}
+
+
 int main() {
     std::cout << "=== Running GPU Kernel Tests ===\n";
     try {
@@ -1848,6 +1922,8 @@ int main() {
         test_gpu_unified_rowsum();
         test_gpu_unified_rowmax();
         test_gpu_unified_softmax();
+
+        test_gpu_unified_swiglu();
 
     } catch (const std::exception& e) {
         std::cerr << "ERROR: " << e.what() << std::endl;
