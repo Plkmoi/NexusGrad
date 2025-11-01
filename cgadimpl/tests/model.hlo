@@ -1,8 +1,12 @@
 module attributes { mhlo.dynamic_shape="false" } {
-  func.func @compute(%arg0: tensor<8x8xf32>, %arg1: tensor<8x8xf32>, %arg2: tensor<8x8xf32>, %arg3: tensor<8x8xf32>) -> tensor<8x8xf32> {
+  func.func @compute(%arg0: tensor<8x8xf32>, %arg1: tensor<8x8xf32>, %arg2: tensor<8x8xf32>, %arg3: tensor<8x8xf32>, %arg4: tensor<8x8xf32>) -> tensor<8x8xf32> {
   %v0 = stablehlo.multiply %arg0, %arg1 : tensor<8x8xf32>
   %v1 = stablehlo.add %v0, %arg2 : tensor<8x8xf32>
   %v2 = stablehlo.add %v1, %arg3 : tensor<8x8xf32>
-  return %v2 : tensor<8x8xf32>
+  %cst0 = stablehlo.constant dense<0> : tensor<f32>
+  %t1 = stablehlo.broadcast_in_dim %cst0, broadcast_dimensions = dense<[]> : tensor<0xi64> : tensor<1x1xf32> -> tensor<8x8xf32>
+  %v3 = stablehlo.maximum %v2, %t1 : tensor<8x8xf32>
+  %v4 = stablehlo.copy %v3 : tensor<8x8xf32>
+  return %v4 : tensor<8x8xf32>
   }
 }

@@ -123,13 +123,14 @@ std::cout << "dL/dA[0,0] = " << a.grad()
 zero_grad(y);
 backward(y);
 
-// ag::hlo::dump_stablehlo(y, "cgadimpl/tests/model.hlo");
 std::cout << "y = " << y.val()
 <<","<< endl<< "A = " << a.val()
 <<","<< endl<< "B = " << b.val()<<","<< endl
 << "D = " << d.val() << endl<< "C = " << c.val() << endl;
 SGD(y, 0.005f);
 }
+ag::hlo::dump_stablehlo(y, "cgadimpl/tests/model.hlo");
+
 unisend(y);
 
 std::cout << "y = " << y.val()

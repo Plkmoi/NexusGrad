@@ -23,6 +23,12 @@ void SGD(const Value& root, int learning_rate , const Tensor* grad_seed) {
     for (auto it = order.begin(); it != order.end(); ++it) {
         Node* n = *it;
         if (n->requires_grad ) {
+            if(n->requires_cuda==false)  
+{
+                n->value.add_(-learning_rate * n->grad);
+
+}
+else
 {
 
         auto fn = ag::kernels::cuda().optim;
