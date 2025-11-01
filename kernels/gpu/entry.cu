@@ -42,6 +42,11 @@ extern void cos_cuda         (const float*, float*, int64_t, ag_cuda_stream_t);
 extern void sinh_cuda         (const float*, float*, int64_t, ag_cuda_stream_t);
 extern void cosh_cuda         (const float*, float*, int64_t, ag_cuda_stream_t);
 extern void sign_cuda         (const float*, float*, int64_t, ag_cuda_stream_t);
+extern void gcu_cuda         (const float*, float*, int64_t, ag_cuda_stream_t);
+extern void gauss_cuda       (const float*, float*, int64_t, ag_cuda_stream_t);
+extern void parcon_cuda      (const float*, float*, int64_t, ag_cuda_stream_t);
+extern void lisht_cuda       (const float*, float*, int64_t, ag_cuda_stream_t);
+extern void reci_cuda        (const float*, float*, int64_t, ag_cuda_stream_t);
 
 // Core ops
 extern void zero_cuda (float*, int64_t, ag_cuda_stream_t);
@@ -98,6 +103,11 @@ extern void vjp_sin_cuda           (float*, const float*, const float*, int64_t,
 extern void vjp_cos_cuda           (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 extern void vjp_sinh_cuda           (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 extern void vjp_cosh_cuda           (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
+extern void vjp_gcu_cuda           (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
+extern void vjp_gauss_cuda         (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
+extern void vjp_parcon_cuda        (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
+extern void vjp_lisht_cuda         (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
+extern void vjp_reci_cuda          (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 
 void vjp_rowmax_cuda(float* , const float* , const float* , const float* , int64_t , int64_t , ag_cuda_stream_t ); 
 void vjp_rowsum_cuda(float* , const float* , const float* , const float* , int64_t , int64_t , ag_cuda_stream_t ); 
@@ -158,6 +168,11 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->cos          = &cos_cuda;
   out->sinh          = &sinh_cuda;
   out->cosh          = &cosh_cuda;
+  out->gcu          = &gcu_cuda;
+  out->gauss        = &gauss_cuda;
+  out->parcon       = &parcon_cuda;
+  out->lisht        = &lisht_cuda;
+  out->reci         = &reci_cuda;
   out->sign          = &sign_cuda;
   out->softmax          = &softmax_cuda;
 
@@ -202,6 +217,12 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->vjp_sinh        = &vjp_sinh_cuda;
   out->vjp_cosh        = &vjp_cosh_cuda;  
   out->vjp_softmax        = &vjp_softmax_cuda;  
+  // Custom elementwise VJPs
+  out->vjp_gcu = &vjp_gcu_cuda;
+  out->vjp_gauss = &vjp_gauss_cuda;
+  out->vjp_parcon = &vjp_parcon_cuda;
+  out->vjp_lisht = &vjp_lisht_cuda;
+  out->vjp_reci = &vjp_reci_cuda;
 
   return 0;
 }

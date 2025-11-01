@@ -1,3 +1,12 @@
+
+// -----------------------------
+// New tests: gauss, reci, parcon, lisht, gcu
+// -----------------------------
+
+// -------------------------
+// Custom elementwise tests
+// -------------------------
+
 // =========================================================
 // FILE: cgadimpl/tests/test_kernels_gpu.cpp
 // =========================================================
@@ -1635,7 +1644,152 @@ void test_gpu_unified_softmax() {
     CUDA_CHECK(cudaFree(ga_gpu));
 }
 
+void test_gpu_unified_gcu() {
+    auto& K = ag::kernels::cuda();
+    ag::Tensor a_cpu = ag::Tensor::randn(11, 11, 1);
+    ag::Tensor ref = a_cpu * ag::Tensor::cos(a_cpu);
 
+    float *a_gpu = to_gpu(a_cpu), *c_gpu;
+    CUDA_CHECK(cudaMalloc(&c_gpu, ref.numel() * sizeof(float)));
+    K.gcu(a_gpu, c_gpu, ref.numel(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    ag::Tensor out = from_gpu(c_gpu, 11, 11);
+    check_tensors_close(ref, out, "test_gpu_gcu");
+
+    // Backward
+    ag::Tensor gy_cpu = ag::Tensor::randn(11, 11, 2);
+    ag::Tensor ga_ref = gy_cpu * (ag::Tensor::cos(a_cpu) - (a_cpu * ag::Tensor::sin(a_cpu)));
+    float *gy_gpu = to_gpu(gy_cpu);
+    float *ga_gpu = to_gpu(ag::Tensor::zeros_like(a_cpu));
+    // vjp signature: (gX, X, gy, n, s)
+    K.vjp_gcu(ga_gpu, a_gpu, gy_gpu, gy_cpu.numel(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+    ag::Tensor ga_out = from_gpu(ga_gpu, 11, 11);
+    check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_gcu", 5.1);
+
+    CUDA_CHECK(cudaFree(a_gpu));
+    CUDA_CHECK(cudaFree(c_gpu));
+    CUDA_CHECK(cudaFree(gy_gpu));
+    CUDA_CHECK(cudaFree(ga_gpu));
+}
+
+void test_gpu_unified_gauss() {
+    auto& K = ag::kernels::cuda();
+    ag::Tensor a_cpu = ag::Tensor::randn(11, 11, 1);
+    ag::Tensor ref = ag::Tensor::exp(-(a_cpu * a_cpu));
+
+    float *a_gpu = to_gpu(a_cpu), *c_gpu;
+    CUDA_CHECK(cudaMalloc(&c_gpu, ref.numel() * sizeof(float)));
+    K.gauss(a_gpu, c_gpu, ref.numel(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    ag::Tensor out = from_gpu(c_gpu, 11, 11);
+    check_tensors_close(ref, out, "test_gpu_gauss");
+
+    // Backward
+    ag::Tensor gy_cpu = ag::Tensor::randn(11, 11, 2);
+    ag::Tensor ga_ref = gy_cpu * (-2.0f * a_cpu * ag::Tensor::exp(a_cpu * a_cpu));
+    float *gy_gpu = to_gpu(gy_cpu);
+    float *ga_gpu = to_gpu(ag::Tensor::zeros_like(a_cpu));
+    // vjp signature: (gX, X, gy, n, s)
+    K.vjp_gauss(ga_gpu, a_gpu, gy_gpu, gy_cpu.numel(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+    ag::Tensor ga_out = from_gpu(ga_gpu, 11, 11);
+    check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_gauss");
+
+    CUDA_CHECK(cudaFree(a_gpu));
+    CUDA_CHECK(cudaFree(c_gpu));
+    CUDA_CHECK(cudaFree(gy_gpu));
+    CUDA_CHECK(cudaFree(ga_gpu));
+}
+
+void test_gpu_unified_parcon() {
+    auto& K = ag::kernels::cuda();
+    ag::Tensor a_cpu = ag::Tensor::randn(11, 11, 1);
+    ag::Tensor ref = a_cpu * (2.f*ag::Tensor::ones_like(a_cpu) - a_cpu);
+
+    float *a_gpu = to_gpu(a_cpu), *c_gpu;
+    CUDA_CHECK(cudaMalloc(&c_gpu, ref.numel() * sizeof(float)));
+    K.parcon(a_gpu, c_gpu, ref.numel(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    ag::Tensor out = from_gpu(c_gpu, 11, 11);
+    check_tensors_close(ref, out, "test_gpu_parcon");
+
+    // Backward: derivative = 2*(1 - x)
+    ag::Tensor gy_cpu = ag::Tensor::randn(11, 11, 2);
+    ag::Tensor ga_ref = gy_cpu * (2.0f * (ag::Tensor::ones_like(a_cpu) - a_cpu));
+    float *gy_gpu = to_gpu(gy_cpu);
+    float *ga_gpu = to_gpu(ag::Tensor::zeros_like(a_cpu));
+    K.vjp_parcon(ga_gpu, a_gpu, gy_gpu, gy_cpu.numel(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+    ag::Tensor ga_out = from_gpu(ga_gpu, 11, 11);
+    check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_parcon");
+
+    CUDA_CHECK(cudaFree(a_gpu));
+    CUDA_CHECK(cudaFree(c_gpu));
+    CUDA_CHECK(cudaFree(gy_gpu));
+    CUDA_CHECK(cudaFree(ga_gpu));
+}
+
+void test_gpu_unified_lisht() {
+    auto& K = ag::kernels::cuda();
+    ag::Tensor a_cpu = ag::Tensor::randn(11, 11, 1);
+    ag::Tensor ref = a_cpu * ag::Tensor::tanh(a_cpu);
+
+    float *a_gpu = to_gpu(a_cpu), *c_gpu;
+    CUDA_CHECK(cudaMalloc(&c_gpu, ref.numel() * sizeof(float)));
+    K.lisht(a_gpu, c_gpu, ref.numel(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    ag::Tensor out = from_gpu(c_gpu, 11, 11);
+    check_tensors_close(ref, out, "test_gpu_lisht");
+
+    // Backward: derivative = - (x*(1 - tanh^2(x)) + tanh(x))
+    ag::Tensor gy_cpu = ag::Tensor::randn(11, 11, 2);
+    ag::Tensor ga_ref = gy_cpu * ( - (a_cpu * (ag::Tensor::ones_like(a_cpu) - ag::Tensor::tanh(a_cpu)*ag::Tensor::tanh(a_cpu)) + ag::Tensor::tanh(a_cpu)) );
+    float *gy_gpu = to_gpu(gy_cpu);
+    float *ga_gpu = to_gpu(ag::Tensor::zeros_like(a_cpu));
+    K.vjp_lisht(ga_gpu, a_gpu, gy_gpu, gy_cpu.numel(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+    ag::Tensor ga_out = from_gpu(ga_gpu, 11, 11);
+    check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_lisht");
+
+    CUDA_CHECK(cudaFree(a_gpu));
+    CUDA_CHECK(cudaFree(c_gpu));
+    CUDA_CHECK(cudaFree(gy_gpu));
+    CUDA_CHECK(cudaFree(ga_gpu));
+}
+
+void test_gpu_unified_reci() {
+    auto& K = ag::kernels::cuda();
+    ag::Tensor a_cpu = ag::Tensor::randn(11, 11, 1) ; // avoid zeros
+    ag::Tensor ref = ag::Tensor::ones_like(a_cpu) / a_cpu;
+
+    float *a_gpu = to_gpu(a_cpu), *c_gpu;
+    CUDA_CHECK(cudaMalloc(&c_gpu, ref.numel() * sizeof(float)));
+    K.reci(a_gpu, c_gpu, ref.numel(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    ag::Tensor out = from_gpu(c_gpu, 11, 11);
+    check_tensors_close(ref, out, "test_gpu_reci");
+
+    // Backward: derivative = -1 / x^2
+    ag::Tensor gy_cpu = ag::Tensor::randn(11, 11, 3);
+    ag::Tensor ga_ref = gy_cpu * ( - (ag::Tensor::ones_like(a_cpu) / (a_cpu * a_cpu)) );
+    float *gy_gpu = to_gpu(gy_cpu);
+    float *ga_gpu = to_gpu(ag::Tensor::zeros_like(a_cpu));
+    K.vjp_reci(ga_gpu, a_gpu, gy_gpu, gy_cpu.numel(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+    ag::Tensor ga_out = from_gpu(ga_gpu, 11, 11);
+    check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_reci", 1.f);
+
+    CUDA_CHECK(cudaFree(a_gpu));
+    CUDA_CHECK(cudaFree(c_gpu));
+    CUDA_CHECK(cudaFree(gy_gpu));
+    CUDA_CHECK(cudaFree(ga_gpu));
+}
 
 int main() {
     std::cout << "=== Running GPU Kernel Tests ===\n";
@@ -1661,6 +1815,12 @@ int main() {
         test_gpu_unified_sub();
         test_gpu_unified_exp();
         test_gpu_unified_sigmoid();
+    // custom elementwise tests
+    // test_gpu_unified_gcu();
+    // test_gpu_unified_gauss();
+    // test_gpu_unified_parcon();
+    // test_gpu_unified_lisht();
+    // test_gpu_unified_reci();
         // test_gpu_unified_gelu();
         test_gpu_unified_mish();
         // test_gpu_unified_hard_swish();
@@ -1675,6 +1835,13 @@ int main() {
         test_gpu_unified_sigattention();
         test_gpu_unified_flexattention();
         test_gpu_unified_sum();
+
+    // New elementwise op tests
+    test_gpu_unified_gauss();
+    test_gpu_unified_reci();
+    test_gpu_unified_parcon();
+    test_gpu_unified_lisht();
+    test_gpu_unified_gcu();
 
         test_gpu_unified_mseloss();
         test_gpu_unified_maeloss();

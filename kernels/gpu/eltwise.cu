@@ -170,6 +170,31 @@ __global__ void k_cos(const float* __restrict__ x, float* __restrict__ y, int64_
   if (i < n) y[i] = cos(x[i]);
 }
 
+__global__ void k_gcu(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) y[i] = x[i]*cos(x[i]);
+}
+
+__global__ void k_gauss(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) y[i] = exp(-x[i]*x[i]);
+}
+
+__global__ void k_parcon(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) y[i] = x[i]*(2-x[i]);
+}
+
+__global__ void k_lisht(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) y[i] = x[i]*tanh(x[i]);
+}
+
+__global__ void k_reci(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) y[i] = (1.f/x[i]);
+}
+
 __global__ void k_sin(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) y[i] = sin(x[i]);
@@ -571,6 +596,22 @@ void log_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
 }
 void softplus_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
   k_softplus<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(x, y, n);
+}
+
+void gcu_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
+  k_gcu<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(x, y, n);
+}
+void lisht_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
+  k_lisht<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(x, y, n);
+}
+void gauss_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
+  k_gauss<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(x, y, n);
+}
+void parcon_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
+  k_parcon<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(x, y, n);
+}
+void reci_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
+  k_reci<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(x, y, n);
 }
 
 __global__ void k_maeloss(const float* __restrict__ p, const float* __restrict__ t,

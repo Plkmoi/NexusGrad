@@ -358,6 +358,63 @@ void vjp_cos_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda
   k_vjp_cos_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
 }
 
+
+__global__ void k_vjp_gauss_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+    atomicAdd(&gX[i], -gy[i] * 2.f* exp(X[i]*X[i])*X[i]);
+  }
+}
+void vjp_gauss_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda_stream_t s) {
+    int64_t blocks((unsigned int)((n + 255) / 256));
+  k_vjp_gauss_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
+}
+
+
+__global__ void k_vjp_parcon_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+    atomicAdd(&gX[i], gy[i] * 2.f* (1-X[i]));
+  }
+}
+void vjp_parcon_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda_stream_t s) {
+    int64_t blocks((unsigned int)((n + 255) / 256));
+  k_vjp_parcon_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
+}
+
+__global__ void k_vjp_reci_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+    atomicAdd(&gX[i], -gy[i] /   (X[i] * X[i]));
+  }
+}
+void vjp_reci_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda_stream_t s) {
+    int64_t blocks((unsigned int)((n + 255) / 256));
+  k_vjp_reci_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
+}
+
+__global__ void k_vjp_lisht_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+    atomicAdd(&gX[i], -gy[i] * (X[i]* (1-    ( tanh(X[i]) * tanh(X[i])     )    )      +tanh(X[i] ) )  );
+  }
+}
+void vjp_lisht_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda_stream_t s) {
+    int64_t blocks((unsigned int)((n + 255) / 256));
+  k_vjp_lisht_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
+}
+
+__global__ void k_vjp_gcu_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+    atomicAdd(&gX[i], gy[i] * (  cos(X[i] )- (sin(X[i] * X[i])    )  ) )  ;
+  }
+}
+void vjp_gcu_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda_stream_t s) {
+    int64_t blocks((unsigned int)((n + 255) / 256));
+  k_vjp_gcu_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
+}
+
 __global__ void k_vjp_sinh_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) {

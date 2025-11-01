@@ -130,6 +130,12 @@ void load_cuda_plugin(const char* path) {
   g_cuda.cosh          = table.cosh;
   g_cuda.sign           = table.sign;
   g_cuda.softmax           = table.softmax;
+  // Custom elementwise ops (forward)
+  g_cuda.gcu = table.gcu;
+  g_cuda.gauss = table.gauss;
+  g_cuda.parcon = table.parcon;
+  g_cuda.lisht = table.lisht;
+  g_cuda.reci = table.reci;
 
   // Basic ops VJPs
   g_cuda.vjp_add    = table.vjp_add;
@@ -169,6 +175,12 @@ void load_cuda_plugin(const char* path) {
   g_cuda.vjp_sinh           = table.vjp_sinh;
   g_cuda.vjp_cosh          = table.vjp_cosh;
   g_cuda.vjp_softmax           = table.vjp_softmax;
+  // Custom elementwise VJPs
+  g_cuda.vjp_gcu = table.vjp_gcu;
+  g_cuda.vjp_gauss = table.vjp_gauss;
+  g_cuda.vjp_parcon = table.vjp_parcon;
+  g_cuda.vjp_lisht = table.vjp_lisht;
+  g_cuda.vjp_reci = table.vjp_reci;
 
 }
 

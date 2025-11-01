@@ -1439,7 +1439,13 @@ void vjp_Log(Node* n, const Tensor& gy){
         if (!n->requires_cuda) {
             X->grad.add_( rt( gy * (Tensor::cos(X->value)-(X->value*Tensor::sin(X->value))), X->value) );
         } else {
-            throw std::runtime_error("VJP for GCU on CUDA not implemented yet!");
+            // GPU path: call registered CUDA VJP if available
+            auto fn = ag::kernels::cuda().vjp_gcu;
+            if (fn) {
+                fn(X->grad.data(), X->value.data(), gy.data(), X->value.numel(), ag::current_stream());
+            } else {
+                throw std::runtime_error("VJP for GCU on CUDA not implemented yet!");
+            }
         }
     }
 
@@ -1609,7 +1615,12 @@ void vjp_Gaus(Node* n, const Tensor& gy){
     if (!n->requires_cuda) {
         X->grad.add_( rt( gy * -2.0f * X->value * Tensor::exp(-1.0f * X->value * X->value), X->value) );
     } else {
-        throw std::runtime_error("VJP for Gaus on CUDA not implemented yet!");
+        auto fn = ag::kernels::cuda().vjp_gauss;
+        if (fn) {
+            fn(X->grad.data(), X->value.data(), gy.data(), X->value.numel(), ag::current_stream());
+        } else {
+            throw std::runtime_error("VJP for Gaus on CUDA not implemented yet!");
+        }
     }
 }
 
@@ -1648,7 +1659,12 @@ void vjp_Parcon(Node* n, const Tensor& gy){
     if (!n->requires_cuda) {
         X->grad.add_( rt( gy * ( 2.0f * Tensor::ones_like(X->value) - 2.0f * X->value  ), X->value) );
     } else {
-        throw std::runtime_error("VJP for Parcon on CUDA not implemented yet!");
+        auto fn = ag::kernels::cuda().vjp_parcon;
+        if (fn) {
+            fn(X->grad.data(), X->value.data(), gy.data(), X->value.numel(), ag::current_stream());
+        } else {
+            throw std::runtime_error("VJP for Parcon on CUDA not implemented yet!");
+        }
     }
 }
 
@@ -1659,7 +1675,12 @@ void vjp_LiSHT(Node* n, const Tensor& gy){
         Tensor sech_x = Tensor::sech(X->value);
         X->grad.add_( rt( gy * ( Tensor::tanh(X->value) + (sech_x * sech_x * X->value ) ), X->value) );
     } else {
-        throw std::runtime_error("VJP for LiSHT on CUDA not implemented yet!");
+        auto fn = ag::kernels::cuda().vjp_lisht;
+        if (fn) {
+            fn(X->grad.data(), X->value.data(), gy.data(), X->value.numel(), ag::current_stream());
+        } else {
+            throw std::runtime_error("VJP for LiSHT on CUDA not implemented yet!");
+        }
     }
 }
 
@@ -2030,7 +2051,12 @@ void vjp_Reciprocal(Node* n, const Tensor& gy){
         Tensor recip_x = Tensor::reciprocal(X->value);
         X->grad.add_( rt( -gy * recip_x * recip_x, X->value) );
     } else {
-        throw std::runtime_error("VJP for Reciprocal on CUDA not implemented yet!");
+        auto fn = ag::kernels::cuda().vjp_reci;
+        if (fn) {
+            fn(X->grad.data(), X->value.data(), gy.data(), X->value.numel(), ag::current_stream());
+        } else {
+            throw std::runtime_error("VJP for Reciprocal on CUDA not implemented yet!");
+        }
     }
 }
 

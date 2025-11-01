@@ -28,11 +28,11 @@ OP(FMA,       3,    "fmab") // fused multiply-add             // vjp exists for 
 OP(Attention,       4,    "attention") // attention
 OP(MSELoss,       2,    "mseloss") // mse loss // vjp exists for CUDA
 OP(MAELoss,       2,    "maeloss") // mae loss // vjp exists for CUDA
-OP(GCU,       1,    "gcu") // Growing Cosine Unit
+OP(GCU,       1,    "gcu") // Growing Cosine Unit       // vjp exists for CUDA
 OP(Mish,      1,    "mish") // mish activation        // vjp exists for CUDA
-OP(Gaus,      1,    "gaus") // gaussian activation
-OP(Parcon,      1,    "parcon") 
-OP(LiSHT,      1,    "lisht") 
+OP(Gaus,      1,    "gaus") // gaussian activation    // vjp exists for CUDA
+OP(Parcon,      1,    "parcon")     // vjp exists for CUDA
+OP(LiSHT,      1,    "lisht")    // vjp exists for CUDA
 OP(Transpose,      1,    "transpose") 
 OP(SWIGLU,      1,    "swiglu") 
 OP(LayerNorm,      1,    "layernorm") 
@@ -41,11 +41,11 @@ OP(Dyntanh,      4,    "dyntanh")
 OP(RealLayerNorm,      4,    "reallayernorm") 
 OP(AlibiAttention,      3,    "alibiattention")
 OP(RealRMSNorm,      1,    "realrmsnorm")
-OP(Div,       2,    "div") // vjp exists for CUDA
-OP(Reciprocal,       1,    "reciprocal")
-OP(Sign, 1, "sign") // vjp exists for CUDA
-OP(Cosh, 1, "cosh")  // vjp exists for CUDA
-OP(Sinh, 1, "sinh")  // vjp exists for CUDA
+OP(Div,       2,    "div")                 // vjp exists for CUDA
+OP(Reciprocal,       1,    "reciprocal")    // vjp exists for CUDA
+OP(Sign, 1, "sign")                     // vjp exists for CUDA
+OP(Cosh, 1, "cosh")                    // vjp exists for CUDA
+OP(Sinh, 1, "sinh")                                // vjp exists for CUDA
 OP(Sqrt, 1, "sqrt") 
 OP(Relumask, 1, "relumask")                                         // vjp exists for CUDA
 OP(Cos, 1, "cosh")                                                      // vjp exists for CUDA

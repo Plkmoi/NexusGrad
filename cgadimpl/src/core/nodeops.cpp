@@ -697,14 +697,14 @@ std::shared_ptr<Node> div_nodeops(const std::shared_ptr<Node>& a, const std::sha
 
 }
 
-        std::shared_ptr<Node> reci_nodeops(const std::shared_ptr<Node>& a){ 
-            auto c = std::make_shared<Node>(Tensor::ones_like(a->value), false, Op::Leaf, "leaf");
-        Tensor y = div_nodeops(c, a)->value; 
-        auto n = std::make_shared<Node>(y, a->requires_grad, Op::Reciprocal, "reciprocal"); 
-        n->inputs = {a}; 
-        ag::debug::on_node_created(n); 
-        return n; 
-    }
+        // std::shared_ptr<Node> reci_nodeops(const std::shared_ptr<Node>& a){ 
+        //     auto c = std::make_shared<Node>(Tensor::ones_like(a->value), false, Op::Leaf, "leaf");
+        // Tensor y = div_nodeops(c, a)->value; 
+        // auto n = std::make_shared<Node>(y, a->requires_grad, Op::Reciprocal, "reciprocal"); 
+        // n->inputs = {a}; 
+        // ag::debug::on_node_created(n); 
+        // return n; 
+    // }
 
      std::shared_ptr<Node> flodiv_nodeops(float b , const std::shared_ptr<Node>& a){ 
         auto c = std::make_shared<Node>(Tensor::vals_like(a->value,b), false, Op::Leaf, "leaf");
@@ -753,7 +753,10 @@ std::shared_ptr<Node> relumask_nodeops(const std::shared_ptr<Node>& x) {
             Y = Tensor::relu(X);
         }
     } else {
-        // GPU path (when ready)
+
+
+
+                // GPU path (when ready)
         // This will correctly dispatch to your existing CUDA ReLU kernel.
         auto fn = ag::kernels::cuda().relumask;
         if (fn) {
@@ -768,6 +771,99 @@ std::shared_ptr<Node> relumask_nodeops(const std::shared_ptr<Node>& x) {
     ag::debug::on_node_created(n);
     return n;
 }
+
+std::shared_ptr<Node> gauss_nodeops(const std::shared_ptr<Node>& x) {
+    const Tensor& X = x->value;
+    Tensor Y = Tensor::zeros_like(X);
+    if (X.is_cpu()) {
+        Y = Tensor::exp(-(X*X));
+    } else {
+        auto fn = ag::kernels::cuda().gauss;
+        if (fn) fn(X.data(), Y.data(), Y.numel(), ag::current_stream());
+        else throw std::runtime_error("gauss forward on CUDA not implemented or loaded.");
+    }
+    auto n = std::make_shared<Node>(Y, x->requires_grad, Op::Gaus, "gaus");
+    n->inputs = {x};
+    ag::debug::on_node_created(n);
+    return n;
+}
+
+
+std::shared_ptr<Node> gcu_nodeops(const std::shared_ptr<Node>& x) {
+    const Tensor& X = x->value;
+    Tensor Y = Tensor::zeros_like(X);
+    if (X.is_cpu()) {
+        // try CPU kernel
+        auto fn = ag::kernels::cpu().exp; // use available ops: compute x*cos(x) via CPU
+        if (fn) {
+            // fallback: compute on CPU with Tensor helpers
+            Y = X * Tensor::cos(X);
+        } else {
+            Y = X * Tensor::cos(X);
+        }
+    } else {
+        auto fn = ag::kernels::cuda().gcu;
+        if (fn) {
+            fn(X.data(), Y.data(), Y.numel(), ag::current_stream());
+        } else {
+            throw std::runtime_error("gcu forward on CUDA not implemented or loaded.");
+        }
+    }
+    auto n = std::make_shared<Node>(Y, x->requires_grad, Op::GCU, "gcu");
+    n->inputs = {x};
+    ag::debug::on_node_created(n);
+    return n;
+}
+
+
+std::shared_ptr<Node> parcon_nodeops(const std::shared_ptr<Node>& x) {
+    const Tensor& X = x->value;
+    Tensor Y = Tensor::zeros_like(X);
+    if (X.is_cpu()) {
+        Y = X * (2.f* ag::Tensor::ones_like(X) - X);
+    } else {
+        auto fn = ag::kernels::cuda().parcon;
+        if (fn) fn(X.data(), Y.data(), Y.numel(), ag::current_stream());
+        else throw std::runtime_error("parcon forward on CUDA not implemented or loaded.");
+    }
+    auto n = std::make_shared<Node>(Y, x->requires_grad, Op::Parcon, "parcon");
+    n->inputs = {x};
+    ag::debug::on_node_created(n);
+    return n;
+}
+
+std::shared_ptr<Node> lisht_nodeops(const std::shared_ptr<Node>& x) {
+    const Tensor& X = x->value;
+    Tensor Y = Tensor::zeros_like(X);
+    if (X.is_cpu()) {
+        Y = X * Tensor::tanh(X);
+    } else {
+        auto fn = ag::kernels::cuda().lisht;
+        if (fn) fn(X.data(), Y.data(), Y.numel(), ag::current_stream());
+        else throw std::runtime_error("lisht forward on CUDA not implemented or loaded.");
+    }
+    auto n = std::make_shared<Node>(Y, x->requires_grad, Op::LiSHT, "lisht");
+    n->inputs = {x};
+    ag::debug::on_node_created(n);
+    return n;
+}
+
+std::shared_ptr<Node> reci_nodeops(const std::shared_ptr<Node>& x) {
+    const Tensor& X = x->value;
+    Tensor Y = Tensor::zeros_like(X);
+    if (X.is_cpu()) {
+        Y = Tensor::ones_like(X) / X;
+    } else {
+        auto fn = ag::kernels::cuda().reci;
+        if (fn) fn(X.data(), Y.data(), Y.numel(), ag::current_stream());
+        else throw std::runtime_error("reci forward on CUDA not implemented or loaded.");
+    }
+    auto n = std::make_shared<Node>(Y, x->requires_grad, Op::Reciprocal, "reci");
+    n->inputs = {x};
+    ag::debug::on_node_created(n);
+    return n;
+}
+
 
 
 // std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c){ 
@@ -1394,13 +1490,13 @@ std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){
 
 
 
-    std::shared_ptr<Node> gcu_nodeops(const std::shared_ptr<Node>& x){ 
-        Tensor y = x->value * Tensor::cos(x->value);
-        auto n=std::make_shared<Node>(y, x->requires_grad, Op::GCU, "gcu"); 
-        n->inputs={x}; 
-        ag::debug::on_node_created(n);  
-        return n;
-    }
+    // std::shared_ptr<Node> gcu_nodeops(const std::shared_ptr<Node>& x){ 
+    //     Tensor y = x->value * Tensor::cos(x->value);
+    //     auto n=std::make_shared<Node>(y, x->requires_grad, Op::GCU, "gcu"); 
+    //     n->inputs={x}; 
+    //     ag::debug::on_node_created(n);  
+    //     return n;
+    // }
     
     std::shared_ptr<Node> silu_nodeops(const std::shared_ptr<Node>& x){ 
         const Tensor& X = x->value;
@@ -1431,23 +1527,23 @@ std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){
         return n;
     }
 
-    std::shared_ptr<Node> parcon_nodeops(const std::shared_ptr<Node>& x){ 
-        Tensor y = x->value*(2*Tensor::ones_like(x->value)-x->value); 
+    // std::shared_ptr<Node> parcon_nodeops(const std::shared_ptr<Node>& x){ 
+    //     Tensor y = x->value*(2*Tensor::ones_like(x->value)-x->value); 
 
-        auto n=std::make_shared<Node>(y, x->requires_grad, Op::Parcon, "parcon"); 
-        n->inputs={x}; 
-        ag::debug::on_node_created(n);  
-        return n;
-    }
+    //     auto n=std::make_shared<Node>(y, x->requires_grad, Op::Parcon, "parcon"); 
+    //     n->inputs={x}; 
+    //     ag::debug::on_node_created(n);  
+    //     return n;
+    // }
 
-    std::shared_ptr<Node> lisht_nodeops(const std::shared_ptr<Node>& x){ 
-        Tensor y = x->value*Tensor::tanh(x->value); 
+    // std::shared_ptr<Node> lisht_nodeops(const std::shared_ptr<Node>& x){ 
+    //     Tensor y = x->value*Tensor::tanh(x->value); 
 
-        auto n=std::make_shared<Node>(y, x->requires_grad, Op::LiSHT, "lisht"); 
-        n->inputs={x}; 
-        ag::debug::on_node_created(n);  
-        return n;
-    }
+    //     auto n=std::make_shared<Node>(y, x->requires_grad, Op::LiSHT, "lisht"); 
+    //     n->inputs={x}; 
+    //     ag::debug::on_node_created(n);  
+    //     return n;
+    // }
     
     
     std::shared_ptr<Node> leaky_relu_nodeops(const std::shared_ptr<Node>& x, float alpha){ 
