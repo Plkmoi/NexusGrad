@@ -22,6 +22,7 @@ extern void neg_cuda   (const float*, float*, int64_t, ag_cuda_stream_t);
 extern void clip_cuda  (const float*, float*, float, float, int64_t, ag_cuda_stream_t);
 extern void mseloss_cuda   (const float*, const float*, float*, int64_t, ag_cuda_stream_t);
 extern void maeloss_cuda   (const float*, const float*, float*, int64_t, ag_cuda_stream_t);
+extern void dyntanh_cuda(const float* , float , float , float , float* , int64_t , ag_cuda_stream_t );
 
 // Activations
 extern void relu_cuda        (const float*, float*, int64_t, ag_cuda_stream_t);
@@ -34,6 +35,8 @@ extern void sigmoid_cuda     (const float*, float*, int64_t, ag_cuda_stream_t);
 extern void hard_sigmoid_cuda(const float*, float*, int64_t, ag_cuda_stream_t);
 extern void hard_swish_cuda  (const float*, float*, int64_t, ag_cuda_stream_t);
 extern void exp_cuda         (const float*, float*, int64_t, ag_cuda_stream_t);
+extern void sqrt_cuda         (const float*, float*, int64_t, ag_cuda_stream_t);
+
 extern void log_cuda         (const float*, float*, int64_t, ag_cuda_stream_t);
 extern void softplus_cuda    (const float*, float*, int64_t, ag_cuda_stream_t);
 extern void relumask_cuda    (const float*, float*, int64_t, ag_cuda_stream_t);
@@ -97,6 +100,8 @@ extern void vjp_exp_cuda           (float*, const float*, const float*, int64_t,
 extern void vjp_hard_sigmoid_cuda  (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 extern void vjp_hard_swish_cuda    (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 extern void vjp_sofba_cuda       (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
+extern void vjp_sqrt_cuda           (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
+
 extern void vjp_log_cuda       (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 extern void vjp_sum_cuda           (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 extern void vjp_sin_cuda           (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
@@ -115,7 +120,7 @@ extern void vjp_softmax_cuda(float* , const float* , const float* , int64_t , in
 extern void swiglu_cuda(const float* , const float* , const float* , const float* , const float* , float* , float* ,
                  int , int , int , //int , // W is used for, 
                  ag_cuda_stream_t );
-
+extern void optim_cuda(float* , const float* , const float , int64_t , ag_cuda_stream_t );
 
 // ============================================================
 // Registration
@@ -170,6 +175,10 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->cos          = &cos_cuda;
   out->sinh          = &sinh_cuda;
   out->cosh          = &cosh_cuda;
+  out->optim = &optim_cuda;
+  out->sqrt = &sqrt_cuda;
+  out->dyntanh = &dyntanh_cuda;
+
   out->gcu          = &gcu_cuda;
   out->gauss        = &gauss_cuda;
   out->parcon       = &parcon_cuda;
@@ -226,6 +235,7 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->vjp_parcon = &vjp_parcon_cuda;
   out->vjp_lisht = &vjp_lisht_cuda;
   out->vjp_reci = &vjp_reci_cuda;
+  out->vjp_sqrt = &vjp_sqrt_cuda;
 
   return 0;
 }

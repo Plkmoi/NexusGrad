@@ -190,6 +190,11 @@ __global__ void k_lisht(const float* __restrict__ x, float* __restrict__ y, int6
   if (i < n) y[i] = x[i]*tanh(x[i]);
 }
 
+__global__ void k_dyntanh(const float* __restrict__ x, float a, float  b, float  g, float* __restrict__ y, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) y[i] = (g*tanh(x[i]*a))+b;
+}
+
 __global__ void k_reci(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) y[i] = (1.f/x[i]);
@@ -208,6 +213,11 @@ __global__ void k_cosh(const float* __restrict__ x, float* __restrict__ y, int64
 __global__ void k_sinh(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) y[i] = sinh(x[i]);
+}
+
+__global__ void k_sqrt(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) y[i] = sqrt(x[i]);
 }
 
 __global__ void k_softplus(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
@@ -512,7 +522,12 @@ __global__ void k_mseloss(const float* __restrict__ p, const float* __restrict__
         atomicAdd(c, sum / (float)n);
 }
 
-
+void sqrt_cuda(const float* x, float* y, int64_t n, ag_cuda_stream_t s) {
+  k_sqrt<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(x, y, n);
+}
+void dyntanh_cuda(const float* x, float a, float b, float g, float* y, int64_t n, ag_cuda_stream_t s) {
+  k_dyntanh<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(x, a, b, g, y, n);
+}
 void mseloss_cuda(const float* a, const float* b, float* c, int64_t n, ag_cuda_stream_t s) {
   k_mseloss<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(a, b, c, n);
 }

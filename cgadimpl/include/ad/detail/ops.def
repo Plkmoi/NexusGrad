@@ -25,7 +25,7 @@ OP(LogSumExpRow,1,  "logsumexp_row")
 OP(CeWithLogits,2,  "ce_with_logits")
 OP(KLDivergence,2,  "kldivergence")
 OP(FMA,       3,    "fmab") // fused multiply-add             // vjp exists for CUDA
-OP(Attention,       4,    "attention") // attention
+OP(Attention,       4,    "attention") // attention        // Cu kern
 OP(MSELoss,       2,    "mseloss") // mse loss // vjp exists for CUDA
 OP(MAELoss,       2,    "maeloss") // mae loss // vjp exists for CUDA
 OP(GCU,       1,    "gcu") // Growing Cosine Unit       // vjp exists for CUDA
@@ -34,7 +34,7 @@ OP(Gaus,      1,    "gaus") // gaussian activation    // vjp exists for CUDA
 OP(Parcon,      1,    "parcon")     // vjp exists for CUDA
 OP(LiSHT,      1,    "lisht")    // vjp exists for CUDA
 OP(Transpose,      1,    "transpose") 
-OP(SWIGLU,      1,    "swiglu") 
+OP(SWIGLU,      1,    "swiglu")   // Cu kern
 OP(LayerNorm,      1,    "layernorm") 
 OP(RMSNorm,      1,    "rmsnorm") 
 OP(Dyntanh,      4,    "dyntanh") 
@@ -46,11 +46,11 @@ OP(Reciprocal,       1,    "reciprocal")    // vjp exists for CUDA
 OP(Sign, 1, "sign")                     // vjp exists for CUDA
 OP(Cosh, 1, "cosh")                    // vjp exists for CUDA
 OP(Sinh, 1, "sinh")                                // vjp exists for CUDA
-OP(Sqrt, 1, "sqrt") 
+OP(Sqrt, 1, "sqrt")                                    // vjp exists for CUDA
 OP(Relumask, 1, "relumask")                                         // vjp exists for CUDA
 OP(Cos, 1, "cosh")                                                      // vjp exists for CUDA
 OP(Sin, 1, "sinh")                                                // vjp exists for CUDA
 OP(MOE,      3,    "moe") // mixture of experts with weights and bias
-OP(RELUAtt,     4,    "reluatt") // relu attention
-OP(SigAtt,    4,    "sigatt") // sigmoid attention
+OP(RELUAtt,     4,    "reluatt") // relu attention           // Cu kern
+OP(SigAtt,    4,    "sigatt") // sigmoid attention         // Cu kern
 OP(Linear, 3, "linear") // linear layer                          // vjp exists for CUDA

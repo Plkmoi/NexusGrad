@@ -5,6 +5,7 @@
 #include <cstdint>
 #include "ad/kernels_api.hpp"
 #include <cfloat>
+#include <cstdio>
 
 __device__ __forceinline__ float sigmoidf(float x) {
   return 1.f / (1.f + __expf(-x));
@@ -437,6 +438,16 @@ void vjp_cosh_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cud
   k_vjp_cosh_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
 }
 
+__global__ void k_vjp_sqrt_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+    atomicAdd(&gX[i], -0.5f  * gy[i]  / sqrt(X[i]));
+  }
+}
+void vjp_sqrt_cuda(float* gX, const float* gy, const float* X, int64_t n, ag_cuda_stream_t s) {
+    int64_t blocks((unsigned int)((n + 255) / 256));
+  k_vjp_sqrt_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gX, X, gy, n);
+}
 
 __global__ void k_vjp_log_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -614,4 +625,24 @@ void vjp_softmax_cuda(float* gZ, const float* y, const float* gy, int64_t n, int
     dim3 blocks( (unsigned int)(((n) + 255) / 256) );
 
     k_vjp_softmaxrow<<<blocks, 256, 0, (cudaStream_t)s>>>(gZ, y, gy, n, w);
+}
+
+
+__global__ void k_optim_accum(float* vX, const float X, const float* __restrict__ gy, int64_t n) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < n) {
+    atomicAdd(&vX[i], -X * gy[i] );
+  }
+}
+void optim_cuda(float* vX, const float* gy, const float X, int64_t n, ag_cuda_stream_t s) {
+    int64_t blocks((unsigned int)((n + 255) / 256));
+//     for (int i = 0; i < 3; i++) {
+//     printf("Row %d sum: %f\n", i, vX[i]);
+// }
+  k_optim_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(vX, X, gy, n);
+  // Print results on the host
+// for (int i = 0; i < 3; i++) {
+//     printf("Row %d sum: %f\n", i, vX[i]);
+// }
+
 }

@@ -104,12 +104,14 @@ void load_cuda_plugin(const char* path) {
   g_cuda.mish         = table.mish;
   g_cuda.tanh         = table.tanh;
   g_cuda.sigmoid      = table.sigmoid;
+  g_cuda.optim = table.optim;
   g_cuda.hard_sigmoid = table.hard_sigmoid;
   g_cuda.hard_swish   = table.hard_swish;
   g_cuda.exp          = table.exp;
   g_cuda.relumask = table.relumask;
   g_cuda.log       = table.log;
   g_cuda.softplus      = table.softplus;
+  g_cuda.dyntanh = table.dyntanh;
 
   g_cuda.zero         = table.zero;
   g_cuda.matmul       = table.matmul;
@@ -137,6 +139,7 @@ void load_cuda_plugin(const char* path) {
   g_cuda.lisht = table.lisht;
   g_cuda.reci = table.reci;
   g_cuda.swiglu = table.swiglu;
+  g_cuda.sqrt = table.sqrt;
 
   // Basic ops VJPs
   g_cuda.vjp_add    = table.vjp_add;
@@ -182,6 +185,7 @@ void load_cuda_plugin(const char* path) {
   g_cuda.vjp_parcon = table.vjp_parcon;
   g_cuda.vjp_lisht = table.vjp_lisht;
   g_cuda.vjp_reci = table.vjp_reci;
+  g_cuda.vjp_sqrt = table.vjp_sqrt;
 
 }
 

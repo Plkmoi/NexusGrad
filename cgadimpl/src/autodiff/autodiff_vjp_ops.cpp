@@ -2226,9 +2226,17 @@ void vjp_Sin(Node* n, const Tensor& gy){
                 X->grad.add_( rt(0.5f * gy / n->value, X->value) );
             }
         } else {
-            // GPU path (when ready)
-            throw std::runtime_error("Sqrt backward on CUDA not implemented yet!");
+        // GPU path (when ready)
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+    auto b = Tensor::zeros_like(n->value);
+        auto fn = ag::kernels::cuda().vjp_sqrt;
+        if (fn) {
+         fn(n->grad.data(), gy.data(), n->value.data(), n->grad.numel(), ag::current_stream());
+        } 
+        else {
+        throw std::runtime_error("VJP for Sin on CUDA not implemented yet!");
         }
+    }
     }
 
 void vjp_Relumask(Node* n, const Tensor& gy){

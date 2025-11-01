@@ -1125,8 +1125,14 @@ std::shared_ptr<Node> sqrt_nodeops(const std::shared_ptr<Node>& x){
         }
     } else {
         // GPU path (when ready)
-        throw std::runtime_error("Sqrt forward on CUDA not implemented yet!");
-    }
+        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cuda().sqrt;
+        if (fn) {
+            fn(X.data(), Y.data(), Y.numel(), ag::current_stream());
+        } else {
+            throw std::runtime_error("Sqrt forward on CUDA not implemented or loaded.");
+        }
+    } 
 
     auto n = std::make_shared<Node>(Y, x->requires_grad, Op::Sqrt, "sqrt");
     n->inputs = {x};

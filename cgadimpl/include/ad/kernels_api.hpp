@@ -139,7 +139,10 @@ typedef void (*ag_gcu_cuda_fn)          (const float* x, float* y, int64_t n, ag
 typedef void (*ag_gauss_cuda_fn)        (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_parcon_cuda_fn)       (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_lisht_cuda_fn)        (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_optim_cuda_fn)           (float* vX, const float* gy, const float X, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_reci_cuda_fn)         (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_sqrt_cuda_fn)         (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_dyntanh_cuda_fn)         (const float* x, float a, float b, float g, float* y, int64_t n, ag_cuda_stream_t s);
 
 // Core
 typedef void (*ag_zero_cuda_fn)  (float* x, int64_t n, ag_cuda_stream_t s);
@@ -195,6 +198,8 @@ typedef void (*ag_vjp_neg_cuda_fn)(float* gX, const float* gy,
                                   int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_vjp_clip_cuda_fn)(float* gX, const float* gy, float minv, float maxv,
                                    const float* X, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_vjp_sqrt_cuda_fn)(float* gX, const float* gy, const float* X,
+                                     int64_t n, ag_cuda_stream_t s);
 
 // VJP function types for activation functions
 typedef void (*ag_vjp_leaky_relu_cuda_fn)(float* gX, const float* gy, const float* X,
@@ -280,6 +285,8 @@ struct ag_cuda_v1 {
   ag_log_cuda_fn          log;
   ag_softplus_cuda_fn          softplus;
   ag_relumask_cuda_fn     relumask;
+  ag_optim_cuda_fn    optim;
+  ag_sqrt_cuda_fn    sqrt;
 
   // Core
   ag_zero_cuda_fn   zero;
@@ -301,6 +308,7 @@ struct ag_cuda_v1 {
   ag_parcon_cuda_fn parcon ;
   ag_lisht_cuda_fn lisht ;
   ag_reci_cuda_fn reci ;
+  ag_dyntanh_cuda_fn dyntanh ;
 
   ag_sin_cuda_fn        sin; 
   ag_cos_cuda_fn        cos;
@@ -341,6 +349,7 @@ struct ag_cuda_v1 {
   ag_vjp_hard_swish_cuda_fn   vjp_hard_swish;
   ag_vjp_softplusback_cuda_fn    vjp_sofba;
   ag_vjp_log_cuda_fn        vjp_log       ;
+  ag_vjp_sqrt_cuda_fn    vjp_sqrt;
 
   ag_vjp_mseloss_cuda_fn        vjp_mseloss;
   ag_vjp_sum_cuda_fn        vjp_sum;
@@ -436,9 +445,13 @@ struct Cuda {
   ag_sigmoid_cuda_fn      sigmoid      = nullptr;
   ag_hard_sigmoid_cuda_fn hard_sigmoid = nullptr;
   ag_hard_swish_cuda_fn   hard_swish   = nullptr;
+  ag_optim_cuda_fn    optim = nullptr;
   ag_exp_cuda_fn          exp          = nullptr;
   ag_gemm_cuda_fn         gemm         = nullptr;
   ag_linear_cuda_fn       linear         = nullptr;
+  ag_sqrt_cuda_fn    sqrt   = nullptr;
+  ag_dyntanh_cuda_fn dyntanh = nullptr;
+
   ag_flash_attention flash = nullptr;
   ag_softplus_cuda_fn         softplus = nullptr;
   ag_reluflash_attention reluflash = nullptr;
@@ -490,6 +503,8 @@ struct Cuda {
   ag_vjp_gelu_cuda_fn         vjp_gelu = nullptr;
   ag_vjp_mish_cuda_fn         vjp_mish = nullptr;
   ag_vjp_exp_cuda_fn          vjp_exp = nullptr;
+  ag_vjp_sqrt_cuda_fn    vjp_sqrt   = nullptr;
+
   ag_vjp_hard_sigmoid_cuda_fn vjp_hard_sigmoid = nullptr;
   ag_vjp_hard_swish_cuda_fn   vjp_hard_swish = nullptr;
   ag_vjp_softplusback_cuda_fn    vjp_sofba       = nullptr;

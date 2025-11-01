@@ -16,6 +16,8 @@ void valsend(const Value& root);
 void grasend(const Value& root);
 void unisend(const Value& root);
 Tensor jvp (const Value& root, const std::unordered_map<Node*, Tensor>& seed);
-
+void save_all_values_and_grads(const Value& root);
+void save_safetensors(const std::unordered_map<std::string, Tensor>& tensors,
+                      const std::string& filename);
 
 } // namespace ag

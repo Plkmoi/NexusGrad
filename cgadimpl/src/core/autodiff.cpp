@@ -7,6 +7,10 @@
 #include "ad/detail/autodiff_ops.hpp"
 #include "ad/debug.hpp"
 #include <ad/checkpoint.hpp>
+#include "json.hpp"// or nlohmann::json
+#include <iomanip>
+#include <fstream>
+#include <sstream>
 
 namespace ag {
 
@@ -21,6 +25,25 @@ void zero_grad(const Value& root){
 
 
         }
+
+        //         if(n->op==Op::Add)
+        // {
+
+        //     if(n->inputs[0]->op==Op::MatMul)
+        // {
+        //     n->op=Op::FMA;
+        //     n->value = ag::detail::fmab_nodeops(n->inputs[0]->inputs[0], n->inputs[0]->inputs[1],n->inputs[1])->value;
+
+
+        // }
+        // else if(n->inputs[1]->op==Op::MatMul)
+        //     {
+        //     n->value = ag::detail::fmab_nodeops(n->inputs[1]->inputs[0], n->inputs[1]->inputs[1],n->inputs[0])->value;
+        //     n->inputs = {}
+
+        //     }
+
+        // }
     
     std::cout << "Captured Node: " << op_name(n->op)
           << " | shape: [" << n->value.rows() << ", " << n->value.cols() << "]"
@@ -176,5 +199,84 @@ Tensor jvp(const Value& root, const std::unordered_map<Node*, Tensor>& seed){
 //     }
 //     return root.node->value;
 // }
+
+
+
+
+void save_safetensors(const std::unordered_map<std::string, Tensor>& tensors,
+                      const std::string& filename)
+{
+    nlohmann::json header;
+    size_t offset = 0;
+    std::vector<char> binary;
+
+    // Step 1: build header and binary data
+    for (const auto& [name, tensor] : tensors) {
+        size_t num_bytes = tensor.numel() * sizeof(float);
+        auto cpu_data = tensor.to(Device::CPU);
+
+        header[name] = {
+            {"dtype", "F32"},
+            {"shape", {tensor.rows(), tensor.cols()}},
+            {"data_offsets", {offset, offset + num_bytes}}
+        };
+
+        binary.insert(binary.end(),
+                      reinterpret_cast<char*>(cpu_data.data()),
+                      reinterpret_cast<char*>(cpu_data.data()) + num_bytes);
+
+        offset += num_bytes;
+    }
+
+    // Step 2: convert header to JSON
+    std::string header_str = header.dump();
+    uint64_t header_len = header_str.size();
+
+    // Step 3: write file
+    std::ofstream out(filename, std::ios::binary);
+    out.write(reinterpret_cast<const char*>(&header_len), sizeof(uint64_t));
+    out.write(header_str.data(), header_len);
+    out.write(binary.data(), binary.size());
+    out.close();
+}
+
+void save_all_values_and_grads(const Value& root) {
+    auto order = topo_from(root.node.get());
+    std::unordered_map<std::string, Tensor> tensors;
+
+    for (Node* n : order) {
+        if (n->requires_grad) {
+            std::string name = op_name(n->op);
+            tensors[name + ".value"] = n->value;
+            tensors[name + ".grad"] = n->grad;
+        }
+    }
+
+    save_safetensors(tensors, "cgadimpl/tests/graph_dump.safetensors");
+    std::cout << "💾 Saved computation graph to graph_dump.safetensors ✅\n";
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 } // namespace ag
