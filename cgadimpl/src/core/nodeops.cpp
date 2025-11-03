@@ -272,6 +272,61 @@ std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::sha
         return n; 
     }
 
+    std::shared_ptr<Node> operator-(const std::shared_ptr<Node>& x) {
+    // Compute forward tensor value
+    Tensor y = Tensor::zeros_like(x->value)-x->value;
+    // Create Node
+    auto n = std::make_shared<Node>(y, x->requires_grad, Op::Sub, "neg");
+    n->inputs = {x};
+    ag::debug::on_node_created(n);
+    return n;
+}
+
+// std::shared_ptr<Node> operator+(const std::shared_ptr<Node>& a,
+//                                 const std::shared_ptr<Node>& b) {
+//     return ag::detail::add_nodeops(a, b);
+// }
+
+// std::shared_ptr<Node> operator-(const std::shared_ptr<Node>& a,
+//                                 const std::shared_ptr<Node>& b) {
+//     return ag::detail::sub_nodeops(a, b);
+// }
+
+// std::shared_ptr<Node> operator*(const std::shared_ptr<Node>& a,
+//                                 const std::shared_ptr<Node>& b) {
+//     return ag::detail::mul_nodeops(a, b);
+// }
+
+// std::shared_ptr<Node> operator/(const std::shared_ptr<Node>& a,
+//                                 const std::shared_ptr<Node>& b) {
+//     return ag::detail::div_nodeops(a, b);
+// }
+
+// // Node + float
+// std::shared_ptr<Node> operator+(const std::shared_ptr<Node>& a, float b) {
+//     return ag::detail::floadd_nodeops(b, a);
+// }
+
+// // float + Node
+// std::shared_ptr<Node> operator+(float b, const std::shared_ptr<Node>& a) {
+//     return ag::detail::floadd_nodeops(b, a);
+// }
+
+// // Node * float
+// std::shared_ptr<Node> operator*(const std::shared_ptr<Node>& a, float b) {
+//     return ag::detail::flomul_nodeops(a, b);
+// }
+
+// // float * Node
+// std::shared_ptr<Node> operator*(float b, const std::shared_ptr<Node>& a) {
+//     return ag::detail::flomul_nodeops(a, b);
+// }
+
+// // Node / float
+// std::shared_ptr<Node> operator/(const std::shared_ptr<Node>& a, float b) {
+//     return ag::detail::flodiv_nodeops(b, a);  // note order!
+// }
+
 
 //    std::shared_ptr<Node> relu_nodeops(const std::shared_ptr<Node>& x){ 
 //         const Tensor& xin = x->value;

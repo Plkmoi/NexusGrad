@@ -52,7 +52,7 @@ std::pair<int,int> shape() const;
 
 // new factory function
 Value make_tensor(const Tensor& v, const char* name = "", bool requires_grad = false);
-//std::shared_ptr<Node> make_tensornode(const Tensor& v, const char* name, bool requires_grad);
+std::shared_ptr<Node> make_tensornode(const Tensor& v, const char* name, bool requires_grad);
 
 
 //old factories

@@ -5,3 +5,4 @@
 OP(Leaf,      0,    "leaf")
 OP(Add,       2,    "add") // vjp exists for CUDA
 OP(ReduceTo,       2,    "reduceto") // vjp exists for CUDA
+OP(Sub,       2,    "sub") // vjp exists for CUDA

@@ -18,13 +18,13 @@ void zero_grad(const Value& root){
     auto order = topo_from(root.node.get());
     for (Node* n : order) {if (n->requires_grad){ n->grad = Tensor::zeros_like(n->value);
 
-        if(n->op==Op::Sub)
-        {
-            n->op=Op::Add;
-            n->value = ag::detail::add_nodeops(n->inputs[0],n->inputs[1])->value;
+        // if(n->op==Op::Sub)
+        // {
+        //     n->op=Op::Add;
+        //     n->value = ag::detail::add_nodeops(n->inputs[0],n->inputs[1])->value;
 
 
-        }
+        // }
 
         //         if(n->op==Op::Add)
         // {
@@ -55,6 +55,22 @@ void zero_grad(const Value& root){
     
 }
 
+void zerono_grad(const Value& root){
+    auto order = topo_from(root.node.get());
+    // Iterate over Node* pointers returned by topo_from and zero their grad
+    for (Node* n : order) {
+        if (!n) continue;
+        if (n->requires_grad) {
+            // Ensure a grad-node (graph-based grad) exists before setting its value.
+            if (!n->gran) {
+                // Create a leaf grad-node holding the gradient value
+                n->gran = std::make_shared<Node>(Tensor::zeros_like(n->value), true, Op::Leaf, "grad");
+            } else {
+                n->gran->value = Tensor::zeros_like(n->value);
+            }
+        }
+    }
+}
 
 void backward_node(const Value& root,
                    std::shared_ptr<Node> grad_seed) {
@@ -70,11 +86,15 @@ void backward_node(const Value& root,
                 Op::Leaf, "root");
         }
         root.node->gran = grad_seed;
+        root.node->grad = grad_seed->value;
     }
+
+    
 
     // reverse topological order
     for (auto it = order.rbegin(); it != order.rend(); ++it) {
         auto n = std::shared_ptr<Node>(*it, [](Node*){}); // non-owning view
+        if(n->value.is_cuda()) n->requires_cuda=true;
         if (!n->requires_grad) continue;
 
         // auto gy = n->granode;
@@ -186,6 +206,30 @@ void unisend(const Value& root)
             n->requires_cuda = true;
             n->value =             n->value.to(Device::CPU);
             n->grad = n->grad.to(Device::CPU);
+
+        }
+
+
+    }
+    
+}
+
+void newunisend(const Value& root)
+{
+    auto order = topo_from(root.node.get());
+    cudaDeviceSynchronize(); // Wait for all GPU ops to finish
+
+    for (auto it = order.rbegin(); it != order.rend(); ++it) {
+        Node* n = *it;
+        
+        if (!n->requires_grad || !(n->grad.is_cuda()) || !(n->value.is_cuda())) continue;
+        std::cout << "\n(" << n->value.numel() << ")\n";
+
+        if (n->grad.numel()> 0 || n->value.numel()> 0) {
+            n->requires_cuda = true;
+            n->value =             n->value.to(Device::CPU);
+            n->gran->value = n->gran->value.to(Device::CPU);
+            n->grad = n->gran->value;
 
         }
 

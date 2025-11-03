@@ -2388,38 +2388,72 @@ void vjp_ReduceTo(Node*, const Tensor&){ /* no-op */ }
 //   ===================================================================================================
 
 
-void newvjp_Leaf(std::shared_ptr<Node>){ /* no-op */ }
+// void newvjp_Leaf(std::shared_ptr<Node>){ /* no-op */ }
 
-void newvjp_ReduceTo(std::shared_ptr<Node>){ /* no-op */ }
+// void newvjp_ReduceTo(std::shared_ptr<Node>){ /* no-op */ }
 
 
-void newvjp_Add(std::shared_ptr<Node> n){
-    // Node* A = n->inputs[0].get();
-    // Node* B = n->inputs[1].get();
-    // if (!A->requires_cuda && !B->requires_cuda) {
-    //     if (A->requires_grad) A->grad.add_( rt(gy, A->value) );
-    //     if (B->requires_grad) B->grad.add_( rt(-gy, B->value) );
-    // } else {
-    //     throw std::runtime_error("VJP for Sub on CUDA not implemented yet!");
-    // }
+// void newvjp_Add(std::shared_ptr<Node> n){
+//     // Node* A = n->inputs[0].get();
+//     // Node* B = n->inputs[1].get();
+//     // if (!A->requires_cuda && !B->requires_cuda) {
+//     //     if (A->requires_grad) A->grad.add_( rt(gy, A->value) );
+//     //     if (B->requires_grad) B->grad.add_( rt(-gy, B->value) );
+//     // } else {
+//     //     throw std::runtime_error("VJP for Sub on CUDA not implemented yet!");
+//     // }
 
-    auto A = n->inputs[0]; auto B = n->inputs[1];
-    if (!n->requires_cuda) {
-        if (A->requires_grad) A->newadd_(  n->gran * B );
-        if (B->requires_grad) B->newadd_(n->gran * A );
-    } else {
-auto* fn = ag::kernels::cuda().vjp_add;
-    if(fn){
-           fn(A->grad.data(), B->grad.data(), n->gran->value.data(),
-                                    n->gran->value.numel(), ag::current_stream());
-    }
+//     auto A = n->inputs[0]; auto B = n->inputs[1];
+//     if (!n->requires_cuda) {
+//         if (A->requires_grad) A->gran->value = n->gran->value + A->gran->value;
+//         if (B->requires_grad) B->gran->value = n->gran->value + B->gran->value;
+//                 A->grad = A->gran->value;
+//         B->grad = B->gran->value;
+//     } else {
+//         std::cout<<"wedfrthy7";
+// auto* fn = ag::kernels::cuda().vjp_add;
+//     if(fn){
+//            fn(A->gran->value.data(), B->gran->value.data(), n->gran->value.data(),
+//                                     n->gran->value.numel(), ag::current_stream());
+//     }
     
-        else{
-        throw std::runtime_error("VJP for Mul on CUDA not implemented yet!");
-        }
-    }
-}
+//         else{
+//         throw std::runtime_error("VJP for Mul on CUDA not implemented yet!");
+//         }
+//     }
+// }
 
+
+
+// void newvjp_Sub(std::shared_ptr<Node> n){
+//     // Node* A = n->inputs[0].get();
+//     // Node* B = n->inputs[1].get();
+//     // if (!A->requires_cuda && !B->requires_cuda) {
+//     //     if (A->requires_grad) A->grad.add_( rt(gy, A->value) );
+//     //     if (B->requires_grad) B->grad.add_( rt(-gy, B->value) );
+//     // } else {
+//     //     throw std::runtime_error("VJP for Sub on CUDA not implemented yet!");
+//     // }
+
+//     auto A = n->inputs[0]; auto B = n->inputs[1];
+//     if (!n->requires_cuda) {
+//         if (A->requires_grad) A->gran->value = n->gran->value + A->gran->value;
+//         if (B->requires_grad) B->gran->value = -n->gran->value + B->gran->value;
+//         A->grad = A->gran->value;
+//         B->grad = B->gran->value;
+//     } else {
+//         std::cout<<"wedfrthy7";
+// auto* fn = ag::kernels::cuda().vjp_sub;
+//     if(fn){
+//            fn(A->gran->value.data(), B->gran->value.data(), n->gran->value.data(),
+//                                     n->gran->value.numel(), ag::current_stream());
+//     }
+    
+//         else{
+//         throw std::runtime_error("VJP for Mul on CUDA not implemented yet!");
+//         }
+//     }
+// }
 
 } // namespace detail
 
@@ -2434,13 +2468,13 @@ VjpFn vjp_lookup(Op op){
     }
 }
 
-NewVjpFn newvjp_lookup(Op op){
-    switch(op){
-#define OP(name, arity, str) case Op::name: return &detail::newvjp_##name;
-#include "ad/detail/newops.def"
-#undef OP
-        default: return nullptr;
-    }
-}
+// NewVjpFn newvjp_lookup(Op op){
+//     switch(op){
+// #define OP(name, arity, str) case Op::name: return &detail::newvjp_##name;
+// #include "ad/detail/newops.def"
+// #undef OP
+//         default: return nullptr;
+//     }
+// }
 
 } // namespace ag

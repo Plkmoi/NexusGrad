@@ -42,6 +42,9 @@ inline std::shared_ptr<Node> operator/( float b, const std::shared_ptr<Node>& a)
 inline std::shared_ptr<Node> operator+( float b, const std::shared_ptr<Node>& a){ return floadd_nodeops(b,a);}
 inline std::shared_ptr<Node> operator+( const std::shared_ptr<Node>& a, float b){ return floadd_nodeops(b,a);}
 
+std::shared_ptr<Node> operator-(const std::shared_ptr<Node>& x);
+
+
 // unary elementwise
 std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x);
 std::shared_ptr<Node> log_nodeops(const std::shared_ptr<Node>& x);

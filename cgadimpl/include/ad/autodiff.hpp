@@ -21,4 +21,6 @@ void save_safetensors(const std::unordered_map<std::string, Tensor>& tensors,
                       const std::string& filename);
 void backward_node(const Value& root,
                    std::shared_ptr<Node> grad_seed = nullptr);
+void zerono_grad(const Value& root);
+void newunisend(const Value& root);
 } // namespace ag
