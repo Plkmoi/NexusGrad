@@ -694,8 +694,11 @@ Tensor jvp_KLDivergence(Node* n, const std::function<const Tensor&(Node*)>& t){
 }
 
 Tensor jvp_Leaf(Node*, const std::function<const Tensor&(Node*)>&){
-    return Tensor(); // unused
 }
+
+Tensor jvp_ReduceTo(Node* n, const std::function<const Tensor&(Node*)>& t){ 
+}
+
 
 } // namespace detail
 

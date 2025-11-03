@@ -99,7 +99,7 @@ std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const st
  
 std::shared_ptr<Node> mse_loss_nodeops( const std::shared_ptr<Node>& pred, const std::shared_ptr<Node>& target);
 std::shared_ptr<Node> mae_loss_nodeops( const std::shared_ptr<Node>& pred, const std::shared_ptr<Node>& target);
-
+//std::shared_ptr<Node> newadd_(const std::shared_ptr<Node>& g);
 
 } // namespace detail
 } // namespace ag

@@ -1912,6 +1912,10 @@ std::shared_ptr<Node> mambassm_nodeops(const std::shared_ptr<Node>& z, const std
     return n;                 // broadcast scalar
 }
 
+
+
+
+
 // FwdFn vjp_lookup(Op op){
 //     switch(op){
 // #define OP(name, arity, str) case Op::name: return &detail::##name_nodeops;

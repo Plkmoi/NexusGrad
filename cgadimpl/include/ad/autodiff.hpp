@@ -19,5 +19,6 @@ Tensor jvp (const Value& root, const std::unordered_map<Node*, Tensor>& seed);
 void save_all_values_and_grads(const Value& root);
 void save_safetensors(const std::unordered_map<std::string, Tensor>& tensors,
                       const std::string& filename);
-
+void backward_node(const Value& root,
+                   std::shared_ptr<Node> grad_seed = nullptr);
 } // namespace ag

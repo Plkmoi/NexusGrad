@@ -595,26 +595,46 @@ __global__ void k_vjp_softmaxrow(float* gZ,
                                  const float* gy,
                                  int rows, int cols)
 {
-    int row = blockIdx.x;
-    int tid = threadIdx.x;
+    // int row = blockIdx.x * blockDim.x + threadIdx.x;
+    // if (row >= rows) return;
 
-    // Step 1️⃣ — compute dot = sum(gy * y) for this row
-    float dot = 0.0f;
-    for (int c = tid; c < cols; c += blockDim.x)
-        dot += gy[row * cols + c] * y[row * cols + c];
+    // // Step 1 — compute ne[row] = sum_j (y[row,j] * gy[row])
+    // float gy_val = gy[row];
+    // float row_sum = 0.0f;
+    // for (int col = 0; col < cols; ++col)
+    //     gZ[row * cols + col] += y[row * cols + col] * gy_val;
 
-    dot = blockReduceSum(dot);
-    __shared__ float dot_shared;
-    if (threadIdx.x == 0) dot_shared = dot;
+    // Step 2 — gZ[row,j] = y[row,j] * (gy[row] - row_sum)
+    // for (int col = 0; col < cols; ++col) {
+    //     int idx = row * cols + col;
+    //     float yi = y[idx];
+    //     gZ[idx] = yi * (gy_val - row_sum);
+    // }
+
+         // Each block handles multiple rows
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= rows) return;  // Ensure we're within bounds
+
+    // Initialize sum for this thread
+    float sum = 0.0f;
+
+    // Each thread will sum over all columns in its row
+    for (int col = 0; col < cols; col++) {
+        int idx = row * cols + col;
+        sum += (y[idx]*gy[row]);
+        
+    }
     __syncthreads();
 
-    // Step 2️⃣ — compute gZ_i = y_i * (gy_i - dot)
-    for (int c = tid; c < cols; c += blockDim.x) {
-        int idx = row * cols + c;
-        float yi = y[idx];
-        float gyi = gy[idx];
-        gZ[idx] += yi * (gyi - dot_shared);
+    //    Step 2 — gZ[row,j] = y[row,j] * (gy[row] - row_sum)
+    for (int col = 0; col < cols; ++col) {
+        int idx = row * cols + col;
+  //      float yi = y[idx];
+        gZ[idx] = y[idx] * (gy[row] - sum);
     }
+
+    // Atomic add to accumulate the row sum in global memory
+    // atomicAdd(&gZ[row], sum);
 }
 
 // =====================================================

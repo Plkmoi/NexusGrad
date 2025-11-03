@@ -18,9 +18,11 @@ Op op{Op::Leaf};
 std::vector<std::shared_ptr<Node>> inputs; // parents held via shared_ptr to keep them alive // parents in the compute graph
 Tensor value; // forward value
 Tensor grad; // same shape as value
+std::shared_ptr<Node> gran;
 bool requires_grad{false};
 bool is_checkpoint{false};
 bool requires_cuda{false};
+bool requires_higher_order_grad{false};
 
 std::vector<Value> saved_inputs;
 std::vector<uint8_t> saved_rng_blob;
@@ -31,6 +33,9 @@ std::vector<std::shared_ptr<Tensor>> tape;// optional: for ops that need to save
 
 Node();
 Node(const Tensor& v, bool rg, Op op_, const char* nm="");
+
+std::shared_ptr<Node> newadd_(const std::shared_ptr<Node>& g);
+
 };
 
 

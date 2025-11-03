@@ -13,7 +13,28 @@ namespace ag {
 
     Node::Node() = default;
     Node::Node(const Tensor& v, bool rg, Op op_, const char* nm) : op(op_), value(v), grad(Tensor::zeros_like(v)), requires_grad(rg), debug_name(nm) {} // MAKES GRADS TOO IN CUDA
+std::shared_ptr<Node> Node::newadd_(const std::shared_ptr<Node>& g) {
+    // Initialize granode if it doesn’t exist yet
+    // if (!requires_higher_order_grad) {
 
+
+    // if (this->grad.shape() != g->value.shape() || this->grad.device() != g->value.device()) throw std::runtime_error("add_: shape or device mismatch");
+  
+    // if (this->grad.is_cpu()) {
+    //     for(size_t i=0; i<this->grad.numel(); ++i) this->grad.data()[i] += g->value.data()[i];
+    // } else {
+    //     throw std::runtime_error("add_ for CUDA not implemented yet");
+    // }
+
+
+    // } else {
+
+        if (!gran) gran = g;
+        else       gran = ag::detail::add_nodeops(gran, g);
+        return gran;
+
+    // }
+}
 
     Value::Value() = default;
 

@@ -105,33 +105,35 @@ Tensor Yt(8, 8);
 
 
 auto bias = param(Tensor::zeros(8,8), "bias");
-auto y = make_tensor(Tensor::zeros(8,8, ag::Device::CUDA), "Y",true);
+//auto y = make_tensor(Tensor::zeros(8,8, ag::Device::CUDA), "Y",true);
 
-for(int i =0;i<2;i++){
-    auto q =   fmab(a,b,c); // [2,2]
-    //auto m=q*c;
-    auto r=q - d;
-    y = mse_loss(relu(r), e);
+auto y = a+b;
+
+// for(int i =0;i<2;i++){
+//     auto q =   fmab(a,b,c); // [2,2]
+//     //auto m=q*c;
+//     auto r=q - d;
+//     y = mse_loss(relu(r), e);
 std::cout << "y = " << y.val()
 <<","<< endl<< "A = " << a.val()
 <<","<< endl<< "B = " << b.val()<<","<< endl
-<< "c = " << c.val() << endl<< "q = " << q.val() << endl;
+<< "c = " << c.val() << endl<< "q = " << y.val() << endl;
 std::cout << "y grad " << y.grad() << endl;
 std::cout << "dL/dA[0,0] = " << a.grad()
 <<","<< endl<< "dL/dB[0,0] = " << b.grad()<<","<< endl
-<< "dL/dbias[0,0] = " << bias.grad() << endl<< "dL/dq = " << q.grad() << endl;
-zero_grad(y);
-backward(y);
+<< "dL/dbias[0,0] = " << bias.grad() << endl<< "dL/dq = " << y.grad() << endl;
+//zero_grad(y);
+//backward_node(y);
 
 std::cout << "y = " << y.val()
 <<","<< endl<< "A = " << a.val()
 <<","<< endl<< "B = " << b.val()<<","<< endl
 << "D = " << d.val() << endl<< "C = " << c.val() << endl;
 SGD(y, 0.005f);
-}
-ag::hlo::dump_stablehlo(y, "cgadimpl/tests/model.hlo");
+// }
+// ag::hlo::dump_stablehlo(y, "cgadimpl/tests/model.hlo");
 
-unisend(y);
+//unisend(y);
 
 std::cout << "y = " << y.val()
 <<","<< endl<< "A = " << a.val()

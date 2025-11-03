@@ -55,6 +55,44 @@ void zero_grad(const Value& root){
     
 }
 
+
+void backward_node(const Value& root,
+                   std::shared_ptr<Node> grad_seed) {
+
+    auto order = topo_from(root.node.get());
+
+    // seed gradient
+    if (root.node->requires_grad) {
+        if (!grad_seed) {
+            grad_seed = std::make_shared<Node>(
+                root.node->value.size() == 1 ? Tensor::ones(1, 1)
+                                        : Tensor::ones_like(root.node->value), true,
+                Op::Leaf, "root");
+        }
+        root.node->gran = grad_seed;
+    }
+
+    // reverse topological order
+    for (auto it = order.rbegin(); it != order.rend(); ++it) {
+        auto n = std::shared_ptr<Node>(*it, [](Node*){}); // non-owning view
+        if (!n->requires_grad) continue;
+
+        // auto gy = n->granode;
+      //  ag::debug::on_backprop_step(n.get(), n->gran ? n->gran->value : Tensor());
+
+        if (n->is_checkpoint && n->value.size() == 0) {
+            if (!ag::checkpoint_impl::recompute_subgraph(n)) {
+                throw std::runtime_error("Failed to recompute checkpoint during backward");
+            }
+        }
+
+        // Lookup new-style VJP rule (graph-based)
+        NewVjpFn fn = newvjp_lookup(n->op);
+        if (fn) fn(n); // accumulates into parent grad_nodes
+    }
+}
+
+
 void backward(const Value& root, const Tensor* grad_seed){
     auto order = topo_from(root.node.get());
 

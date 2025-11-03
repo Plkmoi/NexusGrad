@@ -1004,12 +1004,23 @@
 #include <cmath>
 #include <stdexcept> // Required for std::runtime_error
 #include <iostream>
+#include "ad/nodeops.hpp"
 
 namespace ag {
 namespace detail{
 
 // helper: reduce a gradient to a parent's shape (broadcast-aware)
 inline Tensor rt(const Tensor& g, const Tensor& like){ return Tensor::reduce_to(g, like); }
+//inline Node rta(const std::shared_ptr<Node> g, const std::shared_ptr<Node> like){ return Tensor::reduce_to(g->value, like->value); }
+inline std::shared_ptr<Node> rta(const std::shared_ptr<Node>& g,
+                                 const std::shared_ptr<Node>& like) {
+    // perform tensor op
+    Tensor reduced = Tensor::reduce_to(g->value, like->value);
+    // wrap as Node (preserving requires_grad etc.)
+    auto out = std::make_shared<Node>(reduced, g->requires_grad || like->requires_grad, Op::ReduceTo);
+    out->inputs = { g, like };
+    return out;
+}
 
 // ----- elementwise binary -----
 void vjp_Add(Node* n, const Tensor& gy){
@@ -1180,7 +1191,9 @@ void vjp_RMSNorm(Node* n, const Tensor& gy){
         Tensor grad_x = (gy / rms) - (y * dot / (rms*x->value.cols()));
         if (x->requires_grad) x->grad.add_(grad_x);
     } else {
-        throw std::runtime_error("VJP for RMSNorm on CUDA not implemented yet!");
+    throw std::runtime_error("VJP for RMSNorm on CUDA not implemented yet!");
+    //   auto G = std::make_shared<Node>(gy, true, Op::Leaf, "leaf")
+    //   auto q = ag::detail::rowsum_nodeops(mul_nodeops(gy,y))
     }
 }
 
@@ -2370,6 +2383,43 @@ auto* fn = ag::kernels::cuda().vjp_maeloss;
 }
 
 void vjp_Leaf(Node*, const Tensor&){ /* no-op */ }
+void vjp_ReduceTo(Node*, const Tensor&){ /* no-op */ }
+
+//   ===================================================================================================
+
+
+void newvjp_Leaf(std::shared_ptr<Node>){ /* no-op */ }
+
+void newvjp_ReduceTo(std::shared_ptr<Node>){ /* no-op */ }
+
+
+void newvjp_Add(std::shared_ptr<Node> n){
+    // Node* A = n->inputs[0].get();
+    // Node* B = n->inputs[1].get();
+    // if (!A->requires_cuda && !B->requires_cuda) {
+    //     if (A->requires_grad) A->grad.add_( rt(gy, A->value) );
+    //     if (B->requires_grad) B->grad.add_( rt(-gy, B->value) );
+    // } else {
+    //     throw std::runtime_error("VJP for Sub on CUDA not implemented yet!");
+    // }
+
+    auto A = n->inputs[0]; auto B = n->inputs[1];
+    if (!n->requires_cuda) {
+        if (A->requires_grad) A->newadd_(  n->gran * B );
+        if (B->requires_grad) B->newadd_(n->gran * A );
+    } else {
+auto* fn = ag::kernels::cuda().vjp_add;
+    if(fn){
+           fn(A->grad.data(), B->grad.data(), n->gran->value.data(),
+                                    n->gran->value.numel(), ag::current_stream());
+    }
+    
+        else{
+        throw std::runtime_error("VJP for Mul on CUDA not implemented yet!");
+        }
+    }
+}
+
 
 } // namespace detail
 
@@ -2379,6 +2429,15 @@ VjpFn vjp_lookup(Op op){
     switch(op){
 #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
 #include "ad/detail/ops.def"
+#undef OP
+        default: return nullptr;
+    }
+}
+
+NewVjpFn newvjp_lookup(Op op){
+    switch(op){
+#define OP(name, arity, str) case Op::name: return &detail::newvjp_##name;
+#include "ad/detail/newops.def"
 #undef OP
         default: return nullptr;
     }

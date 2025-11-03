@@ -1,0 +1,7 @@
+// =============================================
+// cgadimpl/include/ad/detail/ops.def
+// =============================================
+// name       arity  string
+OP(Leaf,      0,    "leaf")
+OP(Add,       2,    "add") // vjp exists for CUDA
+OP(ReduceTo,       2,    "reduceto") // vjp exists for CUDA
