@@ -2125,7 +2125,7 @@ void vjp_Cosh(Node* n, const Tensor& gy){
         // GPU path (when ready)
         // This will correctly dispatch to your existing CUDA ReLU kernel.
     //    auto b = Tensor::zeros_like(n->value);
-        auto fn = ag::kernels::cuda().vjp_cos;
+        auto fn = ag::kernels::cuda().vjp_cosh;
         if (fn) {
         // fn(n->value.data(), b.data(), n->grad.data(), n->grad.numel(), ag::current_stream());
         } 
