@@ -172,6 +172,10 @@ add_library(cgadimpl::cgadimpl ALIAS cgadimpl)
 file(GLOB_RECURSE CGADIMPL_BINDER "${CMAKE_CURRENT_SOURCE_DIR}/src/tools/binder.cpp")
 
 add_library(cgadimpl_python MODULE ${CGADIMPL_BINDER})
+set(CGADIMPL_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE PATH "cgadimpl include dir" FORCE)
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../kernels ${CMAKE_BINARY_DIR}/kernels_build)
+
 target_link_libraries(cgadimpl_python PRIVATE cgadimpl Python3::Python CUDA::cudart)
 target_include_directories(cgadimpl_python PRIVATE ${PYBIND11_INCLUDE_DIRS})
 

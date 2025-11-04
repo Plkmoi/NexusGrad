@@ -10,6 +10,9 @@
 #include "/home/blubridge-034/Downloads/Newf/cgadimpl/binder_out/docstrings/nodeops_docs.hpp"
 #include "/home/blubridge-034/Downloads/Newf/cgadimpl/binder_out/docstrings/graph_docs.hpp"
 #include "/home/blubridge-034/Downloads/Newf/cgadimpl/binder_out/docstrings/schema_docs.hpp"
+#include "/home/blubridge-034/Downloads/Newf/cgadimpl/binder_out/docstrings/kernels_api_docs.hpp"
+#include "/home/blubridge-034/Downloads/Newf/cgadimpl/binder_out/docstrings/autodiff_docs.hpp"
+#include "/home/blubridge-034/Downloads/Newf/cgadimpl/binder_out/docstrings/ops_docs.hpp"
 
 namespace py = pybind11;
 using namespace ag;
@@ -52,6 +55,50 @@ void bind_device(py::module_ &m) {
         .export_values();  // optional, lets you do cgadimpl.CPU
 }
 
+void bind_graph(py::module_ &m) {
+    using namespace ag;
+
+    m.def("make_tensor", &make_tensor,
+          py::arg("tensor"), py::arg("name") = "", py::arg("requires_grad") = false,
+          DOC(ag, make_tensor));
+
+    m.def("make_tensornode", &make_tensornode,
+          py::arg("tensor"), py::arg("name") = "", py::arg("requires_grad") = false,
+          DOC(ag, make_tensornode));
+
+    m.def("constant", &constant,
+          py::arg("tensor"), py::arg("name") = "",
+          DOC(ag, constant));
+
+    m.def("param", &param,
+          py::arg("tensor"), py::arg("name") = "",
+          DOC(ag, param));
+
+    m.def("topo_from", &topo_from,
+          py::arg("root"),
+          DOC(ag, topo_from));
+}
+
+void bind_ops(py::module_ &m) {
+    py::module m_ops = m.def_submodule("ops", "ag backend operations");
+
+    m_ops.def("add", &ag::add, py::arg("a"), py::arg("b"), DOC(ag, add));
+    m_ops.def("sub", &ag::sub, py::arg("a"), py::arg("b"), DOC(ag, sub));
+    m_ops.def("mul", &ag::mul, py::arg("a"), py::arg("b"), DOC(ag, mul));
+    m_ops.def("div", &ag::div, py::arg("a"), py::arg("b"), DOC(ag, div));
+    m_ops.def("relu", &ag::relu, py::arg("x"), DOC(ag, relu));
+    m_ops.def("matmul", &ag::matmul, py::arg("a"), py::arg("b"), DOC(ag, matmul));
+    m_ops.def("sum", &ag::sum, py::arg("x"), DOC(ag, sum));
+    m_ops.def("flomul", &ag::flomul, py::arg("a"), py::arg("b"), DOC(ag, flomul));
+    m_ops.def("floadd", &ag::floadd, py::arg("a"), py::arg("b"), DOC(ag, floadd));
+    m_ops.def("flodiv", &ag::flodiv, py::arg("a"), py::arg("b"), DOC(ag, flodiv));
+
+    // Operators: +, -, * defined inline
+
+}
+
+
+
 // ------------------ Node ------------------
 void bind_node(py::module_ &m) {
     py::class_<Node, std::shared_ptr<Node>>(m, "Node", DOC(ag, Node))
@@ -86,6 +133,49 @@ void bind_value(py::module_ &m) {
         });
 }
 
+
+void bind_kernels(py::module_ &m) {
+    using namespace ag::kernels;
+
+    py::module m_kernels = m.def_submodule("kernels", "ag backend kernels");
+
+    // CPU kernels
+    py::module m_cpu = m_kernels.def_submodule("cpu", "CPU kernels");
+    m_cpu.def("relu", [](const float* x, float* y, int64_t n) {
+        cpu().relu(x, y, n);
+    });
+    m_cpu.def("relu_bwd", [](const float* x, const float* dy, float* dx, int64_t n) {
+        cpu().relu_bwd(x, dy, dx, n);
+    });
+    m_cpu.def("matmul", [](const float* A, const float* B, float* C, int M, int K, int N) {
+        cpu().matmul(A, B, C, M, K, N);
+    });
+
+    // CUDA kernels
+    py::module m_cuda = m_kernels.def_submodule("cuda", "CUDA kernels");
+    m_cuda.def("relu", [](const float* x, float* y, int64_t n, void* stream=nullptr) {
+        cuda().relu(x, y, n, (ag_cuda_stream_t)stream);
+    });
+    m_cuda.def("vjp_relu", [](float* gX, const float* gy, const float* X, int64_t n, void* stream=nullptr) {
+        cuda().vjp_relu(gX, gy, X, n, (ag_cuda_stream_t)stream);
+    });
+    m_cuda.def("add", [](const float* a, const float* b, float* c, int64_t n, void* stream=nullptr) {
+        cuda().add(a, b, c, n, (ag_cuda_stream_t)stream);
+    });
+    m_cuda.def("sub", [](const float* a, const float* b, float* c, int64_t n, void* stream=nullptr) {
+        cuda().sub(a, b, c, n, (ag_cuda_stream_t)stream);
+    });
+    m_cuda.def("matmul", [](const float* A, const float* B, float* C, int M, int K, int N, void* stream=nullptr) {
+        cuda().matmul(A, B, C, M, K, N, (ag_cuda_stream_t)stream);
+    });
+       m_kernels.def("load_cpu_plugin", &ag::kernels::load_cpu_plugin,
+                  py::arg("path"), DOC(ag, kernels, load_cpu_plugin));
+    m_kernels.def("load_cuda_plugin", &ag::kernels::load_cuda_plugin,
+                  py::arg("path"), DOC(ag, kernels, load_cuda_plugin));
+}
+
+
+
 // ------------------ NodeOps (free functions) ------------------
 void bind_nodeops(py::module_ &m) {
     m.def("add_nodeops", &ag::detail::add_nodeops,
@@ -95,6 +185,28 @@ void bind_nodeops(py::module_ &m) {
           py::arg("a"), py::arg("b"),
           DOC(ag, detail, add_nodeops));
 }
+
+void bind_autodiff(py::module_ &m) {
+    using namespace ag;
+
+    m.def("zero_grad", &zero_grad, py::arg("root"), DOC(ag, zero_grad));
+    m.def("zerono_grad", &zerono_grad, py::arg("root"), DOC(ag, zerono_grad));
+    m.def("backward_node", &backward_node, py::arg("root"), py::arg("grad_seed") = nullptr, DOC(ag, backward_node));
+    m.def("backward", &backward, py::arg("root"), py::arg("grad_seed") = nullptr, DOC(ag, backward));
+
+    m.def("valsend", &valsend, py::arg("root"), DOC(ag, valsend));
+    m.def("grasend", &grasend, py::arg("root"), DOC(ag, grasend));
+    m.def("unisend", &unisend, py::arg("root"), DOC(ag, unisend));
+    m.def("newunisend", &newunisend, py::arg("root"), DOC(ag, newunisend));
+
+    m.def("jvp", &jvp, py::arg("root"), py::arg("seed"), DOC(ag, jvp));
+
+    m.def("save_safetensors", &save_safetensors,
+          py::arg("tensors"), py::arg("filename"), DOC(ag, save_safetensors));
+    m.def("save_all_values_and_grads", &save_all_values_and_grads,
+          py::arg("root"), DOC(ag, save_all_values_and_grads));
+}
+
 
 // ------------------ CUDA Runtime ------------------
 void bind_runtime(py::module_ &m) {
@@ -113,6 +225,10 @@ PYBIND11_MODULE(cgadimpl, m) {
     bind_tensor(m);
     bind_node(m);
     bind_value(m);
+    bind_graph(m); 
     bind_nodeops(m);
     bind_runtime(m);
+    bind_kernels(m);
+    bind_autodiff(m);
+    bind_ops(m);
 }
