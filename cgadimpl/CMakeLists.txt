@@ -117,6 +117,33 @@
 cmake_minimum_required(VERSION 3.20)
 project(cgadimpl LANGUAGES CXX CUDA)
 
+set(Python3_EXECUTABLE "/home/blubridge-034/Downloads/Newf/cgadimpl/venv/bin/python")
+find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+
+
+execute_process(
+  COMMAND ${Python3_EXECUTABLE} -m pybind11 --includes
+  OUTPUT_VARIABLE PYBIND11_INCLUDE_FLAGS
+)
+string(STRIP "${PYBIND11_INCLUDE_FLAGS}" PYBIND11_INCLUDE_FLAGS)
+
+# convert the "-I..." flags into real directories
+separate_arguments(PYBIND11_INCLUDE_FLAGS)
+set(PYBIND11_INCLUDE_DIRS "")
+foreach(flag ${PYBIND11_INCLUDE_FLAGS})
+  if(flag MATCHES "^-I(.+)")
+    list(APPEND PYBIND11_INCLUDE_DIRS "${CMAKE_MATCH_1}")
+  endif()
+endforeach()
+
+message(STATUS "Detected PyBind11 include dirs: ${PYBIND11_INCLUDE_DIRS}")
+
+include_directories(${PYBIND11_INCLUDE_DIRS})
+
+# after you define your target
+
+
+
 set(CMAKE_CUDA_FLAGS_DEBUG "-G -lineinfo")
 
 find_package(CUDAToolkit REQUIRED)
@@ -142,10 +169,26 @@ endif()
 add_library(cgadimpl STATIC ${CGADIMPL_SRC})
 add_library(cgadimpl::cgadimpl ALIAS cgadimpl)
 
+file(GLOB_RECURSE CGADIMPL_BINDER "${CMAKE_CURRENT_SOURCE_DIR}/src/tools/binder.cpp")
+
+add_library(cgadimpl_python MODULE ${CGADIMPL_BINDER})
+target_link_libraries(cgadimpl_python PRIVATE cgadimpl Python3::Python CUDA::cudart)
+target_include_directories(cgadimpl_python PRIVATE ${PYBIND11_INCLUDE_DIRS})
+
+# remove the 'lib' prefix, Python expects cgadimpl.so not libcgaimpl.so
+set_target_properties(cgadimpl_python PROPERTIES PREFIX "")
+
+# place output in build dir root
+set_target_properties(cgadimpl_python PROPERTIES OUTPUT_NAME "cgadimpl")
+
+
+
 target_include_directories(cgadimpl PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
+
+
 
 # ---- Tests (optional) ----
 if(AG_BUILD_TESTS)

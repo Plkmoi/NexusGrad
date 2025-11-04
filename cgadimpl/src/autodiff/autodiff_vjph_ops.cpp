@@ -446,13 +446,13 @@ void newvjp_MSELoss(std::shared_ptr<Node> n){
     auto scale = 2.0f / A->value.numel();
     if (!n->requires_cuda) {
         if (A->requires_grad) {
-            auto diff = A->value - B->value;
-            A->gran->value = A->gran->value + n->gran->value * scale * diff;
+            auto diff = A - B;
+            A->gran = A->gran + n->gran * scale * diff;
             A->grad = A->gran->value;
         }
         if (B->requires_grad) {
-            auto diff = A->value - B->value;
-            B->gran->value = B->gran->value - n->gran->value * scale * diff;
+            auto diff = A - B;
+            B->gran = B->gran - n->gran * scale * diff;
             B->grad = B->gran->value;
         }
     } else {
@@ -472,15 +472,15 @@ void newvjp_MAELoss(std::shared_ptr<Node> n){
     auto scale = 1.0f / A->value.numel();
     if (!n->requires_cuda) {
         if (A->requires_grad) {
-            auto diff = A->value - B->value;
-            auto sign = Tensor::sign(diff);
-            A->gran->value = A->gran->value + n->gran->value * scale * sign;
+            auto diff = A - B;
+            auto sign = sign_nodeops(diff);
+            A->gran = A->gran + n->gran * scale * sign;
             A->grad = A->gran->value;
         }
         if (B->requires_grad) {
-            auto diff = A->value - B->value;
-            auto sign = Tensor::sign(diff);
-            B->gran->value = B->gran->value - n->gran->value * scale * sign;
+            auto diff = A - B;
+            auto sign = sign_nodeops(diff);
+            B->gran = B->gran - n->gran * scale * sign;
             B->grad = B->gran->value;
         }
     } else {
@@ -501,9 +501,9 @@ void newvjp_CrossEntropyLoss(std::shared_ptr<Node> n) {
     if (!n->requires_cuda) {
         // Cross entropy derivative: -target_i / probs_i
         if (probs->requires_grad) {
-            auto inv_probs = Tensor::reciprocal(probs->value);
-            auto grad = -target->value * inv_probs;
-            probs->gran->value = probs->gran->value + n->gran->value * grad;
+            auto inv_probs = reci_nodeops(probs);
+            auto grad = -target * inv_probs;
+            probs->gran = probs->gran + n->gran * grad;
             probs->grad = probs->gran->value;
         }
         // Target is usually a one-hot vector, no grad needed
@@ -521,14 +521,14 @@ void newvjp_Mish(std::shared_ptr<Node> n) {
         // Let sp = softplus(x) = ln(1 + exp(x))
         // Let th = tanh(sp)
         // d/dx[Mish(x)] = tanh(sp) + x * (1 - th^2) * (1 / (1 + exp(-x)))
-        auto softplus = Tensor::log(Tensor::ones_like(X->value) + Tensor::exp(X->value));
-        auto tanh_sp = Tensor::tanh(softplus);
-        auto sigmoid = Tensor::sigmoid(X->value);
+        auto softplus = log_nodeops(make_tensornode(Tensor::ones_like(X->value), "ones", false) + exp_nodeops(X));
+        auto tanh_sp = tanh_nodeops(softplus);
+        auto sigmoid = sigmoid_nodeops(X);
         
-        auto ones = Tensor::ones_like(tanh_sp);
-        auto grad = tanh_sp + X->value * (ones - tanh_sp * tanh_sp) * sigmoid;
+        auto ones = make_tensornode(Tensor::ones_like(tanh_sp->value), "ones", false);
+        auto grad = tanh_sp + X * (ones - tanh_sp * tanh_sp) * sigmoid;
         
-        X->gran->value = X->gran->value + n->gran->value * grad;
+        X->gran = X->gran + n->gran * grad;
         X->grad = X->gran->value;
     } else {
         auto fn = ag::kernels::cuda().vjp_mish;
