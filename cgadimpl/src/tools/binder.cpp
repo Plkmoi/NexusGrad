@@ -95,6 +95,12 @@ void bind_ops(py::module_ &m) {
 
     // Operators: +, -, * defined inline
 
+    // m_ops.def("__radd__", [](const ag::Value &a, float b){ return ag::floadd(a, b); });
+    // m_ops.def("__add__", [](float b, const ag::Value &a){ return ag::floadd(a, b); });
+    // m_ops.def("__rmul__", [](const ag::Value &a, float b){ return ag::flomul(a, b); })
+    // m_ops.def("__mul__", [](float b, const ag::Value &a){ return ag::flomul(a, b); })
+    // m_ops.def("__rtruediv__", [](const ag::Value &a, float b){ return ag::flodiv(a, b); })
+    // m_ops.def("__truediv__", [](float b, const ag::Value &a){ return ag::flodiv(a, b); });
 }
 
 

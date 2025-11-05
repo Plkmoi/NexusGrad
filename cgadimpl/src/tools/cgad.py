@@ -15,11 +15,11 @@ b = cgadimpl.make_tensor(bb, "B", True)
 c = cgadimpl.make_tensor(cc, "C", True)
 
 
-n = cgadimpl.ops.add(cgadimpl.ops.add(a,c), b)
+n = cgadimpl.ops.add(cgadimpl.ops.sub(a,c), b)
 cgadimpl.backward(n)
 cgadimpl.unisend(n)
 
 print(n.val()) 
 print(a.grad()) 
-print(b.val()) 
-print(c.val()) 
+print(b.grad()) 
+print(c.grad()) 
