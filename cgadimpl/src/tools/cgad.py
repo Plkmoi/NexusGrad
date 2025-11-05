@@ -15,7 +15,7 @@ b = cgadimpl.make_tensor(bb, "B", True)
 c = cgadimpl.make_tensor(cc, "C", True)
 
 
-n = cgadimpl.ops.add(cgadimpl.ops.sub(a,c), b)
+n = (cgadimpl.ops.linear(a, b,c))
 cgadimpl.backward(n)
 cgadimpl.unisend(n)
 

@@ -82,26 +82,63 @@ void bind_graph(py::module_ &m) {
 void bind_ops(py::module_ &m) {
     py::module m_ops = m.def_submodule("ops", "ag backend operations");
 
+    // Arithmetic Operations
     m_ops.def("add", &ag::add, py::arg("a"), py::arg("b"), DOC(ag, add));
     m_ops.def("sub", &ag::sub, py::arg("a"), py::arg("b"), DOC(ag, sub));
     m_ops.def("mul", &ag::mul, py::arg("a"), py::arg("b"), DOC(ag, mul));
     m_ops.def("div", &ag::div, py::arg("a"), py::arg("b"), DOC(ag, div));
+
+    // Unary Operations
     m_ops.def("relu", &ag::relu, py::arg("x"), DOC(ag, relu));
-    m_ops.def("matmul", &ag::matmul, py::arg("a"), py::arg("b"), DOC(ag, matmul));
+    m_ops.def("gelu", &ag::gelu, py::arg("x"), DOC(ag, gelu));
+    m_ops.def("leaky_relu", &ag::leaky_relu, py::arg("x"), py::arg("alpha") = 0.01f, DOC(ag, leaky_relu));
+    m_ops.def("silu", &ag::silu, py::arg("x"), DOC(ag, silu));
+    m_ops.def("sigmoid", &ag::sigmoid, py::arg("x"), DOC(ag, sigmoid));
+    m_ops.def("softplus", &ag::softplus, py::arg("x"), DOC(ag, softplus));
+    m_ops.def("tanh", &ag::tanh, py::arg("x"), DOC(ag, tanh));
+
+    // More operations
     m_ops.def("sum", &ag::sum, py::arg("x"), DOC(ag, sum));
+    m_ops.def("exp", &ag::exp, py::arg("x"), DOC(ag, exp));
+    m_ops.def("log", &ag::log, py::arg("x"), DOC(ag, log));
+    m_ops.def("sign", &ag::sign, py::arg("a"), py::arg("b"), DOC(ag, sign));
+
+    // Advanced ops
     m_ops.def("flomul", &ag::flomul, py::arg("a"), py::arg("b"), DOC(ag, flomul));
     m_ops.def("floadd", &ag::floadd, py::arg("a"), py::arg("b"), DOC(ag, floadd));
     m_ops.def("flodiv", &ag::flodiv, py::arg("a"), py::arg("b"), DOC(ag, flodiv));
+    m_ops.def("fmab", &ag::fmab, py::arg("a"), py::arg("b"), py::arg("c"), DOC(ag, fmab));
+    m_ops.def("linear", &ag::linear, py::arg("a"), py::arg("b"), py::arg("c"), DOC(ag, linear));
+    m_ops.def("mse_loss", &ag::mse_loss, py::arg("pred"), py::arg("target"), DOC(ag, mse_loss));
+    m_ops.def("mae_loss", &ag::mae_loss, py::arg("pred"), py::arg("target"), DOC(ag, mae_loss));
 
-    // Operators: +, -, * defined inline
+    // Complex operations
+    m_ops.def("attention", &ag::attention, py::arg("a"), py::arg("b"), py::arg("c"), py::arg("d"), py::arg("Bw"), py::arg("nh"), DOC(ag, attention));
+    m_ops.def("cross_entropy_with_logits", &ag::cross_entropy_with_logits, py::arg("logits"), py::arg("onehot"), DOC(ag, cross_entropy_with_logits));
+    m_ops.def("kldivergence", &ag::kldivergence, py::arg("logits"), py::arg("onehot"), DOC(ag, kldivergence));
 
-    // m_ops.def("__radd__", [](const ag::Value &a, float b){ return ag::floadd(a, b); });
-    // m_ops.def("__add__", [](float b, const ag::Value &a){ return ag::floadd(a, b); });
-    // m_ops.def("__rmul__", [](const ag::Value &a, float b){ return ag::flomul(a, b); })
-    // m_ops.def("__mul__", [](float b, const ag::Value &a){ return ag::flomul(a, b); })
-    // m_ops.def("__rtruediv__", [](const ag::Value &a, float b){ return ag::flodiv(a, b); })
-    // m_ops.def("__truediv__", [](float b, const ag::Value &a){ return ag::flodiv(a, b); });
+    // Row operations
+    m_ops.def("rowsum", &ag::rowsum, py::arg("x"), DOC(ag, rowsum));
+    m_ops.def("rowmax", &ag::rowmax, py::arg("x"), DOC(ag, rowmax));
+    m_ops.def("mean_all", &ag::mean_all, py::arg("x"), DOC(ag, mean_all));
+    m_ops.def("softmax_row", &ag::softmax_row, py::arg("z"), DOC(ag, softmax_row));
+    m_ops.def("logsumexp_row", &ag::logsumexp_row, py::arg("z"), DOC(ag, logsumexp_row));
+
+    // Special functions
+    m_ops.def("rms", &ag::rms, py::arg("x"), DOC(ag, rms));
+    m_ops.def("realrms", &ag::realrms, py::arg("x"), py::arg("g"), DOC(ag, realrms));
+    m_ops.def("swiglu", &ag::swiglu, py::arg("x"), py::arg("a"), py::arg("b"), py::arg("c"), py::arg("d"), DOC(ag, swiglu));
+    m_ops.def("parcon", &ag::parcon, py::arg("x"), DOC(ag, parcon));
+    m_ops.def("gcu", &ag::gcu, py::arg("x"), DOC(ag, gcu));
+
+    // Other miscellaneous ops
+    m_ops.def("laynor", &ag::laynor, py::arg("x"), DOC(ag, laynor));
+    m_ops.def("alibiatt", &ag::alibiatt, py::arg("a"), py::arg("b"), py::arg("c"), py::arg("d"), py::arg("m"), DOC(ag, alibiatt));
+
+    // Transpose (yay)
+    m_ops.def("transpose", &ag::transpose, py::arg("x"), DOC(ag, transpose));
 }
+
 
 
 
