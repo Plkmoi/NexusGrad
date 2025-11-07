@@ -12,6 +12,6 @@
 
 namespace ag {
 
-void SGD(const Value& root, int learning_rate=0.1, const Tensor* grad_seed=nullptr);
+void SGD(const Value& root, float learning_rate=0.1, const Tensor* grad_seed=nullptr);
 
 }

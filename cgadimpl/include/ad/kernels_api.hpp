@@ -133,6 +133,8 @@ typedef void (*ag_sinh_cuda_fn)         (const float* x, float* y, int64_t n, ag
 typedef void (*ag_cosh_cuda_fn)         (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_sign_cuda_fn)         (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_softmax_cuda_fn)         (const float* x, float* y, int64_t n, int64_t w, ag_cuda_stream_t s);
+typedef void (*ag_logsumexp_cuda_fn)         (const float* x, float* y, int64_t n, int64_t w, ag_cuda_stream_t s);
+typedef void (*ag_cewithlogits_cuda_fn)         (const float* x, const float* z, float* y, int64_t n, int64_t w, ag_cuda_stream_t s);
 
 // Additional custom elementwise ops
 typedef void (*ag_gcu_cuda_fn)          (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
@@ -317,6 +319,8 @@ struct ag_cuda_v1 {
   ag_sign_cuda_fn        sign; 
   ag_softmax_cuda_fn        softmax; 
   ag_swiglu_cuda_fn        swiglu;
+  ag_logsumexp_cuda_fn        logsumexp;
+  ag_cewithlogits_cuda_fn        cewithlogits;
 
   // ========================================================
   // Backward (VJP) ops
@@ -467,6 +471,8 @@ struct Cuda {
   ag_sign_cuda_fn        sign = nullptr; 
   ag_softmax_cuda_fn        softmax = nullptr; 
   ag_swiglu_cuda_fn        swiglu = nullptr;
+  ag_logsumexp_cuda_fn        logsumexp = nullptr;
+  ag_cewithlogits_cuda_fn        cewithlogits = nullptr;
 
   // Custom elementwise ops
   ag_gcu_cuda_fn gcu = nullptr;

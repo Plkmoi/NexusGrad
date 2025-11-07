@@ -5,6 +5,7 @@
 #include "ad/kernels_api.hpp"
 #include "ad/ag_all.hpp"
 #include "tensor.hpp"
+#include "optim.hpp"
 
 #include "/home/blubridge-034/Downloads/Newf/cgadimpl/binder_out/docstrings/tensor_docs.hpp"
 #include "/home/blubridge-034/Downloads/Newf/cgadimpl/binder_out/docstrings/nodeops_docs.hpp"
@@ -13,6 +14,7 @@
 #include "/home/blubridge-034/Downloads/Newf/cgadimpl/binder_out/docstrings/kernels_api_docs.hpp"
 #include "/home/blubridge-034/Downloads/Newf/cgadimpl/binder_out/docstrings/autodiff_docs.hpp"
 #include "/home/blubridge-034/Downloads/Newf/cgadimpl/binder_out/docstrings/ops_docs.hpp"
+#include "/home/blubridge-034/Downloads/Newf/cgadimpl/binder_out/docstrings/optim_docs.hpp"
 
 namespace py = pybind11;
 using namespace ag;
@@ -34,6 +36,9 @@ void bind_tensor(py::module_ &m) {
     .def(py::init<>(), DOC(ag, Tensor, Tensor))
     .def_static("zeros", &Tensor::zeros, DOC(ag, Tensor, zeros))
     .def_static("ones",  &Tensor::ones,  DOC(ag, Tensor, ones))
+    .def_static("zeros_like", &Tensor::zeros_like, DOC(ag, Tensor, zeros_like))
+    .def_static("ones_like",  &Tensor::ones_like,  DOC(ag, Tensor, ones_like))
+    .def_static("vals_like",  &Tensor::vals_like,  DOC(ag, Tensor, vals_like))
     .def_static("randn", &Tensor::randn, DOC(ag, Tensor, randn))
     .def_static("vales", &Tensor::vales, DOC(ag, Tensor, vales))
     .def("device", &Tensor::device, DOC(ag, Tensor, device))
@@ -251,6 +256,19 @@ void bind_autodiff(py::module_ &m) {
 }
 
 
+void bind_optim(py::module_ &m) {
+    using namespace ag;
+
+    py::module m_optim = m.def_submodule("optim", "ag backend optimizers");
+
+    // Binding the SGD function (Stochastic Gradient Descent) with an optional grad_seed
+    m_optim.def("SGD", &SGD, 
+                py::arg("root"), 
+                py::arg("learning_rate") = 0.1,   // default learning rate
+                py::arg("grad_seed") = nullptr,    // optional grad_seed argument
+                DOC(ag, SGD));  // Make sure you have a proper docstring for SGD
+}
+
 // ------------------ CUDA Runtime ------------------
 void bind_runtime(py::module_ &m) {
 #ifdef __CUDACC__
@@ -274,4 +292,5 @@ PYBIND11_MODULE(cgadimpl, m) {
     bind_kernels(m);
     bind_autodiff(m);
     bind_ops(m);
+    bind_optim(m);
 }

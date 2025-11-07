@@ -199,7 +199,7 @@ void unisend(const Value& root)
     for (auto it = order.rbegin(); it != order.rend(); ++it) {
         Node* n = *it;
         
-        if (!n->requires_grad || !(n->grad.is_cuda()) || !(n->value.is_cuda())) continue;
+  //      if (!n->requires_grad || !(n->grad.is_cuda()) || !(n->value.is_cuda())) continue;
         std::cout << "\n(" << n->value.numel() << ")\n";
 
         if (n->grad.numel()> 0 || n->value.numel()> 0) {

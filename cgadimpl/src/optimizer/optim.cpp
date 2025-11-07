@@ -9,7 +9,7 @@
 
 namespace ag {
 
-void SGD(const Value& root, int learning_rate , const Tensor* grad_seed) {
+void SGD(const Value& root, float learning_rate , const Tensor* grad_seed) {
     auto order = topo_from(root.node.get());
 
     // seed
@@ -36,7 +36,7 @@ else
 //         for (int i = 0; i < 3; i++) {
 //     printf("Row %d sum: %f\n", i, n->value.data()[i]);
 // }
-            fn(n->value.data(), n->grad.data(), 2.0f, n->value.numel(), ag::current_stream());
+            fn(n->value.data(), n->grad.data(), learning_rate, n->value.numel(), ag::current_stream());
             std::cout<<"YES!!!!!!!!!!!";
 //                     for (int i = 0; i < 3; i++) {
 //     printf("Row %d sum: %f\n", i, n->value.data()[i]);

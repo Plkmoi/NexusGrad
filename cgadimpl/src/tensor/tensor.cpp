@@ -487,6 +487,8 @@ Tensor Tensor::logsumexp_row(const Tensor& Z) {
     return Tensor::log(sum_exp) + m;
 }
 
+
+
 Tensor Tensor::mean_all(const Tensor& X) {
     REQUIRE_CPU(X, "mean_all");
     Tensor y(1,1);

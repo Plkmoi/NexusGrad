@@ -440,6 +440,229 @@ __global__ void k_softmax(const float* input, float* output, int rows, int cols)
         output[row * cols + col] /= sum_val;
 }
 
+__inline__ __device__ float kaan_rowexp(const float* input, int row, int cols, float row_max) {
+    float sum_val = 0.0f;
+    for (int col = 0; col < cols; ++col)
+        sum_val += __expf(input[row * cols + col] - row_max);
+    return sum_val;
+}
+
+__global__ void k_logsumexp(const float* input, float* output, int rows, int cols) {
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= rows) return;
+
+    float max_val = kaa_rowmax(input, row, cols);
+
+    // Temporary storage for the exponentiated values, can be the output array
+    // if it's okay to be overwritten.
+    float exval = kaan_rowexp(input, row, cols, max_val);
+    
+
+    // float sum_val = kaa_rowsum(exval, row, cols);
+
+    // Only the first thread in the block for this row should write the final result.
+    output[row] = logf(exval) + max_val;
+}
+
+
+__inline__ __device__ float kaan_logsumexp(const float* input, int rows, int cols) {
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= rows) return;
+
+    float max_val = kaa_rowmax(input, row, cols);
+
+    // Temporary storage for the exponentiated values, can be the output array
+    // if it's okay to be overwritten.
+    float exval = kaan_rowexp(input, row, cols, max_val);
+    
+
+    // float sum_val = kaa_rowsum(exval, row, cols);
+    float re = 0.f;
+
+    // Only the first thread in the block for this row should write the final result.
+    re =  logf(exval) + max_val;
+
+    return re;
+}
+
+__inline__ __device__ float kaan_rowsum(const float input, int row, int cols) {
+    float sum_val = 0.0f;
+    for (int col = 0; col < cols; ++col)
+        sum_val += input;
+    return sum_val;
+}
+
+
+__inline__ __device__ float ka_sumall( float  g_idata,
+                         int row, int col)
+{
+    float sum = 0.0f;
+
+    // grid-stride loop
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < row; i += gridDim.x * blockDim.x)
+        sum += g_idata;
+
+    // block-wide reduction
+    sum = blockReduceSum(sum);
+
+    float g_odata =0.f;
+
+    // one thread per block writes result
+    g_odata += (sum);
+    return g_odata;
+}
+
+
+__inline__ __device__ void helpe(const float * ninput, const  float* onehot, const float input, float* output, int row, int cols) {
+    // float sum_val = 0.0f;
+    for (int col = 0; col < cols; ++col)
+        output[row] += (onehot[row]*( ninput[row * cols + col]-input)) ;
+  //  return sum_val;
+
+  
+}
+
+
+__inline__ __device__ float kaan_nlogsumexp(const float* input,const  float* onehot,  float* output, int rows, int cols) {
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= rows) return;
+
+    float max_val = kaa_rowmax(input, row, cols);
+
+    // Temporary storage for the exponentiated values, can be the output array
+    // if it's okay to be overwritten.
+    float exval = kaan_rowexp(input, row, cols, max_val);
+    
+
+    // float sum_val = kaa_rowsum(exval, row, cols);
+    float re = 0.f;
+
+    // Only the first thread in the block for this row should write the final result.
+    re = logf(exval) + max_val;
+
+    helpe(input, onehot, re,   output, row, cols);
+    
+
+
+  //  return wei;
+}
+
+
+
+__inline__ __device__ void ke_sumall(float g_idata,
+                         float* __restrict__ g_odata,
+                         int N)
+{
+    float sum = 0.0f;
+
+    // grid-stride loop
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < N; i += gridDim.x * blockDim.x)
+        sum += g_idata;
+
+    // block-wide reduction
+    sum = blockReduceSum(sum);
+
+    // one thread per block writes result
+    if (threadIdx.x == 0)
+        atomicAdd(g_odata, sum);
+}
+
+__global__ void k_cewithlogits(const float* logits, const float* onehot, float* output, int rows, int cols) {
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= rows) return;
+
+    // Retrieve the correct class index from onehot
+    // int class_idx = onehot;  // onehot[row] gives the index of the correct class for the current example
+
+    // Now we can compute the logsumexp across logits for each row
+   kaan_nlogsumexp(logits, onehot, output, rows, cols);
+
+    // Get the logit for the correct class
+    // float log_sm = onehot[row]*( logits[blockIdx.x * blockDim.x + threadIdx.x] - logsumexp_val); // logits[row][class_idx]
+
+    // Calculate the cross-entropy loss for this row
+    // float losum = -logsumexp_val/(rows);  // Negative because we are calculating -log(p) for the correct class
+
+    // // Sum across rows (just one value per row, so no need for row sum here)
+    // float rs = losum;
+
+    // // Now sum across all rows (mean loss over batch)
+    // ke_sumall(losum, output, rows);
+}
+
+// __inline__ __device__ float kaane_rowexp(const float* input, int row, int cols, float row_max) {
+//     float sum_val = 0.0f;
+//     for (int col = 0; col < cols; ++col)
+//         sum_val += input[row * cols + col] - __expf(input[row * cols + col] - row_max);
+//     return sum_val;
+// }
+
+
+
+// __inline__ __device__ float kaan_nlogsumexp(const float* input, const float* onehot, int row, int cols) {
+//     // 1. Find the maximum value in the row for numerical stability (log-sum-exp trick).
+//     float max_val = -1.0e20f;
+//     for (int col = 0; col < cols; ++col) {
+//         if (input[row * cols + col] > max_val) {
+//             max_val = input[row * cols + col];
+//         }
+//     }
+
+//     // 2. Calculate sum(exp(logit - max_val))
+//     float sum_exp = 0.0f;
+//     for (int col = 0; col < cols; ++col) {
+//         sum_exp += expf(input[row * cols + col] - max_val);
+//     }
+
+//     // 3. Complete the log-sum-exp calculation.
+//     float logsumexp_val = logf(sum_exp) + max_val;
+
+//     // 4. Calculate the final cross-entropy value for the row.
+//     // This is equivalent to selecting the log-softmax probability for the correct class.
+//     float sum_val = 0.0f;
+//     for (int col = 0; col < cols; ++col) {
+//         // BUG FIX: The original code used onehot[row], which is incorrect.
+//         // It must be an element-wise product, requiring indexing with [row * cols + col].
+//         sum_val += onehot[row ] * (input[row * cols + col] - logsumexp_val);
+//     }
+    
+//     return sum_val;
+// }
+
+
+// __inline__ __device__ void ke_sumall(float g_idata,
+//                          float* __restrict__ g_odata,
+//                          int N)
+// {
+//     // A block-wide reduction is used to sum values within a thread block.
+//     float block_sum = blockReduceSum(g_idata);
+
+//     // The first thread in each block atomically adds the block's sum to the global result.
+//     if (threadIdx.x == 0) {
+//         atomicAdd(g_odata, block_sum);
+//     }
+// }
+
+
+// __global__ void k_cewithlogits(const float* logits, const float* onehot, float* output, int rows, int cols) {
+//     int row = blockIdx.x * blockDim.x + threadIdx.x;
+//     if (row >= rows) return;
+
+//     // 1. Calculate the cross-entropy value for the assigned row.
+//     // This value is equivalent to sum(Y * log_softmax(Z)) for the row.
+//     float row_ce = kaan_nlogsumexp(logits, onehot, row, cols);
+
+//     // 2. The loss is the negative of the cross-entropy. Divide by the total number of rows
+//     // to get this thread's contribution to the final *mean* loss.
+//     float loss_contribution = -row_ce / ((float)rows* 11);
+
+//     // 3. Add this thread's contribution to the total sum using a parallel reduction.
+//     // Note: The original code passed 'rows' as the N parameter to ke_sumall, which is not
+//     // how this reduction is structured. Since each thread contributes one value, the N
+//     // parameter is not strictly necessary in this context. The reduction sums the
+//     // `loss_contribution` from all active threads.
+//     ke_sumall(loss_contribution, output, rows);
+// }
 
 
 // =====================================================
@@ -474,6 +697,36 @@ void rowsum_cuda(const float* a, float* c, int64_t n, int64_t w, ag_cuda_stream_
 
 void softmax_cuda(const float* a, float* c, int64_t n, int64_t w, ag_cuda_stream_t s) {
   k_softmax<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(a, c, n, w);
+
+//   float* output_host = (float*)malloc(n * sizeof(float));
+// cudaMemcpy(output_host, c, n * sizeof(float), cudaMemcpyDeviceToHost);
+
+// // Print results on the host
+// for (int i = 0; i < n; i++) {
+//     printf("Row %d sum: %f\n", i, output_host[i]);
+// }
+
+// free(output_host);
+}
+
+
+void logsumexp_cuda(const float* a, float* c, int64_t n, int64_t w, ag_cuda_stream_t s) {
+  k_logsumexp<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(a, c, n, w);
+
+//   float* output_host = (float*)malloc(n * sizeof(float));
+// cudaMemcpy(output_host, c, n * sizeof(float), cudaMemcpyDeviceToHost);
+
+// // Print results on the host
+// for (int i = 0; i < n; i++) {
+//     printf("Row %d sum: %f\n", i, output_host[i]);
+// }
+
+// free(output_host);
+}
+
+
+void cewithlogits_cuda(const float* a, const float* r, float* c, int64_t n, int64_t w, ag_cuda_stream_t s) {
+  k_cewithlogits<<<blocks_for(n), 256, 0, (cudaStream_t)s>>>(a, r, c, n, w);
 
 //   float* output_host = (float*)malloc(n * sizeof(float));
 // cudaMemcpy(output_host, c, n * sizeof(float), cudaMemcpyDeviceToHost);
