@@ -1993,9 +1993,8 @@ void test_gpu_unified_cewithlogits() {
         // We'll compute exact mean: s / B
         ag::Tensor mean(1,1); mean(0,0) = s(0,0) / float(a_cpu.rows());
         ag::Tensor ref = ag::Tensor::zeros(1,1); ref(0,0) = -mean(0,0);
-    std::cout << "Output (CPU):\n" << rs << std::endl;
+    std::cout << "Output (CPU):\n" << ref << std::endl;
 
-    ref = rs;
 
     float *a_gpu = to_gpu(a_cpu), *c_gpu; float *q_gpu = to_gpu(q_cpu);
     CUDA_CHECK(cudaMalloc(&c_gpu, ref.numel() * sizeof(float)));
@@ -2018,7 +2017,7 @@ void test_gpu_unified_cewithlogits() {
 
     
 
-    ag::Tensor out = from_gpu(c_gpu, 11, 1);
+    ag::Tensor out = from_gpu(c_gpu, 1, 1);
     check_tensors_close(ref, out, "test_gpu_cewithlogits", 0.1);
     std::cout << "Output (GPU):\n" << out << std::endl;
 
@@ -2040,6 +2039,74 @@ void test_gpu_unified_cewithlogits() {
     // CUDA_CHECK(cudaFree(gy_gpu));
     // CUDA_CHECK(cudaFree(ga_gpu));
 }
+
+void test_gpu_unified_kldivergence() {
+    auto& K = ag::kernels::cuda();
+    ag::Tensor a_cpu = ag::Tensor::randn(11, 11, 431);
+    std::cout << "\nForward Pass Values:" << std::endl;
+    std::cout << "Input A (CPU):\n" << a_cpu << std::endl;
+    // ag::Tensor ref = ag::Tensor::logsumexp_row(a_cpu);
+    ag::Tensor q_cpu = ag::Tensor::zeros(11, 1);
+    q_cpu(2,0) = 1;
+
+
+
+        ag::Tensor LSE = ag::Tensor::logsumexp_row(a_cpu); // [B,1]
+        ag::Tensor log_sm = (a_cpu - LSE); // [B,C]
+        ag::Tensor prod = q_cpu * (ag::Tensor::log(q_cpu + 1e-10f) -log_sm); // [B,C]
+        ag::Tensor rs = ag::Tensor::row_sum(prod); // [B,1]
+        ag::Tensor s = ag::Tensor::sum_all(rs); // [1,1]
+        ag::Tensor loss = ag::Tensor::mean_all(rs * ag::Tensor::ones_like(rs)); // mean over B (same as s/B)
+        // We'll compute exact mean: s / B
+        ag::Tensor mean(1,1); mean(0,0) = s(0,0) / float(a_cpu.rows());
+        ag::Tensor ref = ag::Tensor::zeros(1,1); ref(0,0) = -mean(0,0);
+    std::cout << "Output (CPU):\n" << ref << std::endl;
+
+
+    float *a_gpu = to_gpu(a_cpu), *c_gpu; float *q_gpu = to_gpu(q_cpu);
+    CUDA_CHECK(cudaMalloc(&c_gpu, ref.numel() * sizeof(float)));
+
+    K.kldivergence(a_gpu, q_gpu, c_gpu, a_cpu.rows(), a_cpu.cols(), nullptr);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    // ag::Tensor gy_cpu = ag::Tensor::randn(11, 1, 5);
+
+    // ag::Tensor ne = ag::Tensor::row_sum(ref*gy_cpu);
+    // ag::Tensor ga_ref = ref *( gy_cpu - ne); // vjp_add just passes gradient through
+
+    // ag::Tensor ga_cpu_init = ag::Tensor::zeros(11, 11);
+
+    // float *gy_gpu = to_gpu(gy_cpu);
+    // float *ga_gpu = to_gpu(ga_cpu_init);
+
+    // K.vjp_softmax(ga_gpu, c_gpu, gy_gpu, a_cpu.rows(), a_cpu.cols(), nullptr);
+    // CUDA_CHECK(cudaDeviceSynchronize());
+
+    
+
+    ag::Tensor out = from_gpu(c_gpu, 1, 1);
+    check_tensors_close(ref, out, "test_gpu_kldivergence", 0.5);
+    std::cout << "Output (GPU):\n" << out << std::endl;
+
+    // ag::Tensor ga_out = from_gpu(ga_gpu, 11, 11);
+
+    // std::cout << "\nBackward Pass Values:" << std::endl;
+    // std::cout << "Gradient Input dY:\n" << gy_cpu << std::endl;
+    // std::cout << "Expected dA (CPU):\n" << ga_ref << std::endl;
+    // std::cout << "Computed dA (GPU):\n" << ga_out << std::endl;
+
+    // check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_softmax");
+
+
+
+
+
+    CUDA_CHECK(cudaFree(a_gpu));
+    CUDA_CHECK(cudaFree(c_gpu));
+    // CUDA_CHECK(cudaFree(gy_gpu));
+    // CUDA_CHECK(cudaFree(ga_gpu));
+}
+
 
 int main() {
     std::cout << "=== Running GPU Kernel Tests ===\n";
@@ -2104,6 +2171,7 @@ int main() {
         test_gpu_unified_maeloss();
         test_gpu_unified_logsumexp();
         test_gpu_unified_cewithlogits();
+        test_gpu_unified_kldivergence();
 
     } catch (const std::exception& e) {
         std::cerr << "ERROR: " << e.what() << std::endl;

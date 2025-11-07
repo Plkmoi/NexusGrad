@@ -135,6 +135,7 @@ typedef void (*ag_sign_cuda_fn)         (const float* x, float* y, int64_t n, ag
 typedef void (*ag_softmax_cuda_fn)         (const float* x, float* y, int64_t n, int64_t w, ag_cuda_stream_t s);
 typedef void (*ag_logsumexp_cuda_fn)         (const float* x, float* y, int64_t n, int64_t w, ag_cuda_stream_t s);
 typedef void (*ag_cewithlogits_cuda_fn)         (const float* x, const float* z, float* y, int64_t n, int64_t w, ag_cuda_stream_t s);
+typedef void (*ag_kldivergence_cuda_fn)         (const float* x, const float* z, float* y, int64_t n, int64_t w, ag_cuda_stream_t s);
 
 // Additional custom elementwise ops
 typedef void (*ag_gcu_cuda_fn)          (const float* x, float* y, int64_t n, ag_cuda_stream_t s);
@@ -321,6 +322,7 @@ struct ag_cuda_v1 {
   ag_swiglu_cuda_fn        swiglu;
   ag_logsumexp_cuda_fn        logsumexp;
   ag_cewithlogits_cuda_fn        cewithlogits;
+  ag_kldivergence_cuda_fn        kldivergence;
 
   // ========================================================
   // Backward (VJP) ops
@@ -473,6 +475,7 @@ struct Cuda {
   ag_swiglu_cuda_fn        swiglu = nullptr;
   ag_logsumexp_cuda_fn        logsumexp = nullptr;
   ag_cewithlogits_cuda_fn        cewithlogits = nullptr;
+  ag_kldivergence_cuda_fn        kldivergence = nullptr;
 
   // Custom elementwise ops
   ag_gcu_cuda_fn gcu = nullptr;

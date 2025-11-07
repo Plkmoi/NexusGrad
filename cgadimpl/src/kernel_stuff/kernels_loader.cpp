@@ -134,6 +134,7 @@ void load_cuda_plugin(const char* path) {
   g_cuda.softmax           = table.softmax;
   g_cuda.logsumexp           = table.logsumexp;
   g_cuda.cewithlogits           = table.cewithlogits;
+  g_cuda.kldivergence           = table.kldivergence;
   // Custom elementwise ops (forward)
   g_cuda.gcu = table.gcu;
   g_cuda.gauss = table.gauss;

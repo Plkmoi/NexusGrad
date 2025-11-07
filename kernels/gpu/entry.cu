@@ -68,6 +68,7 @@ extern void rowmax_cuda(const float* a, float* c, int64_t n, int64_t w, ag_cuda_
 extern void softmax_cuda(const float* a, float* c, int64_t n, int64_t w, ag_cuda_stream_t s);
 extern void logsumexp_cuda(const float* a, float* c, int64_t n, int64_t w, ag_cuda_stream_t s);
 extern void cewithlogits_cuda(const float* a, const float* r, float* c, int64_t n, int64_t w, ag_cuda_stream_t s);
+extern void kldivergence_cuda(const float* a, const float* r, float* c, int64_t n, int64_t w, ag_cuda_stream_t s);
 
 // ============================================================
 // Backward / VJP declarations
@@ -191,6 +192,7 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->logsumexp          = &logsumexp_cuda;
   out->swiglu = &swiglu_cuda;
   out->cewithlogits = &cewithlogits_cuda;
+  out->kldivergence = &kldivergence_cuda;
 
   // ========================================================
   // Backward (VJP)
