@@ -20,10 +20,10 @@ OP(LeakyRelu, 2,    "leakyrelu")  // vjp exists for CUDA
 OP(RowSum,    1,    "rowsum") // vjp exists for CUDA
 OP(RowMax,    1,    "rowmax") // vjp exists for CUDA
 OP(MeanAll,   1,    "meanall")
-OP(SoftmaxRow,1,    "softmax_row")
-OP(LogSumExpRow,1,  "logsumexp_row")
-OP(CeWithLogits,2,  "ce_with_logits")
-OP(KLDivergence,2,  "kldivergence")
+OP(SoftmaxRow,1,    "softmax_row") // Cu kern
+OP(LogSumExpRow,1,  "logsumexp_row") // Cu kern
+OP(CeWithLogits,2,  "ce_with_logits") // Cu kern
+OP(KLDivergence,2,  "kldivergence") // Cu kern
 OP(FMA,       3,    "fmab") // fused multiply-add             // vjp exists for CUDA
 OP(Attention,       4,    "attention") // attention        // Cu kern
 OP(MSELoss,       2,    "mseloss") // mse loss // vjp exists for CUDA
