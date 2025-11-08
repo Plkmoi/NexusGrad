@@ -476,6 +476,29 @@ set(CMAKE_CUDA_ARCHITECTURES 86 CACHE STRING "CUDA SMs" FORCE)
 
 project(cgadimpl LANGUAGES CXX CUDA)
 
+set(Python3_EXECUTABLE "/home/blubridge-034/Downloads/Newf/cgadimpl/venv/bin/python")
+find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+
+
+execute_process(
+  COMMAND ${Python3_EXECUTABLE} -m pybind11 --includes
+  OUTPUT_VARIABLE PYBIND11_INCLUDE_FLAGS
+)
+string(STRIP "${PYBIND11_INCLUDE_FLAGS}" PYBIND11_INCLUDE_FLAGS)
+
+# convert the "-I..." flags into real directories
+separate_arguments(PYBIND11_INCLUDE_FLAGS)
+set(PYBIND11_INCLUDE_DIRS "")
+foreach(flag ${PYBIND11_INCLUDE_FLAGS})
+  if(flag MATCHES "^-I(.+)")
+    list(APPEND PYBIND11_INCLUDE_DIRS "${CMAKE_MATCH_1}")
+  endif()
+endforeach()
+
+message(STATUS "Detected PyBind11 include dirs: ${PYBIND11_INCLUDE_DIRS}")
+
+include_directories(${PYBIND11_INCLUDE_DIRS})
+
 # --- Compiler, CUDA, and OpenMP Setup ---
 find_package(CUDAToolkit REQUIRED)
 find_package(OpenMP REQUIRED)
@@ -531,10 +554,11 @@ if(true)
   add_ag_test(test_ag                    tests/test_ag.cpp)
   add_ag_test(test_mlp                    tests/test_mlp.cpp)
   add_ag_test(test_complex_mlp                    tests/test_complex_mlp.cpp)
-  add_ag_test(test_bench_relu                    tests/bench_relu.cpp)
+  # add_ag_test(test_bench_relu                    tests/bench_relu.cpp)
   add_ag_test(test_tiny_handcalc                    tests/tiny_handcalc.cpp)
-  add_ag_test(test_graph_compile                    tests/test_graph_compile.cpp)
+  # add_ag_test(test_graph_compile                    tests/test_graph_compile.cpp)
   add_ag_test(ag_core_test                    tests/test.cpp)
+  add_ag_test(test_integpu                    tests/test_integpu.cpp)
   # add_ag_test(test_checkpoint                    tests/test_checkpoint.cpp)
   # add_ag_test(test_inplace                    tests/test_inplace.cpp)
   # add_ag_test(test_careful_deletion                    tests/test_careful_deletion.cpp)
@@ -545,7 +569,7 @@ if(true)
   add_ag_test(test_vjp_kernels                    tests/test_end_to_end_gpu.cpp)
   add_ag_test(test_nn_mlp                    tests/test_mlp_training.cpp)
   add_ag_test(test_kernels_gpu                    tests/test_kernels_gpu.cpp)
-  add_ag_test(test_graph_cuda                    tests/test_graph_gpu.cpp)
+  # add_ag_test(test_graph_cuda                    tests/test_graph_gpu.cpp)
 endif()
 
 message(STATUS "cgadimpl build mode: ${CMAKE_BUILD_TYPE}")

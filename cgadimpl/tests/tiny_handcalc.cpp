@@ -22,14 +22,14 @@ int main() {
     std::cout << "=== Tiny hand-checkable MLP (2x2) ===\n";
     const int B = 2, In = 2, H = 2, Out = 2;
 
-    Tensor Xt(Shape{{B, In}});
+    Tensor Xt(Shape{{B, In}}, TensorOptions().with_req_grad(false));
     float* x_data = Xt.data<float>();
     x_data[0*In + 0] = 1; x_data[0*In + 1] = -1;
     x_data[1*In + 0] = 0; x_data[1*In + 1] = 2;
     Value X = make_tensor(Xt, "X");
     print_val("X", X);
 
-    Tensor Yt(Shape{{B, Out}});
+    Tensor Yt(Shape{{B, Out}}, TensorOptions().with_req_grad(false));
     float* y_data = Yt.data<float>();
     y_data[0*Out + 0] = 1; y_data[0*Out + 1] = 0;
     y_data[1*Out + 0] = 0; y_data[1*Out + 1] = 1;

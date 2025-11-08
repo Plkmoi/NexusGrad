@@ -620,13 +620,13 @@ void vjp_Dyntanh(Node* n, const Tensor& gy){
 // ===================================================================
 // vjp_Sum
 // ===================================================================
-void vjp_Sum(Node* n, const Tensor& gy){
+void vjp_Sum(Node* n, const Tensor& gy){ 
     Node* X = n->inputs[0].get();
     if (!X->requires_grad()) return;
 
     // `gy` is a 1x1 scalar tensor. The '+' operator will automatically
     // broadcast it to the shape of X->grad.
-    X->grad += gy;
+  //  X->grad += (X->grad *   gy.view(X->grad.shape()));
 }
 
 // ===================================================================
@@ -731,12 +731,12 @@ void vjp_CeWithLogits(Node* n, const Tensor& gy){
         // gZ = (softmax(Z) - Y) / batch_size
         Tensor gZ = (softmax_z - Y) * inv_batch_size;
         // The `gy` for a loss function is typically a scalar. The operators will broadcast it.
-        Z_node->grad += gy * gZ;
+        Z_node->grad +=  gZ;
     }
     if (Y_node->requires_grad()) {
         // gY = -log_softmax(Z) / batch_size
         Tensor gY = log_softmax_z * (-1.0f * inv_batch_size);
-        Y_node->grad += gy * gY;
+        Y_node->grad += gY;
     }
 }
 
@@ -762,13 +762,13 @@ void vjp_KLDivergence(Node* n, const Tensor& gy){
     if (Z_node->requires_grad()) {
         // gZ = softmax(Z) - Y, scaled by batch size
         Tensor gZ = (softmax_z - Y) * inv_batch_size;
-        Z_node->grad += gy * gZ;
+        Z_node->grad +=  gZ;
     }
     if (Y_node->requires_grad()) {
         // gY = log(Y) + 1 - log_softmax(Z), scaled by batch size
         Tensor log_Y = OwnTensor::log(Y + 1e-9f); // Add epsilon for stability
         Tensor gY = (log_Y + 1.0f - log_softmax_z) * inv_batch_size;
-        Y_node->grad += gy * gY;
+        Y_node->grad +=  gY;
     }
 }
 

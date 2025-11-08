@@ -26,9 +26,11 @@ int main() {
     // ---------- Forward Pass (using only JIT-supported ops) ----------
     // A simple linear layer: Z = X @ W1 + b1
     Value Z = matmul(X, W1) + b1;
+    Tensor q_tensor = Tensor::randn(Z.node->value.shape(), opts_param);
+    auto q = make_tensor(q_tensor, "Q");
 
     // To create a scalar loss, we can sum all elements of Z
-    Value loss = sum(Z);
+    Value loss = cross_entropy_with_logits(Z, q);
     
     std::cout << "Eager forward pass completed.\n";
     debug::print_value("Eager Loss", loss);

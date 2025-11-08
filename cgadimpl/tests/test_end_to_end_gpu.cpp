@@ -37,10 +37,13 @@ void test_e2e_on_device(Device dev) {
     Value y = model(x_tensor);
     // --- END FIX ---
 
+    Tensor q_tensor = Tensor::randn(y.node->value.shape(), TensorOptions().with_device(dev));
+    auto q = make_tensor(q_tensor, "Q");
+
     std::cout << "Forward pass successful on " << (dev == Device::CUDA ? "CUDA" : "CPU") << ".\n";
     
     // Dummy loss and backward to test VJP path
-    Value loss = sum(y);
+    Value loss = cross_entropy_with_logits(y,q);
     backward(loss);
     std::cout << "Backward pass successful.\n";
 }

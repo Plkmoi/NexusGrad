@@ -29,19 +29,26 @@ void zero_grad(const Value& root){
 
 void backward(const Value& root, const Tensor* grad_seed){
     auto order = topo_from(root.node.get());
+    std::cout<<"HERE";
 
     for (Node* n : order) {
         if (n->requires_grad() && n->grad.numel() == 0) {
             n->grad = Tensor::zeros(n->value.shape(), ag::options(n->value));
         }
+            std::cout<<"HERE2";
+
     }
 
      // seed
     if (root.node->requires_grad()) {
+            std::cout<<"HERE3";
+
         if (grad_seed) {
             root.node->grad = *grad_seed;
         } else {
             // Use the new factories and get options from the value tensor
+                std::cout<<"HERE4";
+
             auto opts = ag::options(root.node->value);
             if (root.node->value.numel() == 1) {
                 root.node->grad.fill(1.0f);
