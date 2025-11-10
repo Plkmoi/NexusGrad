@@ -283,6 +283,7 @@ void bind_autodiff(py::module_ &m) {
     using namespace ag;
 
     m.def("zero_grad", &zero_grad, py::arg("root"), DOC(ag, zero_grad));
+    m.def("forward", &forward, py::arg("root"), DOC(ag, forward));
     // m.def("zerono_grad", &zerono_grad, py::arg("root"), DOC(ag, zerono_grad));
     // m.def("backward_node", &backward_node, py::arg("root"), py::arg("grad_seed") = nullptr, DOC(ag, backward_node));
     m.def("backward", &backward, py::arg("root"), py::arg("grad_seed") = nullptr, DOC(ag, backward));

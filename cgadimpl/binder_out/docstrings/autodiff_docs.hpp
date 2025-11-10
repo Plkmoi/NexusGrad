@@ -29,6 +29,8 @@ static const char *__doc_ag_jvp = R"doc()doc";
 
 static const char *__doc_ag_zero_grad = R"doc()doc";
 
+static const char *__doc_ag_forward = R"doc()doc";
+
 #if defined(__GNUG__)
 #pragma GCC diagnostic pop
 #endif
