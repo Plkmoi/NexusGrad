@@ -14,5 +14,7 @@ void backward (const Value& root, const Tensor* grad_seed=nullptr);
 
 Tensor jvp (const Value& root, const std::unordered_map<Node*, Tensor>& seed);
 
+void forward(const Value& root);
+
 
 } // namespace ag

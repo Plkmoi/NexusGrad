@@ -124,8 +124,7 @@ std::cout <<","<< endl<< "B = "; b.val();
 // std::cout << "dL/dA[0,0] = " << a.grad()
 // <<","<< endl<< "dL/dB[0,0] = " << b.grad()<<","<< endl
 // << "dL/dbias[0,0] = " << bias.grad() << endl<< "dL/dq = " << y.grad() << endl;
-zero_grad(y);
-backward(y);
+forward(y);
 
 std::cout << "y = "; y.val();
 std::cout <<","<< endl<< "A = "; a.grad();

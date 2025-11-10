@@ -16,8 +16,8 @@ using VjpFn = void(*)(Node* n, const Tensor& gy);
 // tangent_of(p) must return the tangent T[p] (same shape as p->value).
 using JvpFn = Tensor(*)(Node* n, const std::function<const Tensor&(Node*)>& tangent_of);
 
-using FwdFn = std::function<Tensor(const std::vector<std::shared_ptr<Node>>&)>;
-
+using FwdFn = std::function<std::shared_ptr<Node>(
+    const std::vector<std::shared_ptr<Node>>&)>;
 
 // Lookup tables (one slot per Op value).
 VjpFn vjp_lookup(Op op);
@@ -32,7 +32,8 @@ namespace ag::detail {
   // Declare all rule functions via the registry
   #define OP(name, arity, str) \
     void   vjp_##name(Node* n, const Tensor& gy); \
-    Tensor jvp_##name(Node* n, const std::function<const Tensor&(Node*)>& tangent_of);
+    Tensor jvp_##name(Node* n, const std::function<const Tensor&(Node*)>& tangent_of); \
+    std::shared_ptr<Node> node_##name(const std::vector<std::shared_ptr<Node>>&);
   #include "ad/detail/ops.def"
   #undef OP
 } // namespace ag::detail

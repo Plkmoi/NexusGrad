@@ -5,6 +5,7 @@
 #include "ad/nodeops.hpp" // Include the new node-level declarations
 #include "ad/inplace.hpp"
 #include "ad/runtime.hpp"
+#include "ad/nodeops.hpp"
 
 namespace ag {
     Value inplace_checkpoint(const Value& v) {

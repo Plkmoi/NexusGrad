@@ -44,6 +44,7 @@ inline Value make_tensor(const Tensor& v, const char* name = "") {
 }
 
 std::vector<Node*> topo_from(Node* root);
+std::vector<std::shared_ptr<Node>> topon_from(std::shared_ptr<Node> root);
     
 // ---- Lightweight trace→compile→replay (CPU) ----
 namespace jit {

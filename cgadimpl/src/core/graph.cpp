@@ -69,6 +69,22 @@ std::vector<Node*> topo_from(Node* root){
     return order; // parents before child
 }
 
+std::vector<std::shared_ptr<Node>> topon_from(std::shared_ptr<Node> root) {
+    std::vector<std::shared_ptr<Node>> order; order.reserve(256);
+    std::unordered_set<std::shared_ptr<Node>> vis; vis.reserve(256);
+
+    std::function<void(std::shared_ptr<Node>)> dfs = [&](std::shared_ptr<Node> n) {
+        if (!n || vis.count(n)) return;
+        vis.insert(n);
+        for (auto& p : n->inputs)
+            dfs(p); 
+        order.push_back(n);
+    };
+
+    dfs(root);
+    return order; // parents before child
+}
+
 } // namespace ag
 // ===================================================================
 // JIT COMPILER IMPLEMENTATION -- REMAINS TEMPORARILY DISABLED

@@ -117,14 +117,18 @@ int main() {
 
     // --- 2. Training Loop ---
 
+            auto q = matmul(a, b) + bias;
+        // Note: The original code added bias twice. I have preserved this logic.
+        auto y = kldivergence(q + bias, W);
+
     cout << fixed << setprecision(4);
     for (int i = 0; i < 10; ++i) {
         cout << "\n=============== Iteration " << i << " ===============\n";
 
         // Forward pass
-        auto q = matmul(a, b) + bias;
-        // Note: The original code added bias twice. I have preserved this logic.
-        auto y = kldivergence(q + bias, W);
+
+        forward(y);
+
 
         // --- Before backward ---
         cout << "--- Forward Pass Results ---\n";
