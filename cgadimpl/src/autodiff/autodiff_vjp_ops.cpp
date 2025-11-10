@@ -121,7 +121,7 @@ void vjp_Div(Node* n, const Tensor& gy){
         unbroadcast_and_add(A->grad, grad_for_A);
     }
     if (B->requires_grad()) {
-        Tensor grad_for_B = gy * ((A->value * -0.1f) / (B->value * B->value));
+        Tensor grad_for_B = gy * ((A->value * -1.0f) / (B->value * B->value));
         unbroadcast_and_add(B->grad, grad_for_B);
     }
 }

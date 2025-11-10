@@ -6,82 +6,84 @@
 #include "ad/ag_all.hpp"
 #include "tensor.hpp"
 #include "optim.hpp"
+#include "TensorLib.h"
+#include "ad/graph.hpp"
+#include "ad/debug.hpp"
+#include "ad/autodiff.hpp"
 
-#include "/home/blubridge-034/Downloads/Newf/cgadimpl/binder_out/docstrings/tensor_docs.hpp"
-#include "/home/blubridge-034/Downloads/Newf/cgadimpl/binder_out/docstrings/nodeops_docs.hpp"
-#include "/home/blubridge-034/Downloads/Newf/cgadimpl/binder_out/docstrings/graph_docs.hpp"
-#include "/home/blubridge-034/Downloads/Newf/cgadimpl/binder_out/docstrings/schema_docs.hpp"
-#include "/home/blubridge-034/Downloads/Newf/cgadimpl/binder_out/docstrings/kernels_api_docs.hpp"
-#include "/home/blubridge-034/Downloads/Newf/cgadimpl/binder_out/docstrings/autodiff_docs.hpp"
-#include "/home/blubridge-034/Downloads/Newf/cgadimpl/binder_out/docstrings/ops_docs.hpp"
-#include "/home/blubridge-034/Downloads/Newf/cgadimpl/binder_out/docstrings/optim_docs.hpp"
+
+
+#include <sstream>
+#include "TensorLib.h"
 
 namespace py = pybind11;
-using namespace ag;
+using namespace OwnTensor;
 
-void bind_enums(py::module_ &m) {
-    py::enum_<Op>(m, "Op")
-        .value("Leaf", Op::Leaf)
-        .value("Add", Op::Add)
-        .value("Mul", Op::Mul)
-        .value("Sub", Op::Sub)
-        .value("Div", Op::Div)
-        // ... add all your ops
-        ;
+
+// #include "/home/blubridge-034/Downloads/Newf/cgadimpl/cgadimpl/binder_out/docstrings/nn_docs.hpp"
+#include "/home/blubridge-034/Downloads/Newf/cgadimpl/cgadimpl/binder_out/docstrings/ops_docs.hpp"
+#include "/home/blubridge-034/Downloads/Newf/cgadimpl/cgadimpl/binder_out/docstrings/optim_docs.hpp"
+#include "/home/blubridge-034/Downloads/Newf/cgadimpl/cgadimpl/binder_out/docstrings/graph_docs.hpp"
+#include "/home/blubridge-034/Downloads/Newf/cgadimpl/cgadimpl/binder_out/docstrings/tensor_docs.hpp"
+#include "/home/blubridge-034/Downloads/Newf/cgadimpl/binder_out/docstrings/kernels_api_docs.hpp"
+#include "/home/blubridge-034/Downloads/Newf/cgadimpl/cgadimpl/binder_out/docstrings/debug_docs.hpp"
+#include "/home/blubridge-034/Downloads/Newf/cgadimpl/cgadimpl/binder_out/docstrings/autodiff_docs.hpp"
+
+using namespace ag; // or your actual namespace
+
+
+namespace py_utils {
+
+// Convert a Python list/tuple of ints into OwnTensor::Shape
+inline OwnTensor::Shape to_shape(const py::sequence& seq) {
+    OwnTensor::Shape s;
+    s.dims.reserve(seq.size());
+    for (auto item : seq)
+        s.dims.push_back(py::cast<int64_t>(item));
+    return s;
 }
 
+// Build TensorOptions from kwargs
+inline OwnTensor::TensorOptions parse_opts(
+    std::optional<std::string> device = std::nullopt,
+    std::optional<std::string> dtype = std::nullopt,
+    bool requires_grad = false
+) {
+    using namespace OwnTensor;
+    TensorOptions opts;
 
-void bind_tensor(py::module_ &m) {
-    py::class_<Tensor>(m, "Tensor", DOC(ag, Tensor))
-    .def(py::init<>(), DOC(ag, Tensor, Tensor))
-    .def_static("zeros", &Tensor::zeros, DOC(ag, Tensor, zeros))
-    .def_static("ones",  &Tensor::ones,  DOC(ag, Tensor, ones))
-    .def_static("zeros_like", &Tensor::zeros_like, DOC(ag, Tensor, zeros_like))
-    .def_static("ones_like",  &Tensor::ones_like,  DOC(ag, Tensor, ones_like))
-    .def_static("vals_like",  &Tensor::vals_like,  DOC(ag, Tensor, vals_like))
-    .def_static("randn", &Tensor::randn, DOC(ag, Tensor, randn))
-    .def_static("vales", &Tensor::vales, DOC(ag, Tensor, vales))
-    .def("device", &Tensor::device, DOC(ag, Tensor, device))
-    .def("to", &Tensor::to, py::arg("device"), DOC(ag, Tensor, to))
-    .def("is_cpu", &Tensor::is_cpu, DOC(ag, Tensor, is_cpu))
-    .def("is_cuda", &Tensor::is_cuda, DOC(ag, Tensor, is_cuda))
-    .def("__repr__", [](const Tensor &t) {
-    std::ostringstream os;
-    os << t;
-    return os.str();
-});
+    if (device) {
+        if (*device == "cuda" || *device == "CUDA")
+            opts = opts.with_device(DeviceIndex(Device::CUDA));
+        else
+            opts = opts.with_device(DeviceIndex(Device::CPU));
+    }
+
+    if (dtype) {
+        if (*dtype == "float32" || *dtype == "f32")
+            opts = opts.with_dtype(Dtype::Float32);
+        else if (*dtype == "float64" || *dtype == "f64")
+            opts = opts.with_dtype(Dtype::Float64);
+        // add more if needed
+    }
+
+    opts = opts.with_req_grad(requires_grad);
+    return opts;
+}
 
 }
 
-void bind_device(py::module_ &m) {
-    py::enum_<Device>(m, "Device")
-        .value("CPU", Device::CPU)
-        .value("CUDA", Device::CUDA)
-        .export_values();  // optional, lets you do cgadimpl.CPU
-}
-
-void bind_graph(py::module_ &m) {
+void bind_optim(py::module_ &m) {
     using namespace ag;
 
-    m.def("make_tensor", &make_tensor,
-          py::arg("tensor"), py::arg("name") = "", py::arg("requires_grad") = false,
-          DOC(ag, make_tensor));
+    py::module m_optim = m.def_submodule("optim", "ag backend optimizers");
 
-    m.def("make_tensornode", &make_tensornode,
-          py::arg("tensor"), py::arg("name") = "", py::arg("requires_grad") = false,
-          DOC(ag, make_tensornode));
-
-    m.def("constant", &constant,
-          py::arg("tensor"), py::arg("name") = "",
-          DOC(ag, constant));
-
-    m.def("param", &param,
-          py::arg("tensor"), py::arg("name") = "",
-          DOC(ag, param));
-
-    m.def("topo_from", &topo_from,
-          py::arg("root"),
-          DOC(ag, topo_from));
+    // Binding the SGD function (Stochastic Gradient Descent) with an optional grad_seed
+    m_optim.def("SGD", &SGD, 
+                py::arg("root"), 
+                py::arg("learning_rate") = 0.1,   // default learning rate
+                py::arg("grad_seed") = nullptr,    // optional grad_seed argument
+                DOC(ag, SGD));  // Make sure you have a proper docstring for SGD
 }
 
 void bind_ops(py::module_ &m) {
@@ -92,23 +94,24 @@ void bind_ops(py::module_ &m) {
     m_ops.def("sub", &ag::sub, py::arg("a"), py::arg("b"), DOC(ag, sub));
     m_ops.def("mul", &ag::mul, py::arg("a"), py::arg("b"), DOC(ag, mul));
     m_ops.def("div", &ag::div, py::arg("a"), py::arg("b"), DOC(ag, div));
+    m_ops.def("matmul", &ag::matmul, py::arg("a"), py::arg("b"), DOC(ag, matmul));
 
-    // Unary Operations
+    // // Unary Operations
     m_ops.def("relu", &ag::relu, py::arg("x"), DOC(ag, relu));
     m_ops.def("gelu", &ag::gelu, py::arg("x"), DOC(ag, gelu));
-    m_ops.def("leaky_relu", &ag::leaky_relu, py::arg("x"), py::arg("alpha") = 0.01f, DOC(ag, leaky_relu));
+    // m_ops.def("leaky_relu", &ag::leaky_relu, py::arg("x"), py::arg("alpha") = 0.01f, DOC(ag, leaky_relu));
     m_ops.def("silu", &ag::silu, py::arg("x"), DOC(ag, silu));
     m_ops.def("sigmoid", &ag::sigmoid, py::arg("x"), DOC(ag, sigmoid));
     m_ops.def("softplus", &ag::softplus, py::arg("x"), DOC(ag, softplus));
     m_ops.def("tanh", &ag::tanh, py::arg("x"), DOC(ag, tanh));
 
-    // More operations
+    // // More operations
     m_ops.def("sum", &ag::sum, py::arg("x"), DOC(ag, sum));
     m_ops.def("exp", &ag::exp, py::arg("x"), DOC(ag, exp));
     m_ops.def("log", &ag::log, py::arg("x"), DOC(ag, log));
     m_ops.def("sign", &ag::sign, py::arg("a"), py::arg("b"), DOC(ag, sign));
 
-    // Advanced ops
+    // // Advanced ops
     m_ops.def("flomul", &ag::flomul, py::arg("a"), py::arg("b"), DOC(ag, flomul));
     m_ops.def("floadd", &ag::floadd, py::arg("a"), py::arg("b"), DOC(ag, floadd));
     m_ops.def("flodiv", &ag::flodiv, py::arg("a"), py::arg("b"), DOC(ag, flodiv));
@@ -117,68 +120,117 @@ void bind_ops(py::module_ &m) {
     m_ops.def("mse_loss", &ag::mse_loss, py::arg("pred"), py::arg("target"), DOC(ag, mse_loss));
     m_ops.def("mae_loss", &ag::mae_loss, py::arg("pred"), py::arg("target"), DOC(ag, mae_loss));
 
-    // Complex operations
-    m_ops.def("attention", &ag::attention, py::arg("a"), py::arg("b"), py::arg("c"), py::arg("d"), py::arg("Bw"), py::arg("nh"), DOC(ag, attention));
+    // // Complex operations
+    m_ops.def("attention", &ag::attention, py::arg("a"), py::arg("b"), py::arg("c"), py::arg("d"), DOC(ag, attention));
     m_ops.def("cross_entropy_with_logits", &ag::cross_entropy_with_logits, py::arg("logits"), py::arg("onehot"), DOC(ag, cross_entropy_with_logits));
     m_ops.def("kldivergence", &ag::kldivergence, py::arg("logits"), py::arg("onehot"), DOC(ag, kldivergence));
 
-    // Row operations
+    // // Row operations
     m_ops.def("rowsum", &ag::rowsum, py::arg("x"), DOC(ag, rowsum));
     m_ops.def("rowmax", &ag::rowmax, py::arg("x"), DOC(ag, rowmax));
     m_ops.def("mean_all", &ag::mean_all, py::arg("x"), DOC(ag, mean_all));
     m_ops.def("softmax_row", &ag::softmax_row, py::arg("z"), DOC(ag, softmax_row));
     m_ops.def("logsumexp_row", &ag::logsumexp_row, py::arg("z"), DOC(ag, logsumexp_row));
 
-    // Special functions
+    // // Special functions
     m_ops.def("rms", &ag::rms, py::arg("x"), DOC(ag, rms));
     m_ops.def("realrms", &ag::realrms, py::arg("x"), py::arg("g"), DOC(ag, realrms));
     m_ops.def("swiglu", &ag::swiglu, py::arg("x"), py::arg("a"), py::arg("b"), py::arg("c"), py::arg("d"), DOC(ag, swiglu));
     m_ops.def("parcon", &ag::parcon, py::arg("x"), DOC(ag, parcon));
     m_ops.def("gcu", &ag::gcu, py::arg("x"), DOC(ag, gcu));
 
-    // Other miscellaneous ops
+    // // Other miscellaneous ops
     m_ops.def("laynor", &ag::laynor, py::arg("x"), DOC(ag, laynor));
     m_ops.def("alibiatt", &ag::alibiatt, py::arg("a"), py::arg("b"), py::arg("c"), py::arg("d"), py::arg("m"), DOC(ag, alibiatt));
 
-    // Transpose (yay)
+    // // Transpose (yay)
     m_ops.def("transpose", &ag::transpose, py::arg("x"), DOC(ag, transpose));
 }
 
+void bind_value(py::module_ &m) {
+    py::class_<Value, std::shared_ptr<Value>>(m, "Value", DOC(ag, Value))
+        .def(py::init<>(), DOC(ag, Value, Value))
+        .def(py::init<std::shared_ptr<Node>>(), DOC(ag, Value, Value_2))
+        // node is a public member
+        .def_readwrite("node", &Value::node, DOC(ag, Value, node))
+        // methods returning references — use property wrappers
+        .def_property_readonly(
+            "val",
+            (Tensor& (Value::*)()) &Value::val,
+            DOC(ag, Value, val)
+        )
+        .def_property_readonly(
+            "grad",
+            (Tensor& (Value::*)()) &Value::grad,
+            DOC(ag, Value, grad)
+        )
+        .def_property_readonly(
+            "shape",
+            &Value::shape,
+            DOC(ag, Value, shape)
+        )
+        .def("shape_2d", &Value::shape_2d)
+        ;
+        m.def("make_tensor", &make_tensor, py::arg("v"), py::arg("name") = "", DOC(ag, make_tensor));
 
-
-
-// ------------------ Node ------------------
-void bind_node(py::module_ &m) {
-    py::class_<Node, std::shared_ptr<Node>>(m, "Node", DOC(ag, Node))
-        .def(py::init<>(), DOC(ag, Node, Node))
-        .def(py::init<const Tensor&, bool, Op, const char*>(),
-             py::arg("value"), py::arg("requires_grad"),
-             py::arg("op") = Op::Leaf, py::arg("debug_name") = "",
-             DOC(ag, Node, Node))
-        .def_readwrite("debug_name", &Node::debug_name)
-        .def_readwrite("grad", &Node::grad)
-        .def_readwrite("op", &Node::op)
-        .def_readwrite("value", &Node::value)
-        .def_readwrite("inputs", &Node::inputs)
-        .def_readwrite("requires_grad", &Node::requires_grad)
-        .def("__repr__", [](const Node &self) {
-            return std::string("<cgadimpl.Node '") + self.debug_name + "'>";
-        });
 }
 
-// ------------------ Value ------------------
-void bind_value(py::module_ &m) {
-    py::class_<Value>(m, "Value", DOC(ag, Value))
+
+void bind_tensor(py::module_ &m) {
+
+    py::class_<Tensor>(m, "Tensor")
         .def(py::init<>())
-        .def(py::init<std::shared_ptr<Node>>(), py::arg("node"))
-        .def("val", &Value::val)
-        .def("grad", &Value::grad)
-        .def("shape", &Value::shape)
-        .def("__repr__", [](const Value &self) {
-            auto s = self.shape();
-            return "<cgadimpl.Value shape=(" + std::to_string(s.first) + "," +
-                   std::to_string(s.second) + ")>";
-        });
+
+        // Static factory methods
+        .def_static("zeros", [](py::sequence shape,
+                                std::optional<std::string> device = std::nullopt,
+                                std::optional<std::string> dtype = std::nullopt,
+                                bool requires_grad = false) {
+            auto s = py_utils::to_shape(shape);
+            auto opts = py_utils::parse_opts(device, dtype, requires_grad);
+            return Tensor::zeros(s, opts);
+        }, py::arg("shape"), py::arg("device") = std::nullopt,
+           py::arg("dtype") = std::nullopt, py::arg("requires_grad") = false)
+
+        .def_static("ones", [](py::sequence shape,
+                               std::optional<std::string> device = std::nullopt,
+                               std::optional<std::string> dtype = std::nullopt,
+                               bool requires_grad = false) {
+            auto s = py_utils::to_shape(shape);
+            auto opts = py_utils::parse_opts(device, dtype, requires_grad);
+            return Tensor::ones(s, opts);
+        }, py::arg("shape"), py::arg("device") = std::nullopt,
+           py::arg("dtype") = std::nullopt, py::arg("requires_grad") = false)
+
+        .def_static("randn", [](py::sequence shape,
+                                std::optional<std::string> device = std::nullopt,
+                                std::optional<std::string> dtype = std::nullopt,
+                                bool requires_grad = false) {
+            auto s = py_utils::to_shape(shape);
+            auto opts = py_utils::parse_opts(device, dtype, requires_grad);
+            return Tensor::randn(s, opts);
+        }, py::arg("shape"), py::arg("device") = std::nullopt,
+           py::arg("dtype") = std::nullopt, py::arg("requires_grad") = false)
+
+        // Methods
+        .def("is_cpu", &Tensor::is_cpu)
+        .def("is_cuda", &Tensor::is_cuda)
+        .def("__repr__", [](const Tensor &t) {
+            std::ostringstream os;
+            t.display(os, 4);
+            return os.str();
+        })
+
+        // Optional — nice metadata methods
+        .def_property_readonly("shape", [](const OwnTensor::Tensor &t) {
+            std::vector<int64_t> out;
+            for (auto d : t.shape().dims)
+                out.push_back(d);
+            return out;
+        })
+        .def_property_readonly("dtype", &OwnTensor::Tensor::dtype)
+        .def_property_readonly("device", &OwnTensor::Tensor::device)
+        .def_property_readonly("requires_grad", &OwnTensor::Tensor::requires_grad);
 }
 
 
@@ -202,19 +254,19 @@ void bind_kernels(py::module_ &m) {
     // CUDA kernels
     py::module m_cuda = m_kernels.def_submodule("cuda", "CUDA kernels");
     m_cuda.def("relu", [](const float* x, float* y, int64_t n, void* stream=nullptr) {
-        cuda().relu(x, y, n, (ag_cuda_stream_t)stream);
+        ag::kernels::cuda().relu(x, y, n, (ag_cuda_stream_t)stream);
     });
     m_cuda.def("vjp_relu", [](float* gX, const float* gy, const float* X, int64_t n, void* stream=nullptr) {
-        cuda().vjp_relu(gX, gy, X, n, (ag_cuda_stream_t)stream);
+        ag::kernels::cuda().vjp_relu(gX, gy, X, n, (ag_cuda_stream_t)stream);
     });
     m_cuda.def("add", [](const float* a, const float* b, float* c, int64_t n, void* stream=nullptr) {
-        cuda().add(a, b, c, n, (ag_cuda_stream_t)stream);
+        ag::kernels::cuda().add(a, b, c, n, (ag_cuda_stream_t)stream);
     });
     m_cuda.def("sub", [](const float* a, const float* b, float* c, int64_t n, void* stream=nullptr) {
-        cuda().sub(a, b, c, n, (ag_cuda_stream_t)stream);
+        ag::kernels::cuda().sub(a, b, c, n, (ag_cuda_stream_t)stream);
     });
     m_cuda.def("matmul", [](const float* A, const float* B, float* C, int M, int K, int N, void* stream=nullptr) {
-        cuda().matmul(A, B, C, M, K, N, (ag_cuda_stream_t)stream);
+        ag::kernels::cuda().matmul(A, B, C, M, K, N, (ag_cuda_stream_t)stream);
     });
        m_kernels.def("load_cpu_plugin", &ag::kernels::load_cpu_plugin,
                   py::arg("path"), DOC(ag, kernels, load_cpu_plugin));
@@ -224,73 +276,50 @@ void bind_kernels(py::module_ &m) {
 
 
 
-// ------------------ NodeOps (free functions) ------------------
-void bind_nodeops(py::module_ &m) {
-    m.def("add_nodeops", &ag::detail::add_nodeops,
-          py::arg("a"), py::arg("b"),
-          DOC(ag, detail, add_nodeops));
-    m.def("sub_nodeops", &ag::detail::sub_nodeops,
-          py::arg("a"), py::arg("b"),
-          DOC(ag, detail, add_nodeops));
-}
-
 void bind_autodiff(py::module_ &m) {
     using namespace ag;
 
     m.def("zero_grad", &zero_grad, py::arg("root"), DOC(ag, zero_grad));
-    m.def("zerono_grad", &zerono_grad, py::arg("root"), DOC(ag, zerono_grad));
-    m.def("backward_node", &backward_node, py::arg("root"), py::arg("grad_seed") = nullptr, DOC(ag, backward_node));
+    // m.def("zerono_grad", &zerono_grad, py::arg("root"), DOC(ag, zerono_grad));
+    // m.def("backward_node", &backward_node, py::arg("root"), py::arg("grad_seed") = nullptr, DOC(ag, backward_node));
     m.def("backward", &backward, py::arg("root"), py::arg("grad_seed") = nullptr, DOC(ag, backward));
 
-    m.def("valsend", &valsend, py::arg("root"), DOC(ag, valsend));
-    m.def("grasend", &grasend, py::arg("root"), DOC(ag, grasend));
-    m.def("unisend", &unisend, py::arg("root"), DOC(ag, unisend));
-    m.def("newunisend", &newunisend, py::arg("root"), DOC(ag, newunisend));
+
 
     m.def("jvp", &jvp, py::arg("root"), py::arg("seed"), DOC(ag, jvp));
 
-    m.def("save_safetensors", &save_safetensors,
-          py::arg("tensors"), py::arg("filename"), DOC(ag, save_safetensors));
-    m.def("save_all_values_and_grads", &save_all_values_and_grads,
-          py::arg("root"), DOC(ag, save_all_values_and_grads));
+
 }
 
 
-void bind_optim(py::module_ &m) {
-    using namespace ag;
+void bind_debug(py::module_ &m) {
+    using namespace ag::debug;
 
-    py::module m_optim = m.def_submodule("optim", "ag backend optimizers");
+    py::module_ dbg = m.def_submodule("debug", "Debug utilities for autograd internals");
 
-    // Binding the SGD function (Stochastic Gradient Descent) with an optional grad_seed
-    m_optim.def("SGD", &SGD, 
-                py::arg("root"), 
-                py::arg("learning_rate") = 0.1,   // default learning rate
-                py::arg("grad_seed") = nullptr,    // optional grad_seed argument
-                DOC(ag, SGD));  // Make sure you have a proper docstring for SGD
+    dbg.def("enable_tracing",        &enable_tracing,        py::arg("on") = true, DOC(ag, debug, enable_tracing));
+    dbg.def("print_tensor",          &print_tensor,          DOC(ag, debug, print_tensor));
+    dbg.def("print_value",           &print_value,           DOC(ag, debug, print_value));
+    dbg.def("print_grad",            &print_grad,            DOC(ag, debug, print_grad));
+    dbg.def("print_all_values",      &print_all_values,      DOC(ag, debug, print_all_values));
+    dbg.def("print_all_grads",       &print_all_grads,       DOC(ag, debug, print_all_grads));
+    dbg.def("dump_dot",              &dump_dot,              DOC(ag, debug, dump_dot));
+    dbg.def("enable_grad_tracing",   &enable_grad_tracing,   py::arg("on") = true, DOC(ag, debug, enable_grad_tracing));
+    dbg.def("on_backprop_step",      &on_backprop_step,      DOC(ag, debug, on_backprop_step));
+    dbg.def("dump_vjp_dot",          &dump_vjp_dot,          DOC(ag, debug, dump_vjp_dot));
+    dbg.def("enable_jvp_tracing",    &enable_jvp_tracing,    py::arg("on") = true, DOC(ag, debug, enable_jvp_tracing));
+    dbg.def("on_jvp_step",           &on_jvp_step,           DOC(ag, debug, on_jvp_step));
+    dbg.def("dump_jvp_dot",          &dump_jvp_dot,          DOC(ag, debug, dump_jvp_dot));
 }
 
-// ------------------ CUDA Runtime ------------------
-void bind_runtime(py::module_ &m) {
-#ifdef __CUDACC__
-    m.def("cuda_available", []() { return true; });
-#else
-    m.def("cuda_available", []() { return false; });
-#endif
-}
 
-// ------------------ Module Entry ------------------
+
 PYBIND11_MODULE(cgadimpl, m) {
     m.doc() = "cgadimpl Python bindings for ag::Node, Value, and ops";
-    bind_enums(m);
-    bind_device(m);
-    bind_tensor(m);
-    bind_node(m);
-    bind_value(m);
-    bind_graph(m); 
-    bind_nodeops(m);
-    bind_runtime(m);
-    bind_kernels(m);
-    bind_autodiff(m);
     bind_ops(m);
-    bind_optim(m);
+    bind_value(m);
+    bind_tensor(m);
+    bind_kernels(m);
+    bind_debug(m);
+    bind_autodiff(m);
 }

@@ -476,29 +476,6 @@ set(CMAKE_CUDA_ARCHITECTURES 86 CACHE STRING "CUDA SMs" FORCE)
 
 project(cgadimpl LANGUAGES CXX CUDA)
 
-set(Python3_EXECUTABLE "/home/blubridge-034/Downloads/Newf/cgadimpl/venv/bin/python")
-find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
-
-
-execute_process(
-  COMMAND ${Python3_EXECUTABLE} -m pybind11 --includes
-  OUTPUT_VARIABLE PYBIND11_INCLUDE_FLAGS
-)
-string(STRIP "${PYBIND11_INCLUDE_FLAGS}" PYBIND11_INCLUDE_FLAGS)
-
-# convert the "-I..." flags into real directories
-separate_arguments(PYBIND11_INCLUDE_FLAGS)
-set(PYBIND11_INCLUDE_DIRS "")
-foreach(flag ${PYBIND11_INCLUDE_FLAGS})
-  if(flag MATCHES "^-I(.+)")
-    list(APPEND PYBIND11_INCLUDE_DIRS "${CMAKE_MATCH_1}")
-  endif()
-endforeach()
-
-message(STATUS "Detected PyBind11 include dirs: ${PYBIND11_INCLUDE_DIRS}")
-
-include_directories(${PYBIND11_INCLUDE_DIRS})
-
 # --- Compiler, CUDA, and OpenMP Setup ---
 find_package(CUDAToolkit REQUIRED)
 find_package(OpenMP REQUIRED)
@@ -528,23 +505,60 @@ else()
     message(FATAL_ERROR "Could not find the OwnTensor library. Searched in ${OWNTENSOR_DIR}")
 endif()
 
+# ---- Python & Pybind11 setup ----
+find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+
+# Locate pybind11 even if installed via pip
+execute_process(
+  COMMAND "${Python3_EXECUTABLE}" -m pybind11 --cmakedir
+  OUTPUT_VARIABLE PYBIND11_CMAKE_DIR
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+list(APPEND CMAKE_PREFIX_PATH "${PYBIND11_CMAKE_DIR}")
+
+find_package(pybind11 CONFIG REQUIRED)
+
+# ---- Sources ----
 # ---- Sources ----
 file(GLOB_RECURSE CGADIMPL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+list(REMOVE_ITEM CGADIMPL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/src/tools/binder.cpp")
 
-# ---- Library Definition ----
-add_library(cgadimpl STATIC ${CGADIMPL_SRC})
-add_library(cgadimpl::cgadimpl ALIAS cgadimpl)
 
-target_compile_definitions(cgadimpl PUBLIC WITH_CUDA)
-target_include_directories(cgadimpl PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
-target_link_libraries(cgadimpl PUBLIC OwnTensor::tensor dl)
+# ---- Core library (for C++ & tests) ----
+add_library(cgadimpl_core SHARED ${CGADIMPL_SRC})
+add_library(cgadimpl::core ALIAS cgadimpl_core)
+
+target_compile_definitions(cgadimpl_core PUBLIC WITH_CUDA)
+target_include_directories(cgadimpl_core PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
+
+set(CGADIMPL_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE PATH "Path to cgadimpl include")
+
+target_link_libraries(cgadimpl_core PUBLIC OwnTensor::tensor dl)
+
+# Fix: define include path for kernels
+set(CGADIMPL_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../kernels ${CMAKE_BINARY_DIR}/kernels_build)
+
+# ---- Pybind11 module (for Python import) ----
+pybind11_add_module(cgadimpl src/tools/binder.cpp) # or your binding entry file
+
+target_link_libraries(cgadimpl PRIVATE
+    cgadimpl_core
+    pybind11::module
+    Python3::Python
+    OpenMP::OpenMP_CXX  # <-- ADD THIS LINE
+)
+target_include_directories(cgadimpl PRIVATE ${Python3_INCLUDE_DIRS})
 
 # ---- Tests ----
 if(true)
   enable_testing()
   function(add_ag_test name src)
     add_executable(${name} ${src})
-    target_link_libraries(${name} PRIVATE cgadimpl::cgadimpl CUDA::cudart OpenMP::OpenMP_CXX)
+    target_link_libraries(${name} PRIVATE cgadimpl::core CUDA::cudart OpenMP::OpenMP_CXX)
     add_test(NAME ${name} COMMAND ${name})
   endfunction()
   
@@ -573,3 +587,4 @@ if(true)
 endif()
 
 message(STATUS "cgadimpl build mode: ${CMAKE_BUILD_TYPE}")
+
