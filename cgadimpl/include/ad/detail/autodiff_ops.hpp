@@ -16,9 +16,13 @@ using VjpFn = void(*)(Node* n, const Tensor& gy);
 // tangent_of(p) must return the tangent T[p] (same shape as p->value).
 using JvpFn = Tensor(*)(Node* n, const std::function<const Tensor&(Node*)>& tangent_of);
 
+using FwdFn = std::function<Tensor(const std::vector<std::shared_ptr<Node>>&)>;
+
+
 // Lookup tables (one slot per Op value).
 VjpFn vjp_lookup(Op op);
 JvpFn jvp_lookup(Op op);
+FwdFn fwd_lookup(Op op);
 // Optional: expose per-op rule symbols to tests only.
 
 

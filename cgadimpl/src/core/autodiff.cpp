@@ -109,4 +109,16 @@ Tensor jvp(const Value& root, const std::unordered_map<Node*, Tensor>& seed){
     return T[root.node.get()];
 }
 
+void replay_forward(const Value& root) {
+    auto order = topo_from(root.node.get());
+    for (Node* n : order) {
+        if (n->op == Op::Leaf) continue;  // already has a value
+
+        auto fn = fwd_lookup(n->op);  // you can reuse your op forward registry
+        if (fn) {
+            n->value = fn(n->inputs); // recompute
+        }
+    }
+}
+
 } // namespace ag

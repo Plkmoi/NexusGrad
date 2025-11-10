@@ -79,11 +79,14 @@ void bind_optim(py::module_ &m) {
     py::module m_optim = m.def_submodule("optim", "ag backend optimizers");
 
     // Binding the SGD function (Stochastic Gradient Descent) with an optional grad_seed
-    m_optim.def("SGD", &SGD, 
-                py::arg("root"), 
-                py::arg("learning_rate") = 0.1,   // default learning rate
-                py::arg("grad_seed") = nullptr,    // optional grad_seed argument
-                DOC(ag, SGD));  // Make sure you have a proper docstring for SGD
+m_optim.def("SGD",
+    [](const Value& root, float learning_rate) {
+        ag::SGD(root, nullptr, learning_rate);
+    },
+    py::arg("root"),
+    py::arg("learning_rate") = 0.1,
+    DOC(ag, SGD)
+);
 }
 
 void bind_ops(py::module_ &m) {
@@ -322,4 +325,5 @@ PYBIND11_MODULE(cgadimpl, m) {
     bind_kernels(m);
     bind_debug(m);
     bind_autodiff(m);
+    bind_optim(m);
 }
