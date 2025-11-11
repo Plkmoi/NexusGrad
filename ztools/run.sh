@@ -257,12 +257,23 @@ CORE_SRC="$ROOT/cgadimpl"
 CORE_BUILD="$CORE_SRC/build"
 KERNELS_SRC="$ROOT/kernels"
 KERNELS_BUILD="$KERNELS_SRC/build"
+TENSOR_DIR="$ROOT/tensor"
 
 echo "== Build Type:    $BUILD_TYPE"
 echo "== Using CUDA CXX: $CUDACXX"
 echo "== Cleaning build directories for a fresh start..."
 rm -rf "$CORE_BUILD"
 rm -rf "$KERNELS_BUILD"
+
+
+rm -rf "$TENSOR_DIR/lib" "$TENSOR_DIR/lib/objects"
+# =========================================================================
+# ====> STEP 1: BUILD THE TENSOR LIBRARY (THIS IS THE FIX) <====
+# =========================================================================
+echo "== Building tensor library"
+cd "${TENSOR_DIR}"
+make -j$(nproc)
+cd "${ROOT}"
 
 # --- Core Build ---
 echo "== Configuring core"
