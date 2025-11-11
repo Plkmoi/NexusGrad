@@ -95,6 +95,7 @@ using namespace ag;
     auto b = make_tensor(B_tensor, "B");
     
     Tensor Bias_tensor = Tensor::zeros(Shape{{8, 8}}, TensorOptions().with_req_grad(true));
+    auto c = make_tensor(Bias_tensor, "C");
 // Tensor Yt(8, 8);
 //     std::mt19937 gen(42);
 //     std::uniform_int_distribution<int> pick(0, 2 - 1);
@@ -108,16 +109,18 @@ using namespace ag;
 // auto bias = param(Tensor::zeros(8,8), "bias");
 //auto y = make_tensor(Tensor::zeros(8,8, ag::Device::CUDA), "Y",true);
 
-auto y = a-b;
+auto q = a-b;
+auto y = q+c;
 
 // for(int i =0;i<2;i++){
 //     auto q =   fmab(a,b,c); // [2,2]
 //     //auto m=q*c;
 //     auto r=q - d;
 //     y = mse_loss(relu(r), e);
-std::cout << "y = "; y.val();
-std::cout <<","<< endl<< "A = "; a.val();
-std::cout <<","<< endl<< "B = "; b.val();
+debug::print_value("logits = linear(L3, W4, b4)", q);
+debug::print_value("logits = linear(L3, W4, b4)", a);
+debug::print_value("logits = linear(L3, W4, b4)", b);
+zero_val(y);
 // <<","<< endl<< "B = " << b.val()<<","<< endl
 // << "c = " << c.val() << endl<< "q = " << y.val() << endl;
 // std::cout << "y grad " << y.grad() << endl;
@@ -126,7 +129,7 @@ std::cout <<","<< endl<< "B = "; b.val();
 // << "dL/dbias[0,0] = " << bias.grad() << endl<< "dL/dq = " << y.grad() << endl;
 forward(y);
 
-std::cout << "y = "; y.val();
+std::cout << "y = "; debug::print_value("logits = linear(L3, W4, b4)", q);
 std::cout <<","<< endl<< "A = "; a.grad();
 std::cout <<","<< endl<< "B = "; b.grad();
 

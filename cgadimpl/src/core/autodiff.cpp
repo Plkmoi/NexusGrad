@@ -27,6 +27,11 @@ void zero_grad(const Value& root){
     for (Node* n : order) if (n->requires_grad()) n->grad = Tensor::zeros(n->value.shape(), ag::options(n->value));
 }
 
+void zero_val(const Value& root){
+    auto order = topo_from(root.node.get());
+    for (Node* n : order) if (n->requires_grad() && n->op!=Op::Leaf) n->value = Tensor::zeros(n->value.shape(), ag::options(n->value));
+}
+
 void backward(const Value& root, const Tensor* grad_seed){
     auto order = topo_from(root.node.get());
     // std::cout<<"HERE";
@@ -117,10 +122,24 @@ void forward(const Value& root) {
         if (n->op == Op::Leaf) continue;  // already has a value
 
         auto fn = fwd_lookup(n->op);  // you can reuse your op forward registry
-        if (fn) {
-            n = fn(n->inputs); // recompute
-        }
+        // auto r = n->shared_from_this();
+        if (fn) fn(n);
     }
 }
+
+
+// void forwarde(const Value& root) {
+//     auto order = topo_from(root.node.get());
+//     for (Node* n : order) {
+//         if (n->op == Op::Leaf) continue;  // already has a value
+
+//         auto fn = fwd_lookup(n->op);  // you can reuse your op forward registry
+//         if (fn) {
+//             n = fn(n->inputs).get(); // recompute
+//             std::cout<<"HERE  ";
+//             ag::debug::print_tensor("Work Y", n->value);
+//         }
+//     }
+// }
 
 } // namespace ag

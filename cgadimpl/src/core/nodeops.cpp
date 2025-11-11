@@ -28,7 +28,9 @@ std::shared_ptr<Node> sub_nodeops(const std::shared_ptr<Node>& a, const std::sha
     Tensor Y = a->value - b->value;
     // FIX: Use the new 3-argument Node constructor
     auto n = std::make_shared<Node>(Y, Op::Sub, (a->requires_grad() || b->requires_grad()), "-");
+    ag::debug::print_tensor("Check Y",Y);
     n->inputs = {a, b};
+    std::cout<<"RFRHG4";
     ag::debug::on_node_created(n);
     return n;
 }
