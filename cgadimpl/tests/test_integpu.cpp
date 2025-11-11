@@ -128,7 +128,6 @@ zero_val(y);
 // <<","<< endl<< "dL/dB[0,0] = " << b.grad()<<","<< endl
 // << "dL/dbias[0,0] = " << bias.grad() << endl<< "dL/dq = " << y.grad() << endl;
 forward(y);
-
 std::cout << "y = "; debug::print_value("logits = linear(L3, W4, b4)", q);
 std::cout <<","<< endl<< "A = "; a.grad();
 std::cout <<","<< endl<< "B = "; b.grad();

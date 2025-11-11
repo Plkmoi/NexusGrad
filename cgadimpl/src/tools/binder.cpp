@@ -85,8 +85,7 @@ m_optim.def("SGD",
     },
     py::arg("root"),
     py::arg("learning_rate") = 0.1,
-    DOC(ag, SGD)
-);
+    DOC(ag, SGD),  py::call_guard<py::gil_scoped_release>());
 }
 
 void bind_ops(py::module_ &m) {
@@ -282,16 +281,14 @@ void bind_kernels(py::module_ &m) {
 void bind_autodiff(py::module_ &m) {
     using namespace ag;
 
-    m.def("zero_grad", &zero_grad, py::arg("root"), DOC(ag, zero_grad));
-    m.def("zero_val", &zero_val, py::arg("root"), DOC(ag, zero_val));
-    m.def("forward", &forward, py::arg("root"), DOC(ag, forward));
-    // m.def("zerono_grad", &zerono_grad, py::arg("root"), DOC(ag, zerono_grad));
-    // m.def("backward_node", &backward_node, py::arg("root"), py::arg("grad_seed") = nullptr, DOC(ag, backward_node));
-    m.def("backward", &backward, py::arg("root"), py::arg("grad_seed") = nullptr, DOC(ag, backward));
+m.def("forward",  &forward,  py::arg("root"),  py::call_guard<py::gil_scoped_release>());
+m.def("backward", &backward, py::arg("root"), py::arg("grad_seed") = nullptr,
+      py::call_guard<py::gil_scoped_release>());
+m.def("zero_grad",&zero_grad,py::arg("root"),  py::call_guard<py::gil_scoped_release>());
+m.def("zero_val", &zero_val, py::arg("root"),  py::call_guard<py::gil_scoped_release>());
+m.def("jvp",      &jvp,      py::arg("root"),  py::arg("seed"),
+      py::call_guard<py::gil_scoped_release>());
 
-
-
-    m.def("jvp", &jvp, py::arg("root"), py::arg("seed"), DOC(ag, jvp));
 
 
 }

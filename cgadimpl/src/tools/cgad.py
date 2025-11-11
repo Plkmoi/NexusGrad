@@ -23,12 +23,11 @@ x = cgadimpl.make_tensor(r, "C")
 # f = cgadimpl.ops.sub(q,w)
 m = cgadimpl.ops.add(cgadimpl.ops.sub(q,w),x)
 print(m.val)
-cgadimpl.zero_val(m)
-# for i in range(1000):
-#     cgadimpl.forward(m)
-#     cgadimpl.zero_grad(m)
-#     cgadimpl.backward(m)
-#     cgadimpl.optim.SGD(m, 1)
-cgadimpl.forward(m)
+for i in range(1000):
+    cgadimpl.forward(m)
+    cgadimpl.zero_grad(m)
+    cgadimpl.backward(m)
+    cgadimpl.optim.SGD(m, 1)
 
-print(m.val)
+
+print(q.val, q.grad, m.val)
