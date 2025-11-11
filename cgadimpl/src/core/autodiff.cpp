@@ -27,22 +27,33 @@ void zero_grad(const Value& root){
     for (Node* n : order) if (n->requires_grad()) n->grad = Tensor::zeros(n->value.shape(), ag::options(n->value));
 }
 
+void zero_val(const Value& root){
+    auto order = topo_from(root.node.get());
+    for (Node* n : order) if (n->requires_grad() && n->op!=Op::Leaf) n->value = Tensor::zeros(n->value.shape(), ag::options(n->value));
+}
+
 void backward(const Value& root, const Tensor* grad_seed){
     auto order = topo_from(root.node.get());
+    // std::cout<<"HERE";
 
-    // for (Node* n : order) {
-        
-    //     if (n->requires_grad() /*&& n->grad.numel() == 0*/) {
-    //         n->grad = Tensor::zeros(n->value.shape(), ag::options(n->value));
-    //     }
-    // }
+    for (Node* n : order) {
+        if (n->requires_grad() && n->grad.numel() == 0) {
+            n->grad = Tensor::zeros(n->value.shape(), ag::options(n->value));
+        }
+            // std::cout<<"HERE2";
+
+    }
 
      // seed
     if (root.node->requires_grad()) {
+            // std::cout<<"HERE3";
+
         if (grad_seed) {
             root.node->grad = *grad_seed;
         } else {
             // Use the new factories and get options from the value tensor
+                // std::cout<<"HERE4";
+
             auto opts = ag::options(root.node->value);
             if (root.node->value.numel() == 1) {
                 root.node->grad.fill(1.0f);
@@ -66,7 +77,6 @@ void backward(const Value& root, const Tensor* grad_seed){
             throw std::runtime_error("autodiff: failed to recompute checkpointed node during backward");
         }
         }
-        //  this part calculates and accumulates gradients into parent nodes
         VjpFn fn = vjp_lookup(n->op);
         if (fn) fn(n, gy); // handler accumulates into parents
     }
@@ -103,5 +113,33 @@ Tensor jvp(const Value& root, const std::unordered_map<Node*, Tensor>& seed){
     }
     return T[root.node.get()];
 }
+
+
+
+void forward(const Value& root) {
+    auto order = topon_from(root.node);
+    for (std::shared_ptr<Node> n : order) {
+        if (n->op == Op::Leaf) continue;  // already has a value
+
+        auto fn = fwd_lookup(n->op);  // you can reuse your op forward registry
+        // auto r = n->shared_from_this();
+        if (fn) fn(n);
+    }
+}
+
+
+// void forwarde(const Value& root) {
+//     auto order = topo_from(root.node.get());
+//     for (Node* n : order) {
+//         if (n->op == Op::Leaf) continue;  // already has a value
+
+//         auto fn = fwd_lookup(n->op);  // you can reuse your op forward registry
+//         if (fn) {
+//             n = fn(n->inputs).get(); // recompute
+//             std::cout<<"HERE  ";
+//             ag::debug::print_tensor("Work Y", n->value);
+//         }
+//     }
+// }
 
 } // namespace ag
