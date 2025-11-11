@@ -1,0 +1,156 @@
+// // =====================
+// // file: tests/test_mlp.cpp
+// // =====================
+// #include <iostream>
+// #include "ad/ag_all.hpp"
+// #include <iomanip>
+// #include <iostream>
+
+// static void printTensor(const char* name,
+//                         const ag::Tensor& T,
+//                         int max_r = -1, int max_c = -1,
+//                         int width = 9, int prec = 4) {
+//     using std::cout;
+//     using std::fixed;
+//     using std::setw;
+//     using std::setprecision;
+
+//     const int r = T.rows(), c = T.cols();
+//     if (max_r < 0) max_r = r;
+//     if (max_c < 0) max_c = c;
+
+//     cout << name << " [" << r << "x" << c << "]";
+//     if (r == 1 && c == 1) { // scalar fast path
+//         cout << " = " << fixed << setprecision(6) << T(0,0) << "\n";
+//         return;
+//     }
+//     cout << "\n";
+
+//     const int rr = std::min(r, max_r);
+//     const int cc = std::min(c, max_c);
+//     for (int i = 0; i < rr; ++i) {
+//         cout << "  ";
+//         for (int j = 0; j < cc; ++j) {
+//             cout << setw(width) << fixed << setprecision(prec) << T(i,j);
+//         }
+//         if (cc < c) cout << " ...";
+//         cout << "\n";
+//     }
+//     if (rr < r) cout << "  ...\n";
+// }
+
+// using namespace std;
+
+// int main(){
+// using namespace ag;
+// Tensor A = Tensor::randn(2,3);
+// Tensor B = Tensor::randn(3,2);
+// auto a = param(A, "A");
+// auto b = param(B, "B");
+
+
+// auto y = sum(relu(matmul(a,b))); // scalar
+
+
+// zero_grad(y);
+// backward(y);
+// std::cout << "y = " << y.val().sum_scalar() << endl;
+// std::cout << "dL/dA[0,0] = " << a.grad()(0,0) << ", dL/dB[0,0] = " << b.grad()(0,0) << endl;
+
+
+// // JVP: along dA=ones, dB=zeros
+// std::unordered_map<Node*, Tensor> seed; seed[a.node.get()] = Tensor::ones_like(a.val());
+// Tensor jy = jvp(y, seed);
+// std::cout << "JVP dy(dA,0) = " << jy(0,0) << endl;
+
+// printTensor("A", a.val());
+// printTensor("B", b.val());
+// ag::Tensor Z = ag::Tensor::matmul(a.val(), b.val());
+// printTensor("Z = A*B", Z);
+// printTensor("ReLU mask", ag::Tensor::relu_mask(Z));
+// printTensor("grad A", a.grad());
+// printTensor("grad B", b.grad());
+// printTensor("JVP dy(dA,0)", jy);  // jy is 1x1, prints as scalar
+
+// cout << "Numerically verified! \nTest successful!\n";
+// return 0;
+// }
+#include <iostream>
+#include "optim.hpp"
+#include <random>
+#include <iomanip>
+#include "ad/export_hlo.hpp"
+using namespace ag;
+
+
+int main(){
+using namespace std;
+using namespace ag;
+
+    Tensor A_tensor = Tensor::randn(Shape{{8, 8}}, TensorOptions().with_req_grad(true));
+    auto a = make_tensor(A_tensor, "A");
+
+    // Create Tensors for trainable parameters 'b' and 'bias'
+    Tensor B_tensor = Tensor::randn(Shape{{8, 8}}, TensorOptions().with_req_grad(true));
+    auto b = make_tensor(B_tensor, "B");
+    
+    Tensor Bias_tensor = Tensor::zeros(Shape{{8, 8}}, TensorOptions().with_req_grad(true));
+    auto c = make_tensor(Bias_tensor, "C");
+// Tensor Yt(8, 8);
+//     std::mt19937 gen(42);
+//     std::uniform_int_distribution<int> pick(0, 2 - 1);
+//     for (int i = 0; i < 8; ++i) {
+//         int k = pick(gen);
+//         for (int j = 0; j < 8; ++j) Yt(i, j) = (j == k) ? 1.f : 0.f;
+//     }
+//     Value W = constant(Yt, "Y");
+
+
+// auto bias = param(Tensor::zeros(8,8), "bias");
+//auto y = make_tensor(Tensor::zeros(8,8, ag::Device::CUDA), "Y",true);
+
+auto q = a-b;
+auto y = q+c;
+
+// for(int i =0;i<2;i++){
+//     auto q =   fmab(a,b,c); // [2,2]
+//     //auto m=q*c;
+//     auto r=q - d;
+//     y = mse_loss(relu(r), e);
+debug::print_value("logits = linear(L3, W4, b4)", q);
+debug::print_value("logits = linear(L3, W4, b4)", a);
+debug::print_value("logits = linear(L3, W4, b4)", b);
+zero_val(y);
+// <<","<< endl<< "B = " << b.val()<<","<< endl
+// << "c = " << c.val() << endl<< "q = " << y.val() << endl;
+// std::cout << "y grad " << y.grad() << endl;
+// std::cout << "dL/dA[0,0] = " << a.grad()
+// <<","<< endl<< "dL/dB[0,0] = " << b.grad()<<","<< endl
+// << "dL/dbias[0,0] = " << bias.grad() << endl<< "dL/dq = " << y.grad() << endl;
+forward(y);
+std::cout << "y = "; debug::print_value("logits = linear(L3, W4, b4)", q);
+std::cout <<","<< endl<< "A = "; a.grad();
+std::cout <<","<< endl<< "B = "; b.grad();
+
+// std::cout << "y = " << y.val()
+// <<","<< endl<< "A = " << a.val()
+// <<","<< endl<< "B = " << b.val()<<","<< endl
+// << "D = " << d.val() << endl<< "C = " << c.val() << endl;
+// //SGD(y, 0.005f);
+// // }
+// // ag::hlo::dump_stablehlo(y, "cgadimpl/tests/model.hlo");
+
+
+// std::cout << "y = " << y.val()
+// <<","<< endl<< "A = " << a.val()
+// <<","<< endl<< "B = " << b.val()<<","<< endl
+// << "D = " << d.val() << endl<< "C = " << c.val() << endl;
+// std::cout << "y grad " << y.grad() << endl;
+// std::cout << "dL/dA[0,0] = " << a.grad()
+// <<","<< endl<< "dL/dB[0,0] = " << b.grad()<<","<< endl
+// << "dL/dC = " << c.grad() << endl<< "dL/dD = " << d.grad() << endl;
+
+//save_all_values_and_grads(y);
+
+
+}
