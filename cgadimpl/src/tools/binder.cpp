@@ -51,9 +51,9 @@ inline OwnTensor::TensorOptions parse_opts(
 ) {
     using namespace OwnTensor;
     TensorOptions opts;
-
+opts = opts.with_req_grad(requires_grad);
     if (device) {
-        if (*device == "cuda" || *device == "CUDA")
+        if (device == "cuda" || device == "CUDA")
             opts = opts.with_device(DeviceIndex(Device::CUDA));
         else
             opts = opts.with_device(DeviceIndex(Device::CPU));
@@ -67,7 +67,6 @@ inline OwnTensor::TensorOptions parse_opts(
         // add more if needed
     }
 
-    opts = opts.with_req_grad(requires_grad);
     return opts;
 }
 
