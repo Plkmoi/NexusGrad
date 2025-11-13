@@ -228,11 +228,11 @@ void vjp_Attention(Node* n, const Tensor& gy){
         D->grad += OwnTensor::matmul(A->value.t(), dL_dv);
     }
     if (A->requires_grad()) {
-        Tensor dL_dA_q = OwnTensor::matmul(dL_dq, B->value);
-        Tensor dL_dA_k = OwnTensor::matmul(dL_dk, C->value);
-        Tensor dL_dA_v = OwnTensor::matmul(dL_dv, D->value);
-        A->grad += (dL_dA_q * scale) + (dL_dA_k * scale) + dL_dA_v;
-    }
+    Tensor dL_dA_q = OwnTensor::matmul(dL_dq, B->value.t());
+    Tensor dL_dA_k = OwnTensor::matmul(dL_dk, C->value.t());
+    Tensor dL_dA_v = OwnTensor::matmul(dL_dv, D->value.t());
+    A->grad += (dL_dA_q * scale) + (dL_dA_k * scale) + dL_dA_v;
+}
 }
 
 void vjp_AlibiAttention(Node* n, const Tensor& gy){
@@ -264,14 +264,28 @@ void vjp_SWIGLU(Node* n, const Tensor& gy){
     Tensor dL_dh = swish_y * gy;
     Tensor dL_dy = h * swish_grad * gy;
 
-    if (D->requires_grad()) D->grad += dL_dh;
-    if (C->requires_grad()) C->grad += OwnTensor::matmul(dL_dh.t(), X->value);
-    
-    if (B->requires_grad()) B->grad += dL_dy;
-    if (A->requires_grad()) A->grad += OwnTensor::matmul(dL_dy.t(), X->value);
-    
+        if (D->requires_grad()) {
+        // reduce_sum over dim 0 → [1,O]
+        Tensor grad_D = OwnTensor::reduce_sum(dL_dh, {0}, true);
+        D->grad += grad_D;
+    }
+
+    if (C->requires_grad()) {
+        C->grad += OwnTensor::matmul(dL_dh.t(), X->value); // [O,B]@[B,I]=[O,I]
+    }
+
+    if (B->requires_grad()) {
+        Tensor grad_B = OwnTensor::reduce_sum(dL_dy, {0}, true);
+        B->grad += grad_B;
+    }
+
+    if (A->requires_grad()) {
+        A->grad += OwnTensor::matmul(dL_dy.t(), X->value); // [O,I]
+    }
+
     if (X->requires_grad()) {
-        X->grad += OwnTensor::matmul(dL_dh, C->value) + OwnTensor::matmul(dL_dy, A->value);
+        X->grad += OwnTensor::matmul(dL_dh, C->value)      // [B,O]@[O,I]=[B,I]
+                 + OwnTensor::matmul(dL_dy, A->value);     // [B,I]
     }
 }
 // ===================================================================
@@ -781,7 +795,24 @@ void vjp_Reciprocal(Node* n, const Tensor& gy){
 // vjp_RealRMSNorm (Stub)
 // ===================================================================
 void vjp_RealRMSNorm(Node* n, const Tensor& gy){
-    throw std::runtime_error("VJP for RealRMSNorm not implemented yet!");
+    Node* x = n->inputs[0].get();
+    Node* g = n->inputs[1].get();
+    if (!x->requires_grad()) return;
+
+    const Tensor& rms = *n->tape[0]; // rsqrt(variance + epsilon)
+    const Tensor& y_normalized = *n->tape[1]; // x * rsqrt(...)
+    
+    const float inv_N = 1.0f / static_cast<float>(x->value.shape().dims.back());
+
+    Tensor dot = OwnTensor::reduce_sum(gy * y_normalized, {-1}, true);
+    
+    // grad_x = rsqrt * (gy - y * dot)
+    Tensor grad_x = g->value * rms * (gy - y_normalized * dot);
+
+    x->grad += grad_x;
+    Tensor gy_y  = gy * y_normalized; // [B,D]
+        Tensor grad_g = OwnTensor::reduce_sum(gy_y, {0, 1}, true); // [1,1] (or do 2-step sum)
+        g->grad += grad_g;
 }
 
 // ===================================================================

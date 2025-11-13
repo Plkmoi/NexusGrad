@@ -17,6 +17,7 @@ Tensor jvp (const Value& root, const std::unordered_map<Node*, Tensor>& seed);
 
 void forward(const Value& root);
 // void forwarde(const Value& root);
-
+Value shallow(const Value& q);
+Value forwardstor(const Value& root);
 
 } // namespace ag

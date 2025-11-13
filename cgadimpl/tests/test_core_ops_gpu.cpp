@@ -220,6 +220,16 @@ void test_all_ops() {
         assert(check_grad(w.grad(), numerical_gradient(w, f), 1e-2));
         assert(check_grad(b.grad(), numerical_gradient(b, f), 1e-2));
     });
+    // run_test("FMAB", [&](){
+    //     Value x = make_tensor(Tensor::randn(Shape{{17, 6}}, opts));
+    //     Value w = make_tensor(Tensor::randn(Shape{{11, 2}}, opts)); // (out, in)
+    //     Value b = make_tensor(Tensor::randn(Shape{{1, 8}}, opts));
+    //     auto f = [&](){ return fmab(x, w, b); };
+    //     backward(sum(f()));
+    //     assert(check_grad(x.grad(), numerical_gradient(x, f), 1e-2));
+    //     assert(check_grad(w.grad(), numerical_gradient(w, f), 1e-2));
+    //     assert(check_grad(b.grad(), numerical_gradient(b, f), 1e-2));
+    // });
 
     // --- Normalization ---
     run_test("LayerNorm", [&](){

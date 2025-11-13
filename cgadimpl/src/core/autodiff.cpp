@@ -32,6 +32,19 @@ void zero_val(const Value& root){
     for (Node* n : order) if (n->requires_grad() && n->op!=Op::Leaf) n->value = Tensor::zeros(n->value.shape(), ag::options(n->value));
 }
 
+Value shallow(const Value& q) {
+    if (!q.node) throw std::runtime_error("shallow(): q.node is null");
+
+    auto n = std::make_shared<Node>();   // ← allocate a fresh Node
+    n->value = q.node->value;            // copies Tensor handle (may alias storage)
+    n->grad  = q.node->grad;
+    n->op    = q.node->op;
+    n->inputs    = q.node->inputs;
+    n->tape    = q.node->tape;
+
+    return Value{std::move(n)};
+}
+
 void backward(const Value& root, const Tensor* grad_seed){
     auto order = topo_from(root.node.get());
     // std::cout<<"HERE";
@@ -125,6 +138,19 @@ void forward(const Value& root) {
         // auto r = n->shared_from_this();
         if (fn) fn(n);
     }
+}
+
+Value forwardstor(const Value& root) {
+    auto order = topon_from(root.node);
+    for (std::shared_ptr<Node> n : order) {
+        if (n->op == Op::Leaf) continue;  // already has a value
+
+        auto fn = fwd_lookup(n->op);  // you can reuse your op forward registry
+        // auto r = n->shared_from_this();
+        if (fn) fn(n);
+    }
+
+    return root;
 }
 
 

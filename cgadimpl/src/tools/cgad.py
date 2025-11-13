@@ -28,6 +28,8 @@ for i in range(22):
     cgadimpl.backward(m)
     cgadimpl.optim.SGD(m, 1)
 
+cgadimpl.debug.dump_vjp_dot(m , "cgadimpl")
+
     
 try:
     cgadimpl.debug.print_grad("M",q)

@@ -890,7 +890,8 @@ std::shared_ptr<Node> realrms_nodeops(const std::shared_ptr<Node>& x, float& g_v
 
     Tensor y_scaled = y_normalized * G->value;
 
-    auto n = std::make_shared<Node>(y_scaled, Op::RealRMSNorm, x->requires_grad(), "realrmsnorm");
+    auto n = std::make_shared<Node>(y_scaled, Op::RealRMSNorm,
+                                x->requires_grad() || G->requires_grad(), "realrmsnorm");
     n->tape.push_back(std::make_shared<Tensor>(rsqrt_var));
     n->tape.push_back(std::make_shared<Tensor>(y_normalized));
     n->inputs = {x, G};
