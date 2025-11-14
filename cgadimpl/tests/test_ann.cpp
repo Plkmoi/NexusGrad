@@ -42,9 +42,14 @@ int main() {
         Value predictions = model(X);  // (batch_size, output_features)
         Value loss = mse_loss(predictions, Y);
 
-        // float loss_value = loss.val().data<float>()[0];
-        // std::cout << "Epoch " << std::setw(2) << epoch 
-        //           << ", Loss: " << std::fixed << std::setprecision(4) << loss_value << std::endl;
+
+        ag::disten(loss, Device::CPU);
+
+        float loss_value = loss.val().data<float>()[0];
+        std::cout << "Epoch " << std::setw(2) << epoch
+                  << ", Loss: " << std::fixed << std::setprecision(6)
+                  << loss_value << std::endl;
+        ag::disten(loss, Device::CUDA);
 
         model.zero_grad();
         backward(loss);

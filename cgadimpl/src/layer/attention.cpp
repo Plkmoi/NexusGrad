@@ -10,7 +10,7 @@ namespace ag::layer {
 
 
 Attention::Attention(int in_features, int out_features, Device dev) {
-    float scale = sqrtf(2.0f / in_features);
+    float scale = sqrtf(0.02f / in_features);
     auto param_opts = OwnTensor::TensorOptions().with_device(dev).with_req_grad(true);
     Tensor wq = OwnTensor::Tensor::randn(Shape{{in_features, out_features}}, param_opts) * scale;
     Tensor wk = OwnTensor::Tensor::randn(Shape{{in_features, out_features}}, param_opts) * scale;

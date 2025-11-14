@@ -14,12 +14,12 @@ int main() {
     std::cout << "========================================\n\n";
 
     // 1. --- Hyperparameters ---
-    const int B            = 32;    // batch size
-    const int d_model      = 128;   // model / residual width
-    const int num_classes  = 10;    // number of classes (logits dim)
-    const int num_layers   = 2;     // (Attn + SWIGLU) block pairs
-    const float lr         = 0.001f;
-    const int epochs       = 50;
+    const int B            = 64;    // batch size
+    const int d_model      = 512;   // model / residual width
+    const int num_classes  = 3;    // number of classes (logits dim)
+    const int num_layers   = 4;     // (Attn + SWIGLU) block pairs
+    const float lr         = 0.0001f;
+    const int epochs       = 100;
 
     // 2. --- Build a LLaMA-ish stack of Layers ---
     //
@@ -34,23 +34,25 @@ int main() {
     std::vector<ag::layer::Layer*> layers;
     layers.reserve(num_layers * 2 + 2);
 
+    Device dev=Device::CUDA;
+
     for (int i = 0; i < num_layers; ++i) {
         // Attention sub-block: x + Attn(RMSNorm(x))
         layers.push_back(new ag::layer::ResidualBlock({
             new ag::layer::RMSNorm(),
-            new ag::layer::Attention(d_model, d_model, Device::CUDA)
+            new ag::layer::Attention(d_model, d_model, dev)
         }));
 
         // MLP / SWIGLU sub-block: x + SWIGLU(RMSNorm(x))
         layers.push_back(new ag::layer::ResidualBlock({
             new ag::layer::RMSNorm(),
-            new ag::layer::SWIGLU(d_model, d_model, Device::CUDA)
+            new ag::layer::SWIGLU(d_model, d_model, dev)
         }));
     }
 
     // Final norm + classification head (logits)
     layers.push_back(new ag::layer::RMSNorm());
-    layers.push_back(new ag::layer::Linear(d_model, num_classes, Device::CUDA));
+    layers.push_back(new ag::layer::Linear(d_model, num_classes, dev));
 
     ag::layer::Traverse model(layers);
 
@@ -63,7 +65,7 @@ int main() {
     //
     Tensor Xt = Tensor::randn(
         Shape{{B, d_model}},
-        TensorOptions().with_device(Device::CUDA)   // inputs are not trainable
+        TensorOptions().with_device(dev)   // inputs are not trainable
     );
     Value X = make_tensor(Xt, "X");
 
@@ -84,17 +86,25 @@ int main() {
     }
     Value Y = make_tensor(Yt, "Y_target");   // one-hot labels
 
-                ag::disten(Y, Device::CUDA);
+                ag::disten(Y, dev);
 
-        Value logits = model(X);
+        // Value logits = model(X);
 
-        // Your CE-with-logits implementation taking (logits, one_hot_targets)
-        Value loss = cross_entropy_with_logits(logits, Y);
+        // // Your CE-with-logits implementation taking (logits, one_hot_targets)
+        // Value loss = cross_entropy_with_logits(logits, Y);
+
+        // zero_val(loss);
     // 4. --- Training loop with cross-entropy-with-logits ---
     for (int epoch = 0; epoch < epochs; ++epoch) {
         // Forward: logits [B, num_classes]
 
-        forward(loss);
+        // forward(loss);
+
+        Value logits = model(X);
+        // Value newlogits = softmax_row(logits);
+
+        // Your CE-with-logits implementation taking (logits, one_hot_targets)
+        Value loss = cross_entropy_with_logits(logits, Y);
 
         ag::disten(loss, Device::CPU);
 
@@ -106,7 +116,7 @@ int main() {
 
         // Backward + update
 
-        ag::disten(loss, Device::CUDA);
+        ag::disten(loss, dev);
 
         model.zero_grad();
         backward(loss);
