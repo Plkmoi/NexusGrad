@@ -128,6 +128,12 @@ Tensor jvp(const Value& root, const std::unordered_map<Node*, Tensor>& seed){
 }
 
 
+void disten(Value Y, Device dev){
+                Y.node->value = Y.node->value.to(dev);
+            Y.node->grad = OwnTensor::Tensor::zeros(Y.node->value.shape(), ag::options(Y.node->value));
+
+
+}
 
 void forward(const Value& root) {
     auto order = topon_from(root.node);

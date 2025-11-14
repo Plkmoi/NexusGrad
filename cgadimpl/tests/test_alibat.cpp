@@ -33,24 +33,25 @@ int main() {
     //
     std::vector<ag::layer::Layer*> layers;
     layers.reserve(num_layers * 2 + 2);
-
+auto dev = Device::CUDA;
     for (int i = 0; i < num_layers; ++i) {
         // Attention sub-block: x + Attn(RMSNorm(x))
         layers.push_back(new ag::layer::ResidualBlock({
             new ag::layer::RMSNorm(),
-            new ag::layer::Attention(d_model, d_model, Device::CUDA)
+            new ag::layer::AlibiAttention(/*d_model=*/d_model, /*n_heads=*/4, /*m=*/1.0f, dev)
+
         }));
 
         // MLP / SWIGLU sub-block: x + SWIGLU(RMSNorm(x))
         layers.push_back(new ag::layer::ResidualBlock({
             new ag::layer::RMSNorm(),
-            new ag::layer::SWIGLU(d_model, d_model, Device::CUDA)
+            new ag::layer::SWIGLU(d_model, d_model, dev)
         }));
     }
 
     // Final norm + classification head (logits)
     layers.push_back(new ag::layer::RMSNorm());
-    layers.push_back(new ag::layer::Linear(d_model, num_classes, Device::CUDA));
+    layers.push_back(new ag::layer::Linear(d_model, num_classes, dev));
 
     ag::layer::Traverse model(layers);
 
@@ -63,7 +64,7 @@ int main() {
     //
     Tensor Xt = Tensor::randn(
         Shape{{B, d_model}},
-        TensorOptions().with_device(Device::CUDA)   // inputs are not trainable
+        TensorOptions().with_device(dev)    // inputs are not trainable
     );
     Value X = make_tensor(Xt, "X");
 
@@ -83,31 +84,24 @@ int main() {
         }
     }
     Value Y = make_tensor(Yt, "Y_target");   // one-hot labels
+                ag::disten(Y, dev);
 
-                ag::disten(Y, Device::CUDA);
-
+    // 4. --- Training loop with cross-entropy-with-logits ---
+    for (int epoch = 0; epoch < epochs; ++epoch) {
+        // Forward: logits [B, num_classes]
         Value logits = model(X);
 
         // Your CE-with-logits implementation taking (logits, one_hot_targets)
         Value loss = cross_entropy_with_logits(logits, Y);
-    // 4. --- Training loop with cross-entropy-with-logits ---
-    for (int epoch = 0; epoch < epochs; ++epoch) {
-        // Forward: logits [B, num_classes]
-
-        forward(loss);
-
         ag::disten(loss, Device::CPU);
-
 
         float loss_value = loss.val().data<float>()[0];
         std::cout << "Epoch " << std::setw(2) << epoch
                   << ", Loss: " << std::fixed << std::setprecision(6)
                   << loss_value << std::endl;
+        ag::disten(loss, dev);
 
         // Backward + update
-
-        ag::disten(loss, Device::CUDA);
-
         model.zero_grad();
         backward(loss);
         ag::SGD(loss, nullptr, lr);

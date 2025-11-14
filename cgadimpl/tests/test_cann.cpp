@@ -21,14 +21,14 @@ int main() {
     const int epochs = 15;
 
     // 2. --- Create the Model ---
-    ag::nn::Sequential model({
-            new ag::nn::ResidualBlock({
-        new ag::nn::RMSNorm(),
-        new ag::nn::Attention(input_features, input_features)
+    ag::layer::Traverse model({
+            new ag::layer::ResidualBlock({
+        new ag::layer::RMSNorm(),
+        new ag::layer::Attention(input_features, input_features)
     }),
 
-    new ag::nn::SWIGLU(input_features, input_features),
-        new ag::nn::Linear(input_features, output_features)
+    new ag::layer::SWIGLU(input_features, input_features),
+        new ag::layer::Linear(input_features, output_features)
     });
 
     std::cout << "Model created with " << model.parameters().size() << " parameter tensors.\n\n";

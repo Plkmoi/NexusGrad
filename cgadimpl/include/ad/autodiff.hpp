@@ -19,5 +19,6 @@ void forward(const Value& root);
 // void forwarde(const Value& root);
 Value shallow(const Value& q);
 Value forwardstor(const Value& root);
+void disten(Value Y, Device dev);
 
 } // namespace ag

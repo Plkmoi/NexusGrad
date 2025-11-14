@@ -43,6 +43,8 @@ inline Value make_tensor(const Tensor& v, const char* name = "") {
     return Value(std::make_shared<Node>(v, Op::Leaf, v.requires_grad(), name));
 }
 
+
+
 std::vector<Node*> topo_from(Node* root);
     std::vector<std::shared_ptr<Node>> topon_from(std::shared_ptr<Node> root);
     

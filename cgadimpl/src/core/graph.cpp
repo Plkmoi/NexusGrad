@@ -42,6 +42,7 @@ const Tensor& Value::grad() const { return node->grad; }
 Value::Value() = default;
 Value::Value(std::shared_ptr<Node> n) : node(std::move(n)) {}
 
+
 // NEW: Implementation for the real shape()
 const std::vector<int64_t>& Value::shape() const {
     return node->value.shape().dims;

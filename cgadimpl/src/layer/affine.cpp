@@ -1,11 +1,12 @@
-#include "nn/nn.hpp"
+#include "layer/affine.hpp"
 #include <cmath>
 #include <cassert>
 #include "tensor.hpp" 
+#include <ad/autodiff.hpp>
 
-namespace ag::nn {
+namespace ag::layer {
 
-void Module::to(Device dev) {
+void Layer::to(Device dev) {
     for (Value& p : params_) {
         if (p.node) {
             p.node->value = p.node->value.to(dev);
@@ -14,7 +15,7 @@ void Module::to(Device dev) {
     }
 }
 
-void Module::zero_grad() {
+void Layer::zero_grad() {
     for (Value& p : params_) {
         if (p.node && p.node->requires_grad()) {
             p.node->grad = OwnTensor::Tensor::zeros(p.node->value.shape(), ag::options(p.node->value));
@@ -39,23 +40,57 @@ Value Linear::operator()(Value input) {
     return linear(input, W, b);
 }
 
-Sequential::Sequential(const std::vector<Module*>& modules) : layers_(modules) {
+
+
+RMSNorm::RMSNorm(Device dev) {
+
+}
+
+Value RMSNorm::operator()(Value input) {   
+    return realrms(input, gamma);
+}
+
+
+Traverse::Traverse(const std::vector<Layer*>& Layers)
+    : layers_(Layers)
+{
     for (auto* mod : layers_) {
-        for(auto& p : mod->parameters()) {
+        for (auto& p : mod->parameters()) {
             params_.push_back(p);
         }
     }
 }
 
-Value Sequential::operator()(Value x) {
+
+Value Traverse::operator()(Value x) {
     for (auto* layer : layers_) {
         x = (*layer)(x);
     }
     return x;
 }
 
-Value ReLU::operator()(Value input) {
-    return ag::relu(input);
-}
+
+    ResidualBlock::ResidualBlock(const std::vector<Layer*>& Layers)
+        : Layers_(Layers)
+    {
+        // Collect parameters from inner Layers
+        for (auto* mod : Layers_) {
+            for (auto& p : mod->parameters()) {
+                params_.push_back(p);
+            }
+        }
+    }
+
+    // x -> Layers... -> y, then return x + y
+    Value ResidualBlock::operator()(Value x) {
+        Value skip = x;
+        for (auto* layer : Layers_) {
+            x = (*layer)(x);
+        }
+        return x + skip;
+    }
+
+
+
 
 } // namespace ag::nn

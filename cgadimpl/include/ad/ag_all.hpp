@@ -8,3 +8,6 @@
 #include "nn/nn.hpp"
 #include "ad/kernels_api.hpp"
 #include <cuda_runtime.h>
+#include "layer/affine.hpp"
+#include "layer/activation.hpp"
+#include "layer/attention.hpp"

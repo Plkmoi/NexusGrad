@@ -22,11 +22,11 @@ int main() {
     float realgamma = 1;
 
     // 2. --- Create the Model ---
-    ag::nn::Sequential model({
-        new ag::nn::RMSNorm(),
-        new ag::nn::Attention(input_features, hidden_features),
-        new ag::nn::ReLU(),
-        new ag::nn::Attention(hidden_features, output_features)
+    ag::layer::Traverse model({
+        new ag::layer::RMSNorm(),
+        new ag::layer::Attention(input_features, hidden_features),
+        new ag::layer::ReLU(),
+        new ag::layer::Attention(hidden_features, output_features)
     });
     std::cout << "Model created with " << model.parameters().size() << " parameter tensors.\n\n";
 

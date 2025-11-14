@@ -494,52 +494,110 @@ std::shared_ptr<Node> sqrt_nodeops(const std::shared_ptr<Node>& x) {
 
 std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d, float& m) {
     // Step 1: Projections
-    Tensor q = OwnTensor::matmul(a->value, b->value); 
-    Tensor k = OwnTensor::matmul(a->value, c->value); 
-    Tensor v = OwnTensor::matmul(a->value, d->value);
-    
-    // Step 2: Scaled dot-product attention
-    float scale = 1.f / sqrtf(static_cast<float>(k.shape().dims.back()));
-    Tensor logits = OwnTensor::matmul(q, k.t()) * scale;
+const Tensor& x = a->value;   // [H, T, D]
+    const auto& dims = x.shape().dims;
+    const int H = static_cast<int>(dims[0]);
+    const int T = static_cast<int>(dims[1]);
+    const int D = static_cast<int>(dims[2]);
 
-    
-    // Step 3: Create Alibi bias and add it in one step to initialize 'g'
-    Tensor bias_cpu(logits.shape(), OwnTensor::TensorOptions().with_dtype(logits.dtype()));
-    {
-        int n_heads = logits.shape().dims[0];
-        int seq_len = logits.shape().dims[1];
-        float slope_start = 1.0f / powf(2.0f, 8.0f / n_heads);
+    const Tensor& Wq = b->value;  // [D, D]
+    const Tensor& Wk = c->value;  // [D, D]
+    const Tensor& Wv = d->value;  // [D, D]
 
-        dispatch_by_dtype(bias_cpu.dtype(), [&](auto dummy){
-            using T = decltype(dummy);
-            T* data = bias_cpu.data<T>();
-            for(int h = 0; h < n_heads; ++h) {
-                float slope = powf(slope_start, h + 1);
-                for (int i = 0; i < seq_len; ++i) {
-                    for (int j = 0; j < seq_len; ++j) {
-                        data[h * seq_len * seq_len + i * seq_len + j] = (j > i) ? -std::numeric_limits<float>::infinity() : static_cast<T>(-(seq_len - 1 - j) * slope);
+    float scale = 1.f / std::sqrt(static_cast<float>(D));
+
+    auto opts = ag::options(x);
+
+    // Allocate full 3D outputs
+    Tensor q(Shape{{H, T, D}}, opts);
+    Tensor k(Shape{{H, T, D}}, opts);
+    Tensor v(Shape{{H, T, D}}, opts);
+    Tensor s(Shape{{H, T, T}}, opts);   // softmax scores, per head
+    Tensor y(Shape{{H, T, D}}, opts);   // final output
+
+    // --- Per-head attention ---
+    // for (int h = 0; h < H; ++h) {
+        // 1) Slice per-head inputs: x_h, q_h, k_h, v_h, s_h, y_h
+        Tensor x_h = x;    // [T, D] – select head h along dim 0
+        Tensor q_h = q;    // [T, D]
+        Tensor k_h = k;    // [T, D]
+        Tensor v_h = v;    // [T, D]
+        Tensor s_h = s;    // [T, T]
+        Tensor y_h = y;    // [T, D]
+
+        // 2) Per-head projections (2D matmul – safe on CPU + CUDA)
+        q_h = OwnTensor::matmul(x_h, Wq);   // [T, D]
+        k_h = OwnTensor::matmul(x_h, Wk);   // [T, D]
+        v_h = OwnTensor::matmul(x_h, Wv);   // [T, D]
+
+        // 3) Per-head logits [T, T]
+        Tensor logits_h = OwnTensor::matmul(q_h, k_h.t()) * scale;
+
+        // 4) ALiBi bias for this head [T, T] (on CPU)
+        Tensor bias_h_cpu(
+            Shape{{T, T}},
+            OwnTensor::TensorOptions()
+                .with_device(OwnTensor::Device::CPU)
+                .with_dtype(logits_h.dtype())
+        );
+
+        {
+            // You can derive per-head slope from m + h if you want.
+            // For now, reuse your slope schedule:
+            float slope_start = 1.0f / std::pow(2.0f, 8.0f / H);
+            float slope = std::pow(slope_start, 0 + 1);
+
+            dispatch_by_dtype(bias_h_cpu.dtype(), [&](auto dummy) {
+                using Tval = decltype(dummy);
+                Tval* data = bias_h_cpu.data<Tval>();
+                for(int h = 0; h < H; ++h) {
+                for (int i = 0; i < T; ++i) {
+                    for (int j = 0; j < T; ++j) {
+                        float v = (j > i)
+                            ? -std::numeric_limits<float>::infinity()
+                            : -static_cast<float>(T - 1 - j) * slope;
+                        data[i * T + j] = static_cast<Tval>(v);
                     }
                 }
             }
-        });
-    }
-    Tensor g = logits + bias_cpu.to(logits.device());
- 
-    // Step 4: Re-implement softmax and initialize 's' in a single expression
-    Tensor max_val = OwnTensor::reduce_max(g, {-1}, true);
-    Tensor exp_g = OwnTensor::exp(g - max_val);
-    Tensor sum_exp_g = OwnTensor::reduce_sum(exp_g, {-1}, true);
-    Tensor s = exp_g / sum_exp_g;
+            });
+        }
 
-    // Step 5: Final projection
-    Tensor y = OwnTensor::matmul(s, v);
+        Tensor bias_h = bias_h_cpu.to(logits_h.device());
+        Tensor g_h    = logits_h + bias_h;     // [T, T]
 
-    auto n = std::make_shared<Node>(y, Op::AlibiAttention, (a->requires_grad() || b->requires_grad() || c->requires_grad() || d-> requires_grad()), "alibiattention"); 
+        // 5) Softmax along last dim for this head
+        Tensor max_h   = OwnTensor::reduce_max(g_h,  {-1}, true);  // [T,1]
+        Tensor exp_h   = OwnTensor::exp(g_h - max_h);              // [T,T]
+        Tensor sum_h   = OwnTensor::reduce_sum(exp_h, {-1}, true); // [T,1]
+        Tensor s_val   = exp_h / sum_h;                            // [T,T]
+
+        s_h = s_val.to_cpu();   // or assign if your Tensor supports it
+
+        // 6) Final per-head output y_h = s_h @ v_h
+        y_h = OwnTensor::matmul(s_val, v_h);                       // [T,D]
+    // }
+
+    // Build the Node with full 3D q/k/v/s (tape) and 3D y
+    auto n = std::make_shared<Node>(
+        y,
+        Op::AlibiAttention,
+        (a->requires_grad() || b->requires_grad() ||
+         c->requires_grad() || d->requires_grad()),
+        "alibiattention"
+    );
+
     n->inputs = {a, b, c, d};
-    n->tape = {std::make_shared<Tensor>(q), std::make_shared<Tensor>(k), 
-               std::make_shared<Tensor>(v), std::make_shared<Tensor>(s)};
-    ag::debug::on_node_created(n); 
-    return n; 
+
+    // Save the full 3D q/k/v/s; your vjp can be updated to handle 3D
+    n->tape.clear();
+    n->tape.push_back(std::make_shared<Tensor>(q));   // [H,T,D]
+    n->tape.push_back(std::make_shared<Tensor>(k));   // [H,T,D]
+    n->tape.push_back(std::make_shared<Tensor>(v));   // [H,T,D]
+    n->tape.push_back(std::make_shared<Tensor>(s));   // [H,T,T]
+
+    ag::debug::on_node_created(n);
+    return n;
 }
 
 // ===================================================================
@@ -883,7 +941,7 @@ std::shared_ptr<Node> realrms_nodeops(const std::shared_ptr<Node>& x, float& g_v
     if (it != scalar_cache.end()) {
         G = it->second;
     } else {
-        Tensor g_tensor = Tensor::full(Shape{{1, 1}}, TensorOptions().with_req_grad(true), g_val); // Assume gain is trainable
+        Tensor g_tensor = Tensor::full(Shape{{1, 1}}, TensorOptions().with_req_grad(true).with_device(x->value.device()), g_val); // Assume gain is trainable
         G = std::make_shared<Node>(g_tensor, Op::Leaf, "rms_gain");
         scalar_cache[g_val] = G;
     }

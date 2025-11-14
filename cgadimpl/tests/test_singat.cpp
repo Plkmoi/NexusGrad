@@ -30,28 +30,28 @@ int main() {
     //     -> RMSNorm
     //     -> Linear(d_model -> output_features)
     //
-    std::vector<ag::nn::Module*> layers;
+    std::vector<ag::layer::Layer*> layers;
     layers.reserve(num_layers * 2 + 2);
 
     for (int i = 0; i < num_layers; ++i) {
         // Attention sub-block: x + Attn(RMSNorm(x))
-        layers.push_back(new ag::nn::ResidualBlock({
-            new ag::nn::RMSNorm(),
-            new ag::nn::Attention(d_model, d_model)
+        layers.push_back(new ag::layer::ResidualBlock({
+            new ag::layer::RMSNorm(),
+            new ag::layer::Attention(d_model, d_model, Device::CUDA)
         }));
 
         // MLP / SWIGLU sub-block: x + SWIGLU(RMSNorm(x))
-        layers.push_back(new ag::nn::ResidualBlock({
-            new ag::nn::RMSNorm(),
-            new ag::nn::SWIGLU(d_model, d_model)
+        layers.push_back(new ag::layer::ResidualBlock({
+            new ag::layer::RMSNorm(),
+            new ag::layer::SWIGLU(d_model, d_model, Device::CUDA)
         }));
     }
 
     // Final norm + head
-    layers.push_back(new ag::nn::RMSNorm());
-    layers.push_back(new ag::nn::Linear(d_model, output_features));
+    layers.push_back(new ag::layer::RMSNorm());
+    layers.push_back(new ag::layer::Linear(d_model, output_features, Device::CUDA));
 
-    ag::nn::Sequential model(layers);
+    ag::layer::Traverse model(layers);
 
     std::cout << "Model created with " << model.parameters().size()
               << " parameter tensors.\n\n";
@@ -59,26 +59,30 @@ int main() {
     // 3. --- Random data (B, d_model) -> (B, output_features) ---
     Tensor x_tensor = Tensor::randn(
         Shape{{batch_size, d_model}},
-        TensorOptions().with_req_grad(true)
+        TensorOptions().with_req_grad(true).with_device(Device::CUDA)
     );
     Tensor y_tensor = Tensor::randn(
         Shape{{batch_size, output_features}},
-        TensorOptions().with_req_grad(true)
+        TensorOptions().with_req_grad(true).with_device(Device::CUDA)
     );
 
     Value X = make_tensor(x_tensor, "X_data");
     Value Y = make_tensor(y_tensor, "Y_target");
-
+        Value predictions = model(X);          // [B, output_features]
+        Value loss        = mse_loss(predictions, Y);
+        zero_val(loss);
+        
     // 4. --- Training loop ---
     for (int epoch = 0; epoch < epochs; ++epoch) {
         // Forward
-        Value predictions = model(X);          // [B, output_features]
-        Value loss        = mse_loss(predictions, Y);
+        forward(loss);
+        ag::disten(loss, Device::CPU);
 
         float loss_value = loss.val().data<float>()[0];
         std::cout << "Epoch " << std::setw(2) << epoch
                   << ", Loss: " << std::fixed << std::setprecision(6)
                   << loss_value << std::endl;
+        ag::disten(loss, Device::CUDA);
 
         // Backward
         model.zero_grad();
