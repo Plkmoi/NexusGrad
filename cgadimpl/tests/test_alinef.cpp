@@ -4,7 +4,6 @@
 #include <iomanip>
 #include <random>
 #include <optim.hpp>
-#include "layer/tokeni.hpp"
 
 
 
@@ -93,7 +92,7 @@ int main() {
     const int num_layers   = 2;     // (Attn + SWIGLU) block pairs
     const float lr         = 0.001f;
     const int epochs       = 410;
-    int vocab_size   = 5000;     // integer tokens 0..19
+    const int vocab_size   = 5000;     // integer tokens 0..19
 
     // 2. --- Build a LLaMA-ish stack of Layers ---
     //
@@ -108,36 +107,20 @@ int main() {
 
       // 0. Choose a vocabulary size for your fake tokens
 
-// -------------------------------------------
-// Load corpus + tokenize
-// -------------------------------------------
-std::string text = ag::layer::load_text_file("/home/blubridge-034/Downloads/Newf/cgadimpl/cgadimpl/src/layer/corpus.txt");
-std::vector<int> tokens = ag::layer::tokenize_bytes(text);
-
-// derive vocab_size dynamically from corpus
-for (int id : tokens)
-    vocab_size = std::max(vocab_size, id);
-vocab_size += 1;
-
-// -------------------------------------------
-// Build embedding table (CPU)
-// -------------------------------------------
+// 1. Create embedding table (CPU)
 Tensor embedding_table = make_embedding_table(vocab_size, d_model);
 
-// -------------------------------------------
-// Create one batch from corpus tokens
-// -------------------------------------------
-if ((int)tokens.size() < B) {
-    std::cerr << "Corpus size < batch size\n";
-    return -1;
+// 2. Generate fake tokens
+std::vector<int> tokens(B);
+std::mt19937 rng(42);
+std::uniform_int_distribution<int> pick(0, vocab_size - 1);
+
+for (int i = 0; i < B; ++i) {
+    tokens[i] = pick(rng);
 }
 
-std::vector<int> batch(tokens.begin(), tokens.begin() + B);
-
-// -------------------------------------------
-// Embed → produces X_cpu [B, d_model]
-// -------------------------------------------
-Tensor X_cpu = embed_tokens(batch, embedding_table);
+// 3. Embed tokens → produce X [B, d_model]
+Tensor X_cpu = embed_tokens(tokens, embedding_table);
 
 
 

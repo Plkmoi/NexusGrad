@@ -162,7 +162,7 @@ auto dev = Device::CUDA;
     //
     
     std::mt19937 gen(42);
-Tensor X_gpu = X_cpu.to(Device::CUDA);
+Tensor X_gpu = X_cpu.to(dev);
 Value X = make_tensor(X_gpu, "tokens");
 
     // ---- Create integer class labels Y (one-hot) ----

@@ -29,7 +29,7 @@ void zero_grad(const Value& root){
 
 void zero_val(const Value& root){
     auto order = topo_from(root.node.get());
-    for (Node* n : order) if (n->requires_grad() && n->op!=Op::Leaf) n->value = Tensor::zeros(n->value.shape(), ag::options(n->value));
+    for (Node* n : order) if (n->requires_grad() && n->op!=Op::Leaf) n->value = Tensor::zeros(n->value.shape(), ag::options(n->value).with_device(n->value.device()));
 }
 
 Value shallow(const Value& q) {

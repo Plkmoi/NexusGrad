@@ -15,6 +15,8 @@ public:
     //     return (*this)(input);
     // }
 
+    virtual void backward(Value grad_output){}
+
 
     Value operator()(const Tensor& input) {
         Value graph_input = ag::make_tensor(input);

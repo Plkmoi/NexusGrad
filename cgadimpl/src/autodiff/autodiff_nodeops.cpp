@@ -284,44 +284,95 @@ void node_RELUAtt( std::shared_ptr<Node> n) {
     n->value = OwnTensor::matmul(relu, v);
 }
 void node_AlibiAttention( std::shared_ptr<Node> n) {
-     Tensor& A = n->inputs[0]->value;
-     Tensor& B = n->inputs[1]->value;
-     Tensor& C = n->inputs[2]->value;
-     Tensor& D = n->inputs[3]->value;
+     const Tensor& x = n->inputs[0]->value;   // [H, T, D]
+    const auto& dims = x.shape().dims;
+    const int H = static_cast<int>(dims[0]);
+    const int T = static_cast<int>(dims[1]);
+    const int D = static_cast<int>(dims[2]);
 
-    Tensor q = OwnTensor::matmul(A, B);
-    Tensor k = OwnTensor::matmul(A, C);
-    Tensor v = OwnTensor::matmul(A, D);
+    const Tensor& Wq = n->inputs[1]->value;  // [D, D]
+    const Tensor& Wk = n->inputs[2]->value;  // [D, D]
+    const Tensor& Wv = n->inputs[3]->value;  // [D, D]
+    float scale = 1.f / std::sqrt(static_cast<float>(D));
 
-    float scale = 1.f / sqrtf(static_cast<float>(k.shape().dims.back()));
-    Tensor logits = OwnTensor::matmul(q, k.t()) * scale;
+    // All tensors follow the device / dtype of x
+    auto opts = ag::options(x);
 
-    Tensor bias_cpu(logits.shape(), OwnTensor::TensorOptions().with_dtype(logits.dtype()));
+    // 1) Batched projections: [H, T, D]
+    //
+    // Assuming OwnTensor::matmul supports:
+    //   [H, T, D] @ [D, D] -> [H, T, D]
+    //
+    Tensor q = OwnTensor::matmul(x, Wq);  // [H, T, D]
+    Tensor k = OwnTensor::matmul(x, Wk);  // [H, T, D]
+    Tensor v = OwnTensor::matmul(x, Wv);  // [H, T, D]
+
+    // 2) Batched logits: [H, T, T]
+    //
+    // Assuming Tensor::t() transposes the last two dims, so:
+    //   k.t(): [H, D, T]
+    //   matmul([H, T, D], [H, D, T]) -> [H, T, T]
+    //
+    Tensor logits = OwnTensor::matmul(q, k.t()) * scale;  // [H, T, T]
+
+    // 3) Build full [H, T, T] ALiBi bias on CPU, then move to logits.device()
+    //
+    Tensor bias_cpu(
+        logits.shape(),   // [H, T, T]
+        OwnTensor::TensorOptions()
+            .with_device(OwnTensor::Device::CPU)
+            .with_dtype(logits.dtype())
+    );
+
     {
-        int n_heads = logits.shape().dims[0];
-        int L       = logits.shape().dims[1];
-        float slope_start = 1.0f / powf(2.0f, 8.0f / n_heads);
-        dispatch_by_dtype(bias_cpu.dtype(), [&](auto dummy){
-            using T = decltype(dummy);
-            T* data = bias_cpu.data<T>();
-            for (int h=0; h<n_heads; ++h) {
-                float slope = powf(slope_start, h + 1);
-                for (int i=0;i<L;++i) for (int j=0;j<L;++j) {
-                    data[h*L*L + i*L + j] =
-                        (j > i) ? -std::numeric_limits<float>::infinity()
-                                : static_cast<T>(-(L - 1 - j) * slope);
+        // Classic ALiBi slope schedule
+        float slope_start = 1.0f / std::pow(2.0f, 8.0f / H);
+
+        dispatch_by_dtype(bias_cpu.dtype(), [&](auto dummy) {
+            using Tval = decltype(dummy);
+            Tval* data = bias_cpu.data<Tval>();
+
+            for (int h = 0; h < H; ++h) {
+                // one slope per head
+                float slope = std::pow(slope_start, h + 1);
+
+                for (int i = 0; i < T; ++i) {
+                    for (int j = 0; j < T; ++j) {
+                        float v;
+                        if (j > i) {
+                            // Causal mask: disallow attending to future
+                            v = -std::numeric_limits<float>::infinity();
+                        } else {
+                            // ALiBi bias: larger penalty for far-away positions
+                            v = -static_cast<float>(T - 1 - j) * slope;
+                        }
+
+                        // Flat index into [H, T, T]
+                        const int idx = h * (T * T) + i * T + j;
+                        data[idx] = static_cast<Tval>(v);
+                    }
                 }
             }
         });
     }
-    Tensor g = logits + bias_cpu.to(logits.device());
 
-    Tensor m   = OwnTensor::reduce_max(g, {-1}, true);
-    Tensor e   = OwnTensor::exp(g - m);
-    Tensor s   = OwnTensor::reduce_sum(e, {-1}, true);
-    Tensor p   = e / s;
+    Tensor bias = bias_cpu.to(logits.device());   // [H, T, T]
+    Tensor g    = logits + bias;                  // [H, T, T]
 
-    n->value = OwnTensor::matmul(p, v);
+    // 4) Softmax over last dim (T) in a batched manner
+    //
+    // reduce_max / reduce_sum called with axes {-1} should preserve [H, T, 1]
+    //
+    Tensor max_g   = OwnTensor::reduce_max(g,  {-1}, true);  // [H, T, 1]
+    Tensor exp_g   = OwnTensor::exp(g - max_g);              // [H, T, T]
+    Tensor sum_g   = OwnTensor::reduce_sum(exp_g, {-1}, true); // [H, T, 1]
+    Tensor s       = exp_g / sum_g;                          // [H, T, T] — softmax scores
+
+    // 5) Final output: y = softmax(g) @ v
+    //    [H, T, T] @ [H, T, D] -> [H, T, D] (batched matmul)
+    //
+    n->value = OwnTensor::matmul(s, v);   // [H, T, D]
+
 }
 
 // ------------------------------------------------------------
