@@ -1,4 +1,3 @@
-#include "layer/affine.hpp"
 #include <cmath>
 #include <cassert>
 #include "tensor.hpp" 
@@ -51,6 +50,7 @@ AlibiAttention::AlibiAttention(int d_model, int n_heads, float m, Device dev)
     params_.push_back(Wv_);
 
 }
+
 
 Value AlibiAttention::operator()(Value input) {
     using namespace OwnTensor;

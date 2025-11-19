@@ -1,4 +1,3 @@
-#include "layer/affine.hpp"
 #include <cmath>
 #include <cassert>
 #include "tensor.hpp" 
