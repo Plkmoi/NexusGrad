@@ -6,6 +6,7 @@
 #include "ad/runtime.hpp"
 #include <cmath>
 #include <stdexcept> // Required for std::runtime_error
+#include <string>
 
 namespace ag {
 namespace detail{
@@ -39,6 +40,22 @@ static Tensor reduce_for_broadcast(const Tensor& grad_in, const Tensor& target_v
     // Reshape to exactly match the target shape (e.g., from [1, 5] to [5]).
     return summed_grad.reshape(target_val.shape());
 }
+
+
+static Tensor expand_for_broadcast(const Tensor& small, const Tensor& target) {
+    // If already matches, done.
+    if (small.shape().dims == target.shape().dims) {
+        return small;
+    }
+
+    const auto& td = target.shape().dims;
+    Tensor ones = Tensor::ones(target.shape(), ag::options(target));  // same device
+
+    // Broadcast using elementwise multiply
+    // small * ones → expands along broadcastable dims
+    return small * ones;
+}
+
 
 // // ----- elementwise binary -----
 // // Correct: Accumulates gradient for both parents.
@@ -235,9 +252,82 @@ void vjp_Attention(Node* n, const Tensor& gy){
 }
 }
 
+void vjp_ExpandHeads(Node* n, const Tensor& gy) {
+    Node* X = n->inputs[0].get(); // original [T,D]
+    if (!X->requires_grad()) return;
+
+    int H = static_cast<int>(n->tape[0]->to(Device::CPU).data<float>()[0]);
+    
+    // gy: [H,T,D] → sum across H
+    Tensor grad_out = OwnTensor::reduce_sum(gy, {0}, /*keepdim=*/false); // [T,D]
+
+    // Accumulate
+    X->grad += grad_out;
+}
+
+inline std::string printering(Tensor w){
+    std::string s = "[";
+    const auto& dims = w.shape().dims;
+    for (size_t i = 0; i < dims.size(); ++i) {
+        s += std::to_string(dims[i]);
+        if (i + 1 < dims.size()) s += ", ";
+    }
+    s += "]";
+    return s;
+}
+
+
 void vjp_AlibiAttention(Node* n, const Tensor& gy){
     // Assuming same VJP as Attention for now
-    vjp_Attention(n, gy);
+        // Inputs
+         Node* X  = n->inputs[0].get();  // [H, T, D]
+    Node* Wq = n->inputs[1].get();  // [D, D]
+    Node* Wk = n->inputs[2].get();
+    Node* Wv = n->inputs[3].get();
+
+    const Tensor& q = *n->tape[0];  // [H, T, D]
+    const Tensor& k = *n->tape[1];
+    const Tensor& v = *n->tape[2];
+    const Tensor& s = *n->tape[3];  // [H, T, T]
+
+    const int D = q.shape().dims.back();
+    float scale = 1.f / std::sqrt((float)D);
+
+    // --------- 1) dL/d_s and dL/d_v --------------------------
+    Tensor dL_ds = OwnTensor::matmul(gy, v.t());      // [H, T, T]
+    Tensor dL_dv = OwnTensor::matmul(s.t(), gy);      // [H, T, D]
+
+    // --------- 2) Softmax VJP -------------------------------
+    Tensor dot = OwnTensor::reduce_sum(s * dL_ds, {-1}, true);
+    Tensor dL_dg = s * (dL_ds - dot);                 // [H, T, T]
+
+    // --------- 3) dL/d_q and dL/d_k -------------------------
+    Tensor dL_dq = OwnTensor::matmul(dL_dg, k) * scale;   // [H, T, D]
+    Tensor dL_dk = OwnTensor::matmul(dL_dg.t(), q) * scale; // [H, D, T]
+
+    // --------- 4) dL/d_Wq, dL/d_Wk, dL/d_Wv -----------------
+    // matmul([H,T,D].t(), [H,T,D]) => [H, D, D]
+    if (Wq->requires_grad()) {
+        Tensor dWq = OwnTensor::matmul(q, dL_dq);  // [H,D,D]
+        Wq->grad += OwnTensor::reduce_sum(dWq, {0});   // [D,D]
+    }
+    if (Wk->requires_grad()) {
+        Tensor dWk = OwnTensor::matmul(k, dL_dk);  // [H,D,D]
+        Wk->grad += OwnTensor::reduce_sum(dWk, {0});   // [D,D]
+    }
+    if (Wv->requires_grad()) {
+        Tensor dWv = OwnTensor::matmul(v, dL_dv);  // [H,D,D]
+        Wv->grad += OwnTensor::reduce_sum(dWv, {0});   // [D,D]
+    }
+
+    // --------- 5) dL/dX  (back to input) ----------------------
+    if (X->requires_grad()) {
+        Tensor gq = OwnTensor::matmul(dL_dq, Wq->value.t()) * scale;
+        Tensor gk = OwnTensor::matmul(dL_dk, Wk->value.t()) * scale;
+        Tensor gv = OwnTensor::matmul(dL_dv, Wv->value.t());
+
+        X->grad += gq + gk + gv;   // stays [H,T,D]
+    }
 }
 
 // ===================================================================
@@ -643,6 +733,35 @@ void vjp_MeanAll(Node* n, const Tensor& gy){
     // `gy` is a scalar. `gy * scale` is also a scalar.
     // The `+=` operator will broadcast this scalar across the entire gradient tensor.
     X->grad += gy * scale;
+}
+
+// ===================================================================
+// vjp_MeanAll
+// ===================================================================
+
+void vjp_RowMean(Node* n, const Tensor& gy)   {
+    Node* X = n->inputs[0].get();
+    if (!X->requires_grad()) return;
+
+    // Extract axis (we stored it earlier in tape)
+    int axis = static_cast<int>(n->tape[0]->to(Device::CPU).data<float>()[0]);
+
+    // Original input shape [H,T,D]
+    Shape xshape = X->value.shape();
+
+    // Scale gradient: 1 / dim_size
+    int dim_size = xshape.dims[axis];
+    Tensor gy_scaled = gy * (1.0f / dim_size);
+
+    // Expand gy back to original shape
+    // Tensor gy_broadcasted = gy_scaled.reduce_for_broadcast(n->inputs[0]->value.shape());
+
+    // Accumulate into gradient
+    //Tensor gy_full = expand_for_broadcast(gy_scaled, X->grad);
+
+    // Accumulate
+    X->grad += expand_for_broadcast(gy_scaled, X->grad);
+
 }
 
 // ===================================================================

@@ -138,6 +138,13 @@ void node_RowSum( std::shared_ptr<Node> n) {
 void node_RowMax( std::shared_ptr<Node> n) {
     n->value = OwnTensor::reduce_max(n->inputs[0]->value, {1}, true);
 }
+void node_RowMean( std::shared_ptr<Node> n) {
+
+    auto s = n->tape[0]->to_cpu();
+    int q =s.data<float>()[0];
+
+    n->value = OwnTensor::reduce_mean(n->inputs[0]->value, {q}, true);
+}
 void node_RMSNorm( std::shared_ptr<Node> n) {
      Tensor& X = n->inputs[0]->value;
     Tensor var   = OwnTensor::reduce_mean(X * X, {-1}, true);
@@ -267,6 +274,33 @@ void node_SigAtt( std::shared_ptr<Node> n) {
     Tensor s = 1.0f / (1.0f + OwnTensor::exp(g * -1.0f));
     n->value = OwnTensor::matmul(s, v);
 }
+
+void node_ExpandHeads(std::shared_ptr<Node> n) {
+    const Tensor& xt = n->inputs[0]->value; // [T, D]
+    const auto& dims = xt.shape().dims;
+    int T = dims[0];
+    int D = dims[1];
+        int H = static_cast<int>(n->tape[0]->to(Device::CPU).data<float>()[0]);
+
+
+    // Allocate output tensor
+    Tensor out(Shape{{H, T, D}}, ag::options(xt));
+    {
+        Tensor xt_cpu = xt.to(Device::CPU);
+        Tensor out_cpu = out.to(Device::CPU);
+        float* dst = out_cpu.data<float>();
+        const float* src = xt_cpu.data<float>();
+
+        for(int h=0; h<H; h++){
+            std::memcpy(dst + h*T*D, src, T*D*sizeof(float));
+        }
+        n->value = out_cpu.to(xt.device());
+    }
+
+    
+}
+
+
 void node_RELUAtt( std::shared_ptr<Node> n) {
      Tensor& A = n->inputs[0]->value;
      Tensor& B = n->inputs[1]->value;
@@ -372,6 +406,12 @@ void node_AlibiAttention( std::shared_ptr<Node> n) {
     //    [H, T, T] @ [H, T, D] -> [H, T, D] (batched matmul)
     //
     n->value = OwnTensor::matmul(s, v);   // [H, T, D]
+
+        n->tape.clear();
+    n->tape.push_back(std::make_shared<Tensor>(q)); // [H,T,D]
+    n->tape.push_back(std::make_shared<Tensor>(k)); // [H,T,D]
+    n->tape.push_back(std::make_shared<Tensor>(v)); // [H,T,D]
+    n->tape.push_back(std::make_shared<Tensor>(s)); // [H,T,T]
 
 }
 

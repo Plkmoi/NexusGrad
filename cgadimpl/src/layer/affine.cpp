@@ -42,14 +42,6 @@ Value Linear::operator()(Value input) {
 
 
 
-RMSNorm::RMSNorm(Device dev) {
-
-}
-
-Value RMSNorm::operator()(Value input) {   
-    return realrms(input, gamma);
-}
-
 
 Traverse::Traverse(const std::vector<Layer*>& Layers)
     : layers_(Layers)

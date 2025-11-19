@@ -65,6 +65,7 @@ Value moewe(const Value& x, const Value& w, const Value& b);
 
 // rowwise reductions / softmax family
 Value rowsum (const Value& x); // [B,C] -> [B,1]
+Value rowmean (const Value& x, int q); // [B,C] -> [B,1]
 Value rowmax (const Value& x); // [B,C] -> [B,1]
 Value mean_all(const Value& x); // scalar
 Value softmax_row(const Value& z); // [B,C] -> [B,C]
@@ -76,6 +77,7 @@ Value alibiatt(const Value& a, const Value& b, const Value& c, const Value& d, f
 Value cross_entropy_with_logits(const Value& logits, const Value& onehot);
 Value kldivergence(const Value& logits, const Value& onehot);
 Value fmab(const Value& a, const Value& b, const Value& c); // fused multiply-add a@b + c
+Value expand(const Value& x, int q);
 Value linear(const Value& a, const Value& b, const Value& c); // fused multiply-add a@b + c
 
 Value attention(const Value& a, const Value& b, const Value& c, const Value& d);

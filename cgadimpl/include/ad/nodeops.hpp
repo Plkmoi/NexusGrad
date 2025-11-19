@@ -88,7 +88,9 @@ std::shared_ptr<Node> mambassm_nodeops(const std::shared_ptr<Node>& z, const std
 
 // rowwise reductions / softmax family
 std::shared_ptr<Node> rowsum_nodeops(const std::shared_ptr<Node>& x); // [B,C] -> [B,1]
+std::shared_ptr<Node> rowmean_nodeops(const std::shared_ptr<Node>& x, int q); // [B,C] -> [B,1]
 std::shared_ptr<Node> rowmax_nodeops(const std::shared_ptr<Node>& x); // [B,C] -> [B,1]
+std::shared_ptr<Node> expand_heads_nodeops(const std::shared_ptr<Node>& x, int H);
 std::shared_ptr<Node> mean_all_nodeops( const std::shared_ptr<Node>& x); // scalar
 std::shared_ptr<Node> softmax_row_nodeops( const std::shared_ptr<Node>& z); // [B,C] -> [B,C]
 std::shared_ptr<Node> logsumexp_row_nodeops(const std::shared_ptr<Node>& z); // [B,C] -> [B,1]

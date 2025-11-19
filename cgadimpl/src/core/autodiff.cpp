@@ -45,6 +45,17 @@ Value shallow(const Value& q) {
     return Value{std::move(n)};
 }
 
+inline std::string printering(Tensor w){
+    std::string s = "[";
+    const auto& dims = w.shape().dims;
+    for (size_t i = 0; i < dims.size(); ++i) {
+        s += std::to_string(dims[i]);
+        if (i + 1 < dims.size()) s += ", ";
+    }
+    s += "]";
+    return s;
+}
+
 void backward(const Value& root, const Tensor* grad_seed){
     auto order = topo_from(root.node.get());
     // std::cout<<"HERE";
@@ -76,12 +87,30 @@ void backward(const Value& root, const Tensor* grad_seed){
         }
     }
 
+
     // reverse topo
     for (auto it = order.rbegin(); it != order.rend(); ++it) {
         Node* n = *it;
         // The requires_grad() check is now a function call
         if (!n->requires_grad()) continue;
         const Tensor& gy = n->grad;
+
+
+        
+        // 🔍 DEBUG: print incoming grad shapes
+    std::cout << "\n>>> BACKWARD NODE: " << n->debug_name ;
+    std::cout << " (Op: " << op_name(n->op) << ")\n";
+    std::cout << "  value shape: " << printering(n->value) << "\n";
+    std::cout << "  grad  shape: " << printering(gy) << "\n";
+    std::cout << "  input0 shape: " << printering(n->inputs[0]->value) << "\n";
+    if(n->op==Op::AlibiAttention)
+    {
+    std::cout << "  input1 shape: " << printering(n->inputs[1]->value) << "\n";
+    std::cout << "  input2 shape: " << printering(n->inputs[2]->value) << "\n";
+    std::cout << "  input3 shape: " << printering(n->inputs[3]->value) << "\n";
+
+
+    }
 
         ag::debug::on_backprop_step(n, gy); // (optional) prints one line per node
 

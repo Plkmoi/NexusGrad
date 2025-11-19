@@ -45,8 +45,9 @@ int main() {
 
     
 
-    // Optionally test backward:
+    // // Optionally test backward:
     Value sum_y = ag::sum(y);  // if you have a Value-level sum, else wrap a tensor sum
+    forward(sum_y);
     backward(sum_y);
     // Inspect att_layer.params()[0].node->grad...
 

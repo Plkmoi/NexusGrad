@@ -488,6 +488,39 @@ std::shared_ptr<Node> sqrt_nodeops(const std::shared_ptr<Node>& x) {
     return n;
 }
 
+
+std::shared_ptr<Node> expand_heads_nodeops(const std::shared_ptr<Node>& x, int H) {
+    const Tensor& xt = x->value; // [T, D]
+    const auto& dims = xt.shape().dims;
+    int T = dims[0];
+    int D = dims[1];
+
+    // Allocate output tensor
+    Tensor out(Shape{{H, T, D}}, ag::options(xt));
+    {
+        Tensor xt_cpu = xt.to(Device::CPU);
+        Tensor out_cpu = out.to(Device::CPU);
+        float* dst = out_cpu.data<float>();
+        const float* src = xt_cpu.data<float>();
+
+        for(int h=0; h<H; h++){
+            std::memcpy(dst + h*T*D, src, T*D*sizeof(float));
+        }
+        out = out_cpu.to(xt.device());
+    }
+
+    auto n = std::make_shared<Node>(out, Op::ExpandHeads, x->requires_grad(), "expand_heads");
+    n->inputs = {x};
+
+    // store H for backward
+    Tensor tapeH = Tensor::full(Shape{{1}}, ag::options(out).with_req_grad(false), H);
+    n->tape.push_back(std::make_shared<Tensor>(tapeH));
+
+    ag::debug::on_node_created(n);
+    return n;
+}
+
+
 // ===================================================================
 // alibiatt_nodeops
 // ===================================================================
@@ -864,6 +897,32 @@ std::shared_ptr<Node> leaky_relu_nodeops(const std::shared_ptr<Node>& x, float a
     auto n = std::make_shared<Node>(y, Op::RowSum, x->requires_grad(), "rowsum");
     n->inputs = {x};
     ag::debug::on_node_created(n);
+    return n;
+}
+
+
+inline std::string printering(Tensor w){
+    std::string s = "[";
+    const auto& dims = w.shape().dims;
+    for (size_t i = 0; i < dims.size(); ++i) {
+        s += std::to_string(dims[i]);
+        if (i + 1 < dims.size()) s += ", ";
+    }
+    s += "]";
+    return s;
+}
+
+// ============================================================================================
+// rowmean_nodeops
+// ============================================================================================
+    std::shared_ptr<Node> rowmean_nodeops(const std::shared_ptr<Node>& x, int q){
+    // Reduce over axis 1 (the columns), and keep the dimension so shape goes from [B,C] to [B,1].
+    Tensor y = OwnTensor::reduce_mean(x->value, {q}, true);
+    auto n = std::make_shared<Node>(y, Op::RowMean, x->requires_grad(), "rowmean");
+    n->inputs = {x};
+    std::cout<< printering(y);
+    ag::debug::on_node_created(n);
+    n->tape.push_back(std::make_shared<Tensor>(Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), q)));
     return n;
 }
 

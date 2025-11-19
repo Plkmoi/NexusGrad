@@ -164,10 +164,10 @@ int main() {
     // 1. --- Hyperparameters ---
     const int B = 32;            // batch size
     const int d_model = 128;     // model / residual width
-    const int num_classes = 5000; // number of classes (logits dim)
+    // const int vocab_size = 5000; // number of classes (logits dim)
     const int num_layers = 2;    // (Attn + SWIGLU) block pairs
     const float lr = 0.001f;
-    const int epochs = 7000;
+    const int epochs = 2100;
     int vocab_size = 5000;       // integer tokens 0..19
 
     // -------------------------------------------
@@ -221,33 +221,63 @@ int main() {
     }
 
     layers.push_back(new ag::layer::RMSNorm());
-    layers.push_back(new ag::layer::Linear(d_model, num_classes, dev));
+    layers.push_back(new ag::layer::Linear(d_model, vocab_size, dev));
 
     ag::layer::Traverse model(layers);
 
     std::cout << "Model created with " << model.parameters().size()
               << " parameter tensors.\n\n";
 
+
+
+    std::mt19937 gen(42);
+Tensor X_gpu = X_cpu.to(dev);
+Value X = make_tensor(X_gpu, "tokens");
+
+    // ---- Create integer class labels Y (one-hot) ----
+    Tensor Yt(Shape{{B, vocab_size}}, TensorOptions());
+    float* yp = Yt.data<float>();
+
+        for (int i = 0; i < B - 1; ++i) {
+            int c = batch[i + 1];  // next token becomes target
+            for (int j = 0; j < vocab_size; ++j)
+                yp[i * vocab_size + j] = (j == c) ? 1.0f : 0.0f;
+        }
+
+    Value Y = make_tensor(Yt, "Y_target");
+                ag::disten(Y, dev);
+
+                Value logits = model(X);
+                Value loss = cross_entropy_with_logits(logits, Y);
+                zero_val(loss);
+
+
     // -------------------------------------------
     // Autoregressive Training Loop
     // -------------------------------------------
     for (int epoch = 0; epoch < epochs; ++epoch) {
         // Create X and Y: shift tokens for autoregressive training
-        Tensor X_gpu = X_cpu.to(dev);
-        Value X = make_tensor(X_gpu, "tokens");
+        
+            int start = epoch % (tokens.size() - B - 1);
+    std::vector<int> batch(tokens.begin() + start, tokens.begin() + start + B);
 
-        // Shift tokens for Y (target sequence)
-        Tensor Yt(Shape{{B, num_classes}}, TensorOptions());
-        float* yp = Yt.data<float>();
+        Tensor X_cpu = embed_tokens(batch, embedding_table);
+    X.node->value = X_cpu.to(dev);
+    ag::disten(X, dev);
+
+        Tensor Ytn(Shape{{B, vocab_size}}, TensorOptions());
+    float* ypA = Ytn.data<float>();
+
 
         for (int i = 0; i < B - 1; ++i) {
-            int c = batch[i + 1];  // next token becomes target
-            for (int j = 0; j < num_classes; ++j)
-                yp[i * num_classes + j] = (j == c) ? 1.0f : 0.0f;
+            int c = batch[i + 1]; // This is the correct target token ID
+            if (c >= 0 && c < vocab_size) {
+                ypA[i * vocab_size + c] = 1.0f; // This will not segfault now
+            }
         }
 
-        Value Y = make_tensor(Yt, "Y_target");
-        ag::disten(Y, dev);
+        Y.node->value = Ytn.to(dev);
+    ag::disten(Y, dev);
 
         // Forward pass
         Value logits = model(X);

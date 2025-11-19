@@ -41,6 +41,39 @@ private:
     Value W, b;
 };
 
+class ShiftedOneHot : public Layer {
+public:
+    ShiftedOneHot(int num_classes, Device dev)
+        : num_classes_(num_classes), dev_(dev) {}
+
+    Value operator()(Value input) override {
+        Tensor X_cpu = input.val().to(Device::CPU);
+        const int B = X_cpu.shape().dims[0];
+
+        Tensor Yt(Shape{{B, num_classes_}}, TensorOptions());
+        float* yp = Yt.data<float>();
+        std::memset(yp, 0, sizeof(float) * B * num_classes_);
+
+        const int* tokens = X_cpu.data<int>();  // token list
+
+        for (int i = 0; i < B - 1; ++i) {
+            int c = tokens[i + 1];   // shift here
+            yp[i * num_classes_ + c] = 1.0f;
+        }
+
+        // IMPORTANT: mark it non-trainable
+        auto opt = ag::options(Yt).with_req_grad(false);
+        Tensor Y_gpu = Yt.to(dev_);
+
+        return make_tensor(Y_gpu, "shifted_Y");
+    }
+
+private:
+    int num_classes_;
+    Device dev_;
+};
+
+
 
 class RMSNorm : public Layer {
 public:

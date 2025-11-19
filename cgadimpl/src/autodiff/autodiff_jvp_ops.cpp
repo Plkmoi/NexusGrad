@@ -479,6 +479,17 @@ Tensor jvp_RowSum(Node* n, const std::function<const Tensor&(Node*)>& t){
 }
 
 // ===================================================================
+// jvp_RowMean
+// ===================================================================
+Tensor jvp_RowMean(Node* n, const std::function<const Tensor&(Node*)>& t){
+    throw std::runtime_error("JVP for RealRMSNorm not implemented yet!");
+}
+
+Tensor jvp_ExpandHeads(Node* n, const std::function<const Tensor&(Node*)>& t){
+    throw std::runtime_error("JVP for RealRMSNorm not implemented yet!");
+}
+
+// ===================================================================
 // jvp_RowMax
 // ===================================================================
 Tensor jvp_RowMax(Node* n, const std::function<const Tensor&(Node*)>& t){

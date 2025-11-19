@@ -212,6 +212,14 @@ namespace ag {
     Value rowsum(const Value& x){ 
         return Value(detail::rowsum_nodeops(x.node));
     }
+
+    Value rowmean(const Value& x, int q){ 
+        return Value(detail::rowmean_nodeops(x.node, q));
+    }
+
+    Value expand(const Value& x, int q){ 
+        return Value(detail::expand_heads_nodeops(x.node, q));
+    }
     
     Value rowmax(const Value& x){ 
         return Value(detail::rowmax_nodeops(x.node));
