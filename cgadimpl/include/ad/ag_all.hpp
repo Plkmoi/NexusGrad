@@ -11,3 +11,5 @@
 #include "layer/affine.hpp"
 #include "layer/activation.hpp"
 #include "layer/attention.hpp"
+#include "layer/norm.hpp"
+#include "layer/optim.hpp"
