@@ -98,6 +98,7 @@ Value AlibiAttention::operator()(Value input) {
     Value X_heads = make_tensor(x_heads, "X_alibi_heads");
 
     float dummy_m = m_;   // or just 1.0f if m_ isn't used inside
+
     Value Y_heads = alibiatt(X_heads, Wq_, Wk_, Wv_, dummy_m); // [H, T, D]
 
     // 5. Collapse heads [H, T, D] → [T, D] by averaging over head dim
@@ -109,8 +110,11 @@ Value AlibiAttention::operator()(Value input) {
     Tensor yh_cpu = yh.to(Device::CPU);
 Tensor y_cpu  = OwnTensor::reduce_mean(yh_cpu, {0}, false);
 Tensor y      = y_cpu.to(yh.device());    // -> [T, D]
+auto m = make_tensor(y, "Y_alibi_out");
 
-    return make_tensor(y, "Y_alibi_out");
+
+
+    return m;
 }
 
 } // namespace ag::nn

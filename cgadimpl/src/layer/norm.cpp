@@ -1,8 +1,8 @@
-#include "layer/affine.hpp"
 #include <cmath>
 #include <cassert>
 #include "tensor.hpp" 
 #include <ad/autodiff.hpp>
+#include "layer/norm.hpp"
 
 namespace ag::layer {
 

@@ -4,7 +4,6 @@
 #include <iomanip>
 #include <random>
 #include <optim.hpp>
-
 int main() {
     using namespace ag;
     using namespace OwnTensor;
@@ -51,7 +50,7 @@ int main() {
     }
 
     // Final norm + classification head (logits)
-    layers.push_back(new ag::layer::RMSNorm());
+    layers.push_back(new ag::layer::RMSNorm);
     layers.push_back(new ag::layer::Linear(d_model, num_classes, dev));
 
     ag::layer::Traverse model(layers);

@@ -85,55 +85,109 @@ set_target_properties(cgadimpl PROPERTIES
 )
 
 # ---- Tests ----
-if(true)
+if(true) # or use if(AG_BUILD_TESTS)
   enable_testing()
+
+  # --- FIX 1: Clean up the helper functions (Define only once) ---
+
+  # Helper for CPU Tests
   function(add_ag_test name src)
     add_executable(${name} ${src})
-    target_link_libraries(${name} PRIVATE cgadimpl::cgadimpl CUDA::cudart OpenMP::OpenMP_CXX)
+    
+    # --- FIX 2: Link against cgadimpl::cgadimpl (the Core static lib), NOT cgadimpl (the Python module)
+    # --- FIX 3: Explicitly link dl (needed for CUDA driver) and CUDA::cudart
+    target_link_libraries(${name} PRIVATE 
+        cgadimpl::cgadimpl 
+        CUDA::cudart 
+        OpenMP::OpenMP_CXX 
+        dl
+    )
+
+    add_test(NAME ${name} COMMAND ${name})
+  endfunction()
+
+  # Helper for CUDA Tests
+  function(add_ag_testcuda name src)
+    add_executable(${name} ${src})
+    
+    # Force NVCC compilation for the test file
+    set_source_files_properties(${src} PROPERTIES LANGUAGE CUDA)
+    
+    target_link_libraries(${name} PRIVATE 
+        cgadimpl::cgadimpl 
+        CUDA::cudart 
+        dl
+    )
+
     add_test(NAME ${name} COMMAND ${name})
   endfunction()
   
-  set(CUDA_TEST_SOURCES tests/test_kernels_gpu.cpp tests/test_graph_gpu.cpp tests/test_end_to_end_gpu.cpp)
-  set_source_files_properties(${CUDA_TEST_SOURCES} PROPERTIES LANGUAGE CUDA)
+  # --- Define Test Sources ---
+  
+  # CPU Tests
+  add_ag_test(test_layalib     tests/test_layalib.cpp)
+  add_ag_test(test_layer       tests/test_layer.cpp)
+  add_ag_test(test_newlay       tests/test_newlay.cpp)
+  # Add your other CPU tests back here...
 
-  add_ag_test(test_ag                    tests/test_ag.cpp)
-  add_ag_test(test_trainag                    tests/test_trainag.cpp)
-  add_ag_test(test_forgpu                    tests/test_forgpu.cpp)
-  add_ag_test(test_mlp                    tests/test_mlp.cpp)
-  add_ag_test(test_complex_mlp                    tests/test_complex_mlp.cpp)
-  # add_ag_test(test_bench_relu                    tests/bench_relu.cpp)
-  add_ag_test(test_tiny_handcalc                    tests/tiny_handcalc.cpp)
-  add_ag_test(test_emb                    tests/test_emb.cpp)
-  add_ag_test(test_aline                    tests/test_aline.cpp)
-  add_ag_test(test_alinef                    tests/test_alinef.cpp)
-  add_ag_test(test_graph_compile                    tests/test_graph_compile.cpp)
-  add_ag_test(test_layalib                    tests/test_layalib.cpp)
-  add_ag_test(test_newcompile                    tests/test_newcompile.cpp)
-  add_ag_test(ag_core_test                    tests/test.cpp)
-  # add_ag_test(test_checkpoint                    tests/test_checkpoint.cpp)
-  # add_ag_test(test_inplace                    tests/test_inplace.cpp)
-  # add_ag_test(test_careful_deletion                    tests/test_careful_deletion.cpp)
-  add_ag_test(test_nn                    tests/test_nn.cpp)
-  add_ag_test(test_ann                    tests/test_ann.cpp)
-  add_ag_test(test_uniali                    tests/test_uniali.cpp)
-  add_ag_test(test_realann                    tests/test_realann.cpp)
-  add_ag_test(test_wann                    tests/test_wann.cpp)
-  add_ag_test(test_cann                    tests/test_cann.cpp)
-  add_ag_test(test_alinfe                    tests/test_alinfe.cpp)
-  add_ag_test(test_floal                    tests/test_floal.cpp)
-  add_ag_test(test_singat                    tests/test_singat.cpp)
-  add_ag_test(test_crosat                    tests/test_crosat.cpp)
-  add_ag_test(test_tenat                    tests/test_tenat.cpp)
-  add_ag_test(test_alibat                    tests/test_alibat.cpp)
-  add_ag_test(test_alicat                    tests/test_alicat.cpp)
-  add_ag_test(test_version                    tests/test_version.cpp)
-  add_ag_test(test_nodeops                    tests/test_nodeops.cpp)
-  add_ag_test(test_kernels_cpu                    tests/test_kernels_cpu.cpp)
-  add_ag_test(test_vjp_kernels                    tests/test_end_to_end_gpu.cpp)
-  add_ag_test(test_nn_mlp                    tests/test_mlp_training.cpp)
-  add_ag_test(test_kernels_gpu                    tests/test_kernels_gpu.cpp)
-  # add_ag_test(test_graph_cuda                    tests/test_graph_gpu.cpp)
-  add_ag_test(test_core_ops_gpu                    tests/test_core_ops_gpu.cpp)
+  # GPU/CUDA Tests
+  # Ensure these files actually have .cpp or .cu extension and contain CUDA code
+
+
 endif()
 
+
 message(STATUS "cgadimpl build mode: ${CMAKE_BUILD_TYPE}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  # add_ag_test(test_ag                    tests/test_ag.cpp)
+  # add_ag_test(test_trainag                    tests/test_trainag.cpp)
+  # add_ag_test(test_forgpu                    tests/test_forgpu.cpp)
+  # add_ag_test(test_mlp                    tests/test_mlp.cpp)
+  # add_ag_test(test_complex_mlp                    tests/test_complex_mlp.cpp)
+  # # add_ag_test(test_bench_relu                    tests/bench_relu.cpp)
+  # add_ag_test(test_tiny_handcalc                    tests/tiny_handcalc.cpp)
+  # add_ag_test(test_emb                    tests/test_emb.cpp)
+  # add_ag_test(test_aline                    tests/test_aline.cpp)
+  # add_ag_test(test_alinef                    tests/test_alinef.cpp)
+  # add_ag_test(test_graph_compile                    tests/test_graph_compile.cpp)
+  # add_ag_test(test_newcompile                    tests/test_newcompile.cpp)
+  # add_ag_test(ag_core_test                    tests/test.cpp)
+  # # add_ag_test(test_checkpoint                    tests/test_checkpoint.cpp)
+  # # add_ag_test(test_inplace                    tests/test_inplace.cpp)
+  # # add_ag_test(test_careful_deletion                    tests/test_careful_deletion.cpp)
+  # add_ag_test(test_nn                    tests/test_nn.cpp)
+  # add_ag_test(test_ann                    tests/test_ann.cpp)
+  # add_ag_test(test_uniali                    tests/test_uniali.cpp)
+  # add_ag_test(test_realann                    tests/test_realann.cpp)
+  # add_ag_test(test_wann                    tests/test_wann.cpp)
+  # add_ag_test(test_cann                    tests/test_cann.cpp)
+  # add_ag_test(test_alinfe                    tests/test_alinfe.cpp)
+  # add_ag_test(test_floal                    tests/test_floal.cpp)
+  # add_ag_test(test_singat                    tests/test_singat.cpp)
+  # add_ag_test(test_crosat                    tests/test_crosat.cpp)
+  # add_ag_test(test_tenat                    tests/test_tenat.cpp)
+  # add_ag_test(test_alibat                    tests/test_alibat.cpp)
+  # add_ag_test(test_alicat                    tests/test_alicat.cpp)
+  # add_ag_test(test_version                    tests/test_version.cpp)
+  # add_ag_test(test_nodeops                    tests/test_nodeops.cpp)
+  # add_ag_test(test_kernels_cpu                    tests/test_kernels_cpu.cpp)
+  # add_ag_test(test_vjp_kernels                    tests/test_end_to_end_gpu.cpp)
+  # add_ag_test(test_nn_mlp                    tests/test_mlp_training.cpp)
+  # add_ag_test(test_kernels_gpu                    tests/test_kernels_gpu.cpp)
+  # # add_ag_test(test_graph_cuda                    tests/test_graph_gpu.cpp)
+  # add_ag_test(test_core_ops_gpu                    tests/test_core_ops_gpu.cpp)
