@@ -1,5 +1,4 @@
 #include "tensor.hpp"
-#include "layer/affine.hpp" // Assuming this is where Linear/Layer classes are
 #include "ad/ops.hpp"
 #include "ad/kernels_api.hpp"
 #include <iostream>
@@ -100,6 +99,7 @@ void test_linear_layer() {
     check_tensors(f[0].grad(), ref_dWeight, "Linear Weight Grad");
     check_tensors(f[1].grad(), ref_dBias, "Linear Bias Grad");
     check_tensors(m.grad(), ref_dInput, "Linear Input Grad");
+    
 
 }
 

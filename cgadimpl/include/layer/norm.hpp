@@ -1,11 +1,11 @@
 #pragma once
-#include "layer/affine.hpp"
-
+#include "layer/affine.hpp" 
 #include "ad/graph.hpp"
 #include "ad/ops.hpp"
 #include <vector>
 
 namespace ag::layer {
+
 
 
 class RMSNorm : public Layer {
@@ -15,6 +15,5 @@ public:
 private:
     float gamma = 1.0;
 };
-
 
 } // namespace ag::nn
