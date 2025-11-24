@@ -153,6 +153,24 @@ void node_RealRMSNorm( std::shared_ptr<Node> n) {
     Tensor rsqrt = 1.0f / OwnTensor::sqrt(var + 1e-5f, ag::current_stream());
     n->value     = (X * rsqrt) * G;
 }
+
+
+void node_ExpandHeads(std::shared_ptr<Node> n) {
+    const Tensor& xt = n->inputs[0]->value; // [T, D]
+    const auto& dims = xt.shape().dims;
+    int B = dims[0];
+    int T = dims[1];
+    int D = dims[2];
+        int H = static_cast<int>(n->tape[0]->to(Device::CPU).data<float>()[0]);
+
+
+    // Allocate output tensor
+    n->value = xt.unflatten(2, Shape({H, (D/H)})).clone();
+
+    
+}
+
+
 void node_LayerNorm( std::shared_ptr<Node> n) {
      Tensor& X = n->inputs[0]->value;
     Tensor mean = OwnTensor::reduce_mean(X, {-1}, true);

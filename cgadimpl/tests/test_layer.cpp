@@ -244,7 +244,7 @@ void test_rmsnorm() {
 
 
 void test_attention() {
-    std::cout << "--- Testing Linear Layer ---\n";
+    std::cout << "--- Testing Attention Layer ---\n";
     
     // 1. Setup dimensions
     int Batch = 4;
@@ -291,7 +291,7 @@ void test_attention() {
     Tensor ref_out = matmul(s, v);
 
     // 7. Compare
-    check_tensors(layer_out.val(), ref_out, "Linear Forward");
+    check_tensors(layer_out.val(), ref_out, "Attention Forward");
 
     // --- Backward Test ---
     
@@ -312,7 +312,7 @@ void test_attention() {
     // VJP of softmax: s * (dL_ds - row_sum(s * dL_ds))
     Tensor dot = OwnTensor::reduce_sum(s * dL_ds, {-1}, true);
     Tensor dL_dg = s * (dL_ds - dot);
-    std::cout<<"        fvrwheyjmku  ";
+  //  std::cout<<"        fvrwheyjmku  ";
     
     // Propagate gradients back through the Q, K projections
     Tensor dL_dq = OwnTensor::matmul(dL_dg, k);
@@ -329,10 +329,10 @@ void test_attention() {
     Tensor dL_dA_v = OwnTensor::matmul(dL_dv, D.t());
     auto agrad = (dL_dA_q * scale) + (dL_dA_k * scale) + dL_dA_v;
     
-    check_tensors(f[0].grad(), bgrad, "Linear Q Grad");
-    check_tensors(f[1].grad(), cgrad, "Linear K Grad");
-    check_tensors(f[2].grad(), dgrad, "Linear V Grad");
-    check_tensors(m.grad(), agrad, "Linear Input Grad");
+    check_tensors(f[0].grad(), bgrad, "Attention Q Grad");
+    check_tensors(f[1].grad(), cgrad, "Attention K Grad");
+    check_tensors(f[2].grad(), dgrad, "Attention V Grad");
+    check_tensors(m.grad(), agrad, "Attention Input Grad");
 
 }
 

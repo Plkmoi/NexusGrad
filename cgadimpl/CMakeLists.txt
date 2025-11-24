@@ -128,6 +128,7 @@ if(true) # or use if(AG_BUILD_TESTS)
   add_ag_test(test_layalib     tests/test_layalib.cpp)
   add_ag_test(test_layer       tests/test_layer.cpp)
   add_ag_test(test_newlay       tests/test_newlay.cpp)
+  add_ag_test(test_eh       tests/test_eh.cpp)
   # Add your other CPU tests back here...
 
   # GPU/CUDA Tests

@@ -923,16 +923,16 @@ std::shared_ptr<Node> realrms_nodeops(const std::shared_ptr<Node>& x, float& g_v
     Tensor y_normalized = x->value * rsqrt_var;
     
     // Use our scalar caching mechanism for the gain 'g'
-    static std::unordered_map<float, std::shared_ptr<Node>> scalar_cache;
-    std::shared_ptr<Node> G;
-    auto it = scalar_cache.find(g_val);
-    if (it != scalar_cache.end()) {
-        G = it->second;
-    } else {
+    // static std::unordered_map<float, std::shared_ptr<Node>> scalar_cache;
+    // std::shared_ptr<Node> G;
+    // auto it = scalar_cache.find(g_val);
+    // if (it != scalar_cache.end()) {
+    //     G = it->second;
+    // } else {
         Tensor g_tensor = Tensor::full(Shape{{1, 1}}, TensorOptions().with_req_grad(true).with_device(x->value.device()), g_val); // Assume gain is trainable
-        G = std::make_shared<Node>(g_tensor, Op::Leaf, "rms_gain");
-        scalar_cache[g_val] = G;
-    }
+        auto G = std::make_shared<Node>(g_tensor, Op::Leaf, "rms_gain");
+        // scalar_cache[g_val] = G;
+    // }
 
     Tensor y_scaled = y_normalized * G->value;
 
@@ -980,18 +980,18 @@ std::shared_ptr<Node> relaynor_nodeops(const std::shared_ptr<Node>& x, float& b_
     Tensor y_normalized = x_minus_mean / OwnTensor::sqrt(variance + 1e-5f, ag::current_stream());
 
     // 3. Create or cache scalar nodes for gain and bias
-    static std::unordered_map<float, std::shared_ptr<Node>> cache;
-    std::shared_ptr<Node> G, B;
-    if (cache.count(g_val)) G = cache[g_val];
-    else {
-        G = std::make_shared<Node>(Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), g_val), Op::Leaf, "ln_gain");
-        cache[g_val] = G;
-    }
-    if (cache.count(b_val)) B = cache[b_val];
-    else {
-        B = std::make_shared<Node>(Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), b_val), Op::Leaf, "ln_bias");
-        cache[b_val] = B;
-    }
+    // static std::unordered_map<float, std::shared_ptr<Node>> cache;
+    // std::shared_ptr<Node> G, B;
+    // if (cache.count(g_val)) G = cache[g_val];
+    // else {
+    auto    G = std::make_shared<Node>(Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), g_val), Op::Leaf, "ln_gain");
+    //     cache[g_val] = G;
+    // }
+    // if (cache.count(b_val)) B = cache[b_val];
+    // else {
+    auto    B = std::make_shared<Node>(Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), b_val), Op::Leaf, "ln_bias");
+    //     cache[b_val] = B;
+    // }
 
     // 4. Apply scale and shift
     Tensor y = y_normalized * G->value + B->value;
@@ -1239,6 +1239,31 @@ std::shared_ptr<Node> mae_loss_nodeops(const std::shared_ptr<Node>& pred, const 
     ag::debug::on_node_created(n);
     return n;
 }
+
+
+std::shared_ptr<Node> expand_heads_nodeops(const std::shared_ptr<Node>& x, int H) {
+    const Tensor& xt = x->value; // [T, D]
+    const auto& dims = xt.shape().dims;
+    int B = dims[0];
+    int T = dims[1];
+    int D = dims[2];
+
+    // Allocate output tensor
+    // Tensor out(Shape{{H, B, T, D}}, ag::options(xt));
+    auto out = xt.unflatten(2, Shape({H, (D/H)})).clone();
+
+    auto n = std::make_shared<Node>(out, Op::ExpandHeads, x->requires_grad(), "expand_heads");
+    n->inputs = {x};
+
+    // store H for backward
+    Tensor tapeH = Tensor::full(Shape{{1}}, ag::options(out).with_req_grad(false), D);
+    n->tape.push_back(std::make_shared<Tensor>(tapeH));
+
+    ag::debug::on_node_created(n);
+    return n;
+}
+
+
 
     // Tensor forward_eval_node_impl(const std::shared_ptr<Node>& node) {
     //     if (!node) throw std::runtime_error("forward_eval_node: null node");

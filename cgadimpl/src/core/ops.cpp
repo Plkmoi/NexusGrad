@@ -108,6 +108,11 @@ namespace ag {
     }
 
 
+    Value expand(const Value& x, int q){ 
+        return Value(detail::expand_heads_nodeops(x.node, q));
+    }
+
+
 
     Value matmul(const Value& a, const Value& b){ 
          return Value(detail::matmul_nodeops(a.node, b.node)); 

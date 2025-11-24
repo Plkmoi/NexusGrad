@@ -6,7 +6,7 @@
 #include "ad/runtime.hpp"
 #include <cmath>
 #include <stdexcept> // Required for std::runtime_error
-
+#include "ad/debug.hpp"
 namespace ag {
 namespace detail{
 
@@ -835,6 +835,20 @@ void vjp_Sinh(Node* n, const Tensor& gy){
 
     // VJP is gy * cosh(x)
     X->grad += gy * OwnTensor::cosh(X->value);
+}
+
+void vjp_ExpandHeads(Node* n, const Tensor& gy) {
+    Node* X = n->inputs[0].get(); // original [T,D]
+    if (!X->requires_grad()) return;
+
+    int H = static_cast<int>(n->tape[0]->to(Device::CPU).data<float>()[0]);
+    
+    // gy: [H,T,D] → sum across H
+    Tensor grad_out = gy.flatten(2,3);
+    // ag::debug::print_tensor("Checker", grad_out);
+
+    // Accumulate
+    X->grad += grad_out;
 }
 
 // ===================================================================

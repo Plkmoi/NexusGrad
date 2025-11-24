@@ -46,6 +46,7 @@ Value parcon(const Value& x);
 Value sigmoid(const Value& x);
 Value softplus(const Value& x);
 Value reluatt(const Value& a, const Value& b, const Value& c, const Value& d); 
+Value expand(const Value& x, int q);
 Value sigatt(const Value& a, const Value& b, const Value& c, const Value& d); 
 
 

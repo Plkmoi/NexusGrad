@@ -416,6 +416,11 @@ Tensor jvp_Mish(Node* n, const std::function<const Tensor&(Node*)>& t){
     return T(t, X_node) * d_mish;
 }
 
+Tensor jvp_ExpandHeads(Node* n, const std::function<const Tensor&(Node*)>& t){
+    throw std::runtime_error("JVP for RealRMSNorm not implemented yet!");
+}
+
+
 // ===================================================================
 // jvp_Gaus
 // ===================================================================

@@ -103,6 +103,7 @@ std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const st
 std::shared_ptr<Node> mse_loss_nodeops( const std::shared_ptr<Node>& pred, const std::shared_ptr<Node>& target);
 std::shared_ptr<Node> mae_loss_nodeops( const std::shared_ptr<Node>& pred, const std::shared_ptr<Node>& target);
 
+std::shared_ptr<Node> expand_heads_nodeops(const std::shared_ptr<Node>& x, int H);
 
 } // namespace detail
 } // namespace ag
