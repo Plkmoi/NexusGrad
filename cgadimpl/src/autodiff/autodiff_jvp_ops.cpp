@@ -420,6 +420,10 @@ Tensor jvp_ExpandHeads(Node* n, const std::function<const Tensor&(Node*)>& t){
     throw std::runtime_error("JVP for RealRMSNorm not implemented yet!");
 }
 
+// Tensor jvp_Contract(Node* n, const std::function<const Tensor&(Node*)>& t){
+//     throw std::runtime_error("JVP for RealRMSNorm not implemented yet!");
+// }
+
 
 // ===================================================================
 // jvp_Gaus

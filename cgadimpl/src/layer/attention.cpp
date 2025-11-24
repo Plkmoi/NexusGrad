@@ -8,16 +8,17 @@ namespace ag::layer {
 
 
 
-Attention::Attention(int in_features, int out_features, Device dev) {
+Attention::Attention(int batch, int in_features, int out_features, int H, Device dev) {
     float scale = sqrtf(0.02f / in_features);
     auto param_opts = OwnTensor::TensorOptions().with_device(dev).with_req_grad(true);
-    Tensor wq = OwnTensor::Tensor::randn(Shape{{in_features, out_features}}, param_opts) * scale;
-    Tensor wk = OwnTensor::Tensor::randn(Shape{{in_features, out_features}}, param_opts) * scale;
-    Tensor wv = OwnTensor::Tensor::randn(Shape{{in_features, out_features}}, param_opts) * scale;
+    Tensor wq = OwnTensor::Tensor::randn(Shape{{batch, in_features, out_features}}, param_opts) * scale;
+    Tensor wk = OwnTensor::Tensor::randn(Shape{{batch, in_features, out_features}}, param_opts) * scale;
+    Tensor wv = OwnTensor::Tensor::randn(Shape{{batch, in_features, out_features}}, param_opts) * scale;
 
     Q = make_tensor(wq, "q");
     K = make_tensor(wk, "k");
     V = make_tensor(wv, "v");
+    heads = H;
 
     params_.push_back(Q);
     params_.push_back(K);
@@ -25,7 +26,7 @@ Attention::Attention(int in_features, int out_features, Device dev) {
 }
 
 Value Attention::operator()(Value input) {   
-    return attention(input, Q, K, V);
+    return attention(input, Q, K, V, heads);
 }
 
 

@@ -79,7 +79,7 @@ Value kldivergence(const Value& logits, const Value& onehot);
 Value fmab(const Value& a, const Value& b, const Value& c); // fused multiply-add a@b + c
 Value linear(const Value& a, const Value& b, const Value& c); // fused multiply-add a@b + c
 
-Value attention(const Value& a, const Value& b, const Value& c, const Value& d);
+Value attention(const Value& a, const Value& b, const Value& c, const Value& d, int H);
 Value mse_loss(const Value& pred, const Value& target);
 Value mae_loss(const Value& pred, const Value& target);
 

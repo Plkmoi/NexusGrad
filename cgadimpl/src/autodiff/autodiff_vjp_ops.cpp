@@ -191,23 +191,30 @@ void vjp_RealLayerNorm(Node* n, const Tensor& gy){
 // ===================================================================
 // vjp_Attention
 // ===================================================================
-void vjp_Attention(Node* n, const Tensor& gy){
+void vjp_Attention(Node* n, const Tensor& gya){
     Node* A = n->inputs[0].get();
     Node* B = n->inputs[1].get();
     Node* C = n->inputs[2].get();
     Node* D = n->inputs[3].get();
     
     // Tensors from the forward pass, saved on the tape
-    const Tensor& q = *n->tape[0];
-    const Tensor& k = *n->tape[1];
-    const Tensor& v = *n->tape[2];
-    const Tensor& s = *n->tape[3]; // The softmax output
+    const Tensor& q = (*n->tape[0]);
+    const Tensor& k = (*n->tape[1]);
+    const Tensor& v = (*n->tape[2]);
+    const Tensor& s = (*n->tape[3]); // The softmax output
 
     float scale = 1.0f / std::sqrt(static_cast<float>(k.shape().dims.back()));
+    auto gy = gya.unflatten(2, Shape({q.shape().dims[2], (q.shape().dims[3])})).clone();
+    ag::debug::print_tensor("Gradient y", gy);
+    ag::debug::print_tensor("Value", v);
+
 
     // All ops below will now use the stream-aware OwnTensor API
     Tensor dL_ds = OwnTensor::matmul(gy, v.t());
     Tensor dL_dv = OwnTensor::matmul(s.t(), gy);
+
+        ag::debug::print_tensor("Gradient s", s);
+    ag::debug::print_tensor("Value", dL_ds);
     
     // VJP of softmax: s * (dL_ds - row_sum(s * dL_ds))
     Tensor dot = OwnTensor::reduce_sum(s * dL_ds, {-1}, true);
@@ -217,20 +224,22 @@ void vjp_Attention(Node* n, const Tensor& gy){
     Tensor dL_dq = OwnTensor::matmul(dL_dg, k);
     Tensor dL_dk = OwnTensor::matmul(dL_dg.t(), q);
 
-    // Propagate gradients to the weight matrices and the input A
+//     // Propagate gradients to the weight matrices and the input A
     if (B->requires_grad()) {
-        B->grad += OwnTensor::matmul(A->value.t(), dL_dq) * scale;
+        B->grad += OwnTensor::matmul(A->value, dL_dq) * scale;
     }
     if (C->requires_grad()) {
-        C->grad += OwnTensor::matmul(A->value.t(), dL_dk) * scale;
+        C->grad += OwnTensor::matmul(A->value, dL_dk) * scale;
     }
     if (D->requires_grad()) {
-        D->grad += OwnTensor::matmul(A->value.t(), dL_dv);
+        D->grad += OwnTensor::matmul(A->value, dL_dv);
     }
+            ag::debug::print_tensor("Gradient q", dL_dq);
+    ag::debug::print_tensor("Value B", B->value);
     if (A->requires_grad()) {
-    Tensor dL_dA_q = OwnTensor::matmul(dL_dq, B->value.t());
-    Tensor dL_dA_k = OwnTensor::matmul(dL_dk, C->value.t());
-    Tensor dL_dA_v = OwnTensor::matmul(dL_dv, D->value.t());
+    Tensor dL_dA_q = OwnTensor::matmul(dL_dq.flatten(2,3), B->value);
+    Tensor dL_dA_k = OwnTensor::matmul(dL_dk.flatten(2,3), C->value);
+    Tensor dL_dA_v = OwnTensor::matmul(dL_dv.flatten(2,3), D->value);
     A->grad += (dL_dA_q * scale) + (dL_dA_k * scale) + dL_dA_v;
 }
 }

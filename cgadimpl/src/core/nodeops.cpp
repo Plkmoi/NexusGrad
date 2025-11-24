@@ -149,10 +149,11 @@ std::shared_ptr<Node> matmul_nodeops(const std::shared_ptr<Node>& a, const std::
 // =====================================================================================================
 // attention nodeops
 // =====================================================================================================
-std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d){
-    Tensor q = matmul(a->value, b->value);
-    Tensor k = matmul(a->value, c->value);
-    Tensor v = matmul(a->value, d->value);
+std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d, int H){
+    Tensor q = matmul(a->value, b->value.t()).unflatten(2, Shape({H, (b->value.shape().dims[1]/H)})).clone();
+    Tensor k = matmul(a->value, c->value.t()).unflatten(2, Shape({H, (c->value.shape().dims[1]/H)})).clone();
+    Tensor v = matmul(a->value, d->value.t()).unflatten(2, Shape({H, (d->value.shape().dims[1]/H)})).clone();
+
 
     float scale = 1.f / sqrtf(static_cast<float>(k.shape().dims.back()));
     Tensor g = matmul(q, k.t()) * scale;
@@ -162,18 +163,30 @@ std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const st
     Tensor exp_g = exp(g - max_val);
     Tensor sum_exp_g = reduce_sum(exp_g, {-1}, true);
     Tensor s = exp_g / sum_exp_g;
+    ag::debug::print_tensor("Who is v", v);
 
+    ag::debug::print_tensor("S middle", s);
+// try{
     Tensor y = matmul(s, v);
+        ag::debug::print_tensor("Y middle", y);
 
-    auto n = std::make_shared<Node>(y, Op::Attention, (a->requires_grad() || b->requires_grad() || c->requires_grad() || d->requires_grad()), "attention");
+// catch(const std::runtime_error& e)
+// {
+// std::cerr << "Caught exception: " << e.what() << std::endl;
+// };
+
+    auto n = std::make_shared<Node>(y.flatten(2,3), Op::Attention, (a->requires_grad() || b->requires_grad() || c->requires_grad() || d->requires_grad()), "attention");
     n->inputs = {a, b, c, d};
     // Save intermediate tensors needed for the backward pass to the tape
     n->tape.push_back(std::make_shared<Tensor>(q));
     n->tape.push_back(std::make_shared<Tensor>(k));
     n->tape.push_back(std::make_shared<Tensor>(v));
     n->tape.push_back(std::make_shared<Tensor>(s));
+    Tensor tapeH = Tensor::full(Shape{{1}}, ag::options(a->value).with_req_grad(false), H);
+    n->tape.push_back(std::make_shared<Tensor>(tapeH));
     ag::debug::on_node_created(n);
     return n;
+    // return a;
 }
 // =====================================================================================================
 // Corrected sigatt_nodeops - Pure OwnTensor
@@ -516,6 +529,7 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
     Tensor q = matmul(x, Wq);  // [H,T,D]
     Tensor k = matmul(x, Wk);  // [H,T,D]
     Tensor v = matmul(x, Wv);  // [H,T,D]
+    
 
     // 2) Logits: [H, T, T]
     Tensor logits = matmul(q, k.t()) * scale;

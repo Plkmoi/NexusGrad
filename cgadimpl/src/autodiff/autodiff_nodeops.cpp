@@ -170,6 +170,23 @@ void node_ExpandHeads(std::shared_ptr<Node> n) {
     
 }
 
+// void node_Contract(std::shared_ptr<Node> n) {
+//     const Tensor& xt = n->inputs[0]->value; // [T, D]
+//     const auto& dims = xt.shape().dims;
+//     int H = dims[0];
+//     int B = dims[1];
+//     int T = dims[2];
+//     int D = dims[3];
+
+//         int H = static_cast<int>(n->tape[0]->to(Device::CPU).data<float>()[0]);
+
+
+//     // Allocate output tensor
+//     n->value = xt.unflatten(2, Shape({H, (D/H)})).clone();
+
+    
+// }
+
 
 void node_LayerNorm( std::shared_ptr<Node> n) {
      Tensor& X = n->inputs[0]->value;
@@ -254,20 +271,28 @@ void node_Attention( std::shared_ptr<Node> n) {
      Tensor& B = n->inputs[1]->value;
      Tensor& C = n->inputs[2]->value;
      Tensor& D = n->inputs[3]->value;
+             int H = static_cast<int>(n->tape[4]->to(Device::CPU).data<float>()[0]);
 
-    Tensor q = matmul(A, B);
-    Tensor k = matmul(A, C);
-    Tensor v = matmul(A, D);
+   Tensor q = matmul(A, B.t()).unflatten(2, Shape({H, (B.shape().dims[1]/H)})).clone();
+    Tensor k = matmul(A, C.t()).unflatten(2, Shape({H, (C.shape().dims[1]/H)})).clone();
+    Tensor v = matmul(A, D.t()).unflatten(2, Shape({H, (D.shape().dims[1]/H)})).clone();
+
 
     float scale = 1.f / sqrtf(static_cast<float>(k.shape().dims.back()));
     Tensor g = matmul(q, k.t()) * scale;
 
-    Tensor m   = OwnTensor::reduce_max(g, {-1}, true);
-    Tensor e   = OwnTensor::exp(g - m);
-    Tensor s   = OwnTensor::reduce_sum(e, {-1}, true);
-    Tensor p   = e / s;
+    // Re-implement softmax using OwnTensor ops
+    Tensor max_val = reduce_max(g, {-1}, true);
+    Tensor exp_g = exp(g - max_val);
+    Tensor sum_exp_g = reduce_sum(exp_g, {-1}, true);
+    Tensor s = exp_g / sum_exp_g;
+    ag::debug::print_tensor("Who is v", v);
 
-    n->value = matmul(p, v);
+    ag::debug::print_tensor("S middle", s);
+
+    n->value = matmul(s, v).flatten(2,3);
+
+
 }
 void node_SigAtt( std::shared_ptr<Node> n) {
      Tensor& A = n->inputs[0]->value;

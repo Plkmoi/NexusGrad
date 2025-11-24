@@ -11,10 +11,11 @@ namespace ag::layer {
 
 class Attention : public Layer {
 public:
-    Attention(int in_features, int out_features, Device dev = Device::CPU);
+    Attention(int batch, int in_features, int H, int out_features, Device dev = Device::CPU);
     Value operator()(Value input) override;
 private:
     Value X, Q, K, V;
+    int heads;
 };
 
 
