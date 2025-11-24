@@ -204,7 +204,8 @@ void vjp_Attention(Node* n, const Tensor& gya){
     const Tensor& s = (*n->tape[3]); // The softmax output
 
     float scale = 1.0f / std::sqrt(static_cast<float>(k.shape().dims.back()));
-    auto gy = gya.unflatten(2, Shape({q.shape().dims[2], (q.shape().dims[3])})).clone();
+    ag::debug::print_tensor("Gradient ya", gya);
+    auto gy = gya.unflatten(2, Shape({q.shape().dims[1], (q.shape().dims[3])})).transpose(1,2).clone();
     ag::debug::print_tensor("Gradient y", gy);
     ag::debug::print_tensor("Value", v);
 
@@ -237,9 +238,9 @@ void vjp_Attention(Node* n, const Tensor& gya){
             ag::debug::print_tensor("Gradient q", dL_dq);
     ag::debug::print_tensor("Value B", B->value);
     if (A->requires_grad()) {
-    Tensor dL_dA_q = OwnTensor::matmul(dL_dq.flatten(2,3), B->value);
-    Tensor dL_dA_k = OwnTensor::matmul(dL_dk.flatten(2,3), C->value);
-    Tensor dL_dA_v = OwnTensor::matmul(dL_dv.flatten(2,3), D->value);
+    Tensor dL_dA_q = OwnTensor::matmul(dL_dq.transpose(1,2).flatten(2,3), B->value);
+    Tensor dL_dA_k = OwnTensor::matmul(dL_dk.transpose(1,2).flatten(2,3), C->value);
+    Tensor dL_dA_v = OwnTensor::matmul(dL_dv.transpose(1,2).flatten(2,3), D->value);
     A->grad += (dL_dA_q * scale) + (dL_dA_k * scale) + dL_dA_v;
 }
 }

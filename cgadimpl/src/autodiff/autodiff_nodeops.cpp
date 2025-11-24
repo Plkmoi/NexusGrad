@@ -273,9 +273,9 @@ void node_Attention( std::shared_ptr<Node> n) {
      Tensor& D = n->inputs[3]->value;
              int H = static_cast<int>(n->tape[4]->to(Device::CPU).data<float>()[0]);
 
-   Tensor q = matmul(A, B.t()).unflatten(2, Shape({H, (B.shape().dims[1]/H)})).clone();
-    Tensor k = matmul(A, C.t()).unflatten(2, Shape({H, (C.shape().dims[1]/H)})).clone();
-    Tensor v = matmul(A, D.t()).unflatten(2, Shape({H, (D.shape().dims[1]/H)})).clone();
+   Tensor q = matmul(A, B.t()).unflatten(2, Shape({H, (B.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor k = matmul(A, C.t()).unflatten(2, Shape({H, (C.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor v = matmul(A, D.t()).unflatten(2, Shape({H, (D.shape().dims[1]/H)})).transpose(1,2).clone();
 
 
     float scale = 1.f / sqrtf(static_cast<float>(k.shape().dims.back()));
@@ -290,7 +290,7 @@ void node_Attention( std::shared_ptr<Node> n) {
 
     ag::debug::print_tensor("S middle", s);
 
-    n->value = matmul(s, v).flatten(2,3);
+    n->value = matmul(s, v).transpose(1,2).flatten(2,3);
 
 
 }
@@ -327,94 +327,88 @@ void node_RELUAtt( std::shared_ptr<Node> n) {
     n->value = OwnTensor::matmul(relu, v);
 }
 void node_AlibiAttention( std::shared_ptr<Node> n) {
-     const Tensor& x = n->inputs[0]->value;   // [H, T, D]
-    const auto& dims = x.shape().dims;
-    const int H = static_cast<int>(dims[0]);
-    const int T = static_cast<int>(dims[1]);
-    const int D = static_cast<int>(dims[2]);
+    const Tensor& x = n->inputs[0]->value;   // [H, T, D]
 
     const Tensor& Wq = n->inputs[1]->value;  // [D, D]
     const Tensor& Wk = n->inputs[2]->value;  // [D, D]
     const Tensor& Wv = n->inputs[3]->value;  // [D, D]
-    float scale = 1.f / std::sqrt(static_cast<float>(D));
+
 
     // All tensors follow the device / dtype of x
-    auto opts = ag::options(x);
+    const auto& dims = x.shape().dims;
+    if (dims.size() != 3) {
+        throw std::runtime_error("alibiatt_nodeops: x must be [H,T,D]");
+    }
+    const int B = static_cast<int>(dims[0]);
 
-    // 1) Batched projections: [H, T, D]
-    //
-    // Assuming OwnTensor::matmul supports:
-    //   [H, T, D] @ [D, D] -> [H, T, D]
-    //
-    Tensor q = OwnTensor::matmul(x, Wq);  // [H, T, D]
-    Tensor k = OwnTensor::matmul(x, Wk);  // [H, T, D]
-    Tensor v = OwnTensor::matmul(x, Wv);  // [H, T, D]
+    const int T = static_cast<int>(dims[1]);
+    const int D = static_cast<int>(dims[2]);
 
-    // 2) Batched logits: [H, T, T]
-    //
-    // Assuming Tensor::t() transposes the last two dims, so:
-    //   k.t(): [H, D, T]
-    //   matmul([H, T, D], [H, D, T]) -> [H, T, T]
-    //
-    Tensor logits = OwnTensor::matmul(q, k.t()) * scale;  // [H, T, T]
+    float scale = 1.f / std::sqrt(static_cast<float>(D));
+    auto opts   = options(x);
+    int H = static_cast<int>(n->tape[4]->to(Device::CPU).data<float>()[0]);
 
-    // 3) Build full [H, T, T] ALiBi bias on CPU, then move to logits.device()
-    //
+
+    // 1) Projections: [H, T, D]
+    Tensor q = matmul(x, Wq.t()).unflatten(2, Shape({H, (Wq.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor k = matmul(x, Wk.t()).unflatten(2, Shape({H, (Wk.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor v = matmul(x, Wv.t()).unflatten(2, Shape({H, (Wv.shape().dims[1]/H)})).transpose(1,2).clone();
+
+
+    // 2) Logits: [H, T, T]
+    Tensor logits = matmul(q, k.t()) * scale;
+
+    // 3) Build ALiBi bias [H, T, T] on CPU, then move to logits.device()
     Tensor bias_cpu(
-        logits.shape(),   // [H, T, T]
-        OwnTensor::TensorOptions()
-            .with_device(OwnTensor::Device::CPU)
+        logits.shape(),
+        TensorOptions()
+            .with_device(Device::CPU)
             .with_dtype(logits.dtype())
     );
 
     {
-        // Classic ALiBi slope schedule
         float slope_start = 1.0f / std::pow(2.0f, 8.0f / H);
 
         dispatch_by_dtype(bias_cpu.dtype(), [&](auto dummy) {
             using Tval = decltype(dummy);
             Tval* data = bias_cpu.data<Tval>();
 
-            for (int h = 0; h < H; ++h) {
-                // one slope per head
-                float slope = std::pow(slope_start, h + 1);
+            for (int b = 0; b < B; ++b) {
+                for (int h = 0; h < H; ++h) {
+                                    float slope = std::pow(slope_start, h + 1);
 
                 for (int i = 0; i < T; ++i) {
+
                     for (int j = 0; j < T; ++j) {
                         float v;
                         if (j > i) {
-                            // Causal mask: disallow attending to future
-                            v = -std::numeric_limits<float>::infinity();
+                            v = -std::numeric_limits<float>::infinity(); // causal mask
                         } else {
-                            // ALiBi bias: larger penalty for far-away positions
-                            v = -static_cast<float>(T - 1 - j) * slope;
+                            v = -static_cast<float>(j - i) * slope;  // ALiBi penalty
                         }
 
-                        // Flat index into [H, T, T]
-                        const int idx = h * (T * T) + i * T + j;
+                        const int idx = j + T*i + T*T*h + H*T*T*b;
                         data[idx] = static_cast<Tval>(v);
                     }
                 }
             }
+            }
         });
     }
 
-    Tensor bias = bias_cpu.to(logits.device());   // [H, T, T]
-    Tensor g    = logits + bias;                  // [H, T, T]
+    
 
-    // 4) Softmax over last dim (T) in a batched manner
-    //
-    // reduce_max / reduce_sum called with axes {-1} should preserve [H, T, 1]
-    //
-    Tensor max_g   = OwnTensor::reduce_max(g,  {-1}, true);  // [H, T, 1]
-    Tensor exp_g   = OwnTensor::exp(g - max_g);              // [H, T, T]
-    Tensor sum_g   = OwnTensor::reduce_sum(exp_g, {-1}, true); // [H, T, 1]
-    Tensor s       = exp_g / sum_g;                          // [H, T, T] — softmax scores
+    // Tensor bias = bias_cpu.to(logits.device());
+    Tensor g    = logits +bias_cpu;  // [H,T,T]
 
-    // 5) Final output: y = softmax(g) @ v
-    //    [H, T, T] @ [H, T, D] -> [H, T, D] (batched matmul)
-    //
-    n->value = OwnTensor::matmul(s, v);   // [H, T, D]
+    // 4) Softmax over last dim
+    Tensor max_g = reduce_max(g, {-1}, true);     // [H,T,1]
+    Tensor exp_g = exp(g - max_g);                // [H,T,T]
+    Tensor sum_g = reduce_sum(exp_g, {-1}, true); // [H,T,1]
+    Tensor s     = exp_g / sum_g;                 // [H,T,T]
+
+    // 5) Output: y = s @ v → [H,T,D]
+    n->value = matmul(s, v).transpose(1,2).flatten(2,3);       
 
 }
 

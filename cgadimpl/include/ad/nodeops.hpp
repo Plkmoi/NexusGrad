@@ -93,7 +93,7 @@ std::shared_ptr<Node> mean_all_nodeops( const std::shared_ptr<Node>& x); // scal
 std::shared_ptr<Node> softmax_row_nodeops( const std::shared_ptr<Node>& z); // [B,C] -> [B,C]
 std::shared_ptr<Node> logsumexp_row_nodeops(const std::shared_ptr<Node>& z); // [B,C] -> [B,1]
 std::shared_ptr<Node> laynor_nodeops(const std::shared_ptr<Node>& x);
-std::shared_ptr<Node> alibiatt_nodeops( const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d, float& m); // m = max seq len
+std::shared_ptr<Node> alibiatt_nodeops( const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d, int& m); // m = max seq len
 
 // composite loss (one-hot targets)
 std::shared_ptr<Node> cross_entropy_with_logits_nodeops(const std::shared_ptr<Node>& logits, const std::shared_ptr<Node>& onehot);

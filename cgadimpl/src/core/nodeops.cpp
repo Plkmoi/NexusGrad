@@ -150,9 +150,9 @@ std::shared_ptr<Node> matmul_nodeops(const std::shared_ptr<Node>& a, const std::
 // attention nodeops
 // =====================================================================================================
 std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d, int H){
-    Tensor q = matmul(a->value, b->value.t()).unflatten(2, Shape({H, (b->value.shape().dims[1]/H)})).clone();
-    Tensor k = matmul(a->value, c->value.t()).unflatten(2, Shape({H, (c->value.shape().dims[1]/H)})).clone();
-    Tensor v = matmul(a->value, d->value.t()).unflatten(2, Shape({H, (d->value.shape().dims[1]/H)})).clone();
+    Tensor q = matmul(a->value, b->value.t()).unflatten(2, Shape({H, (b->value.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor k = matmul(a->value, c->value.t()).unflatten(2, Shape({H, (c->value.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor v = matmul(a->value, d->value.t()).unflatten(2, Shape({H, (d->value.shape().dims[1]/H)})).transpose(1,2).clone();
 
 
     float scale = 1.f / sqrtf(static_cast<float>(k.shape().dims.back()));
@@ -167,7 +167,7 @@ std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const st
 
     ag::debug::print_tensor("S middle", s);
 // try{
-    Tensor y = matmul(s, v);
+    Tensor y = matmul(s, v).transpose(1,2).flatten(2,3);
         ag::debug::print_tensor("Y middle", y);
 
 // catch(const std::runtime_error& e)
@@ -175,7 +175,7 @@ std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const st
 // std::cerr << "Caught exception: " << e.what() << std::endl;
 // };
 
-    auto n = std::make_shared<Node>(y.flatten(2,3), Op::Attention, (a->requires_grad() || b->requires_grad() || c->requires_grad() || d->requires_grad()), "attention");
+    auto n = std::make_shared<Node>(y, Op::Attention, (a->requires_grad() || b->requires_grad() || c->requires_grad() || d->requires_grad()), "attention");
     n->inputs = {a, b, c, d};
     // Save intermediate tensors needed for the backward pass to the tape
     n->tape.push_back(std::make_shared<Tensor>(q));
@@ -505,7 +505,7 @@ std::shared_ptr<Node> sqrt_nodeops(const std::shared_ptr<Node>& x) {
 // alibiatt_nodeops
 // ===================================================================
 
-std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d, float& m)  {
+std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d, int& H)  {
 
 
     const Tensor& x  = a->value;  // [H, T, D]
@@ -517,8 +517,8 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
     if (dims.size() != 3) {
         throw std::runtime_error("alibiatt_nodeops: x must be [H,T,D]");
     }
+    const int B = static_cast<int>(dims[0]);
 
-    const int H = static_cast<int>(dims[0]);
     const int T = static_cast<int>(dims[1]);
     const int D = static_cast<int>(dims[2]);
 
@@ -526,10 +526,10 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
     auto opts   = options(x);
 
     // 1) Projections: [H, T, D]
-    Tensor q = matmul(x, Wq);  // [H,T,D]
-    Tensor k = matmul(x, Wk);  // [H,T,D]
-    Tensor v = matmul(x, Wv);  // [H,T,D]
-    
+    Tensor q = matmul(a->value, b->value.t()).unflatten(2, Shape({H, (b->value.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor k = matmul(a->value, c->value.t()).unflatten(2, Shape({H, (c->value.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor v = matmul(a->value, d->value.t()).unflatten(2, Shape({H, (d->value.shape().dims[1]/H)})).transpose(1,2).clone();
+
 
     // 2) Logits: [H, T, T]
     Tensor logits = matmul(q, k.t()) * scale;
@@ -549,28 +549,33 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
             using Tval = decltype(dummy);
             Tval* data = bias_cpu.data<Tval>();
 
-            for (int h = 0; h < H; ++h) {
-                float slope = std::pow(slope_start, h + 1);
+            for (int b = 0; b < B; ++b) {
+                for (int h = 0; h < H; ++h) {
+                                    float slope = std::pow(slope_start, h + 1);
 
                 for (int i = 0; i < T; ++i) {
+
                     for (int j = 0; j < T; ++j) {
                         float v;
                         if (j > i) {
                             v = -std::numeric_limits<float>::infinity(); // causal mask
                         } else {
-                            v = -static_cast<float>(T - 1 - j) * slope;  // ALiBi penalty
+                            v = -static_cast<float>(j - i) * slope;  // ALiBi penalty
                         }
 
-                        const int idx = h * (T * T) + i * T + j;
+                        const int idx = j + T*i + T*T*h + H*T*T*b;
                         data[idx] = static_cast<Tval>(v);
                     }
                 }
             }
+            }
         });
     }
 
-    Tensor bias = bias_cpu.to(logits.device());
-    Tensor g    = logits + bias;  // [H,T,T]
+    
+
+    // Tensor bias = bias_cpu.to(logits.device());
+    Tensor g    = logits +bias_cpu;  // [H,T,T]
 
     // 4) Softmax over last dim
     Tensor max_g = reduce_max(g, {-1}, true);     // [H,T,1]
@@ -579,7 +584,7 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
     Tensor s     = exp_g / sum_g;                 // [H,T,T]
 
     // 5) Output: y = s @ v → [H,T,D]
-    Tensor y = matmul(s, v);                      // [H,T,D]
+    Tensor y = matmul(s, v).transpose(1,2).flatten(2,3);                      // [H,T,D]
 
     // 6) Build Node, save tape for VJP
     auto n = std::make_shared<Node>(
@@ -597,6 +602,8 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
     n->tape.push_back(std::make_shared<Tensor>(k)); // [H,T,D]
     n->tape.push_back(std::make_shared<Tensor>(v)); // [H,T,D]
     n->tape.push_back(std::make_shared<Tensor>(s)); // [H,T,T]
+        Tensor tapeH = Tensor::full(Shape{{1}}, ag::options(a->value).with_req_grad(false), H);
+    n->tape.push_back(std::make_shared<Tensor>(tapeH));
 
     ag::debug::on_node_created(n);
     return n;

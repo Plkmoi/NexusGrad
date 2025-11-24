@@ -98,7 +98,7 @@ Value AlibiAttention::operator()(Value input) {
     //
     Value X_heads = make_tensor(x_heads, "X_alibi_heads");
 
-    float dummy_m = m_;   // or just 1.0f if m_ isn't used inside
+    int dummy_m = m_;   // or just 1.0f if m_ isn't used inside
 
     Value Y_heads = alibiatt(X_heads, Wq_, Wk_, Wv_, dummy_m); // [H, T, D]
 

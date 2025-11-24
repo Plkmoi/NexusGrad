@@ -34,7 +34,7 @@ public:
 private:
     int d_model_;
     int n_heads_;
-    float m_;
+    int m_;
     Value Wq_, Wk_, Wv_;
 };
 

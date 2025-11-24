@@ -128,7 +128,7 @@ namespace ag {
     }
 
 
-    Value alibiatt(const Value& a, const Value& b, const Value& c, const Value& d, float m) { 
+    Value alibiatt(const Value& a, const Value& b, const Value& c, const Value& d, int m) { 
     return Value(detail::alibiatt_nodeops(a.node, b.node, c.node, d.node, m));
 }
 
