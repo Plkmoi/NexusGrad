@@ -204,18 +204,18 @@ void vjp_Attention(Node* n, const Tensor& gya){
     const Tensor& s = (*n->tape[3]); // The softmax output
 
     float scale = 1.0f / std::sqrt(static_cast<float>(k.shape().dims.back()));
-    ag::debug::print_tensor("Gradient ya", gya);
+    // ag::debug::print_tensor("Gradient ya", gya);
     auto gy = gya.unflatten(2, Shape({q.shape().dims[1], (q.shape().dims[3])})).transpose(1,2).clone();
-    ag::debug::print_tensor("Gradient y", gy);
-    ag::debug::print_tensor("Value", v);
+    // ag::debug::print_tensor("Gradient y", gy);
+    // ag::debug::print_tensor("Value", v);
 
 
     // All ops below will now use the stream-aware OwnTensor API
     Tensor dL_ds = OwnTensor::matmul(gy, v.t());
     Tensor dL_dv = OwnTensor::matmul(s.t(), gy);
 
-        ag::debug::print_tensor("Gradient s", s);
-    ag::debug::print_tensor("Value", dL_ds);
+    //     ag::debug::print_tensor("Gradient s", s);
+    // ag::debug::print_tensor("Value", dL_ds);
     
     // VJP of softmax: s * (dL_ds - row_sum(s * dL_ds))
     Tensor dot = OwnTensor::reduce_sum(s * dL_ds, {-1}, true);
@@ -235,8 +235,8 @@ void vjp_Attention(Node* n, const Tensor& gya){
     if (D->requires_grad()) {
         D->grad += OwnTensor::matmul(A->value, dL_dv);
     }
-            ag::debug::print_tensor("Gradient q", dL_dq);
-    ag::debug::print_tensor("Value B", B->value);
+    //         ag::debug::print_tensor("Gradient q", dL_dq);
+    // ag::debug::print_tensor("Value B", B->value);
     if (A->requires_grad()) {
     Tensor dL_dA_q = OwnTensor::matmul(dL_dq.transpose(1,2).flatten(2,3), B->value);
     Tensor dL_dA_k = OwnTensor::matmul(dL_dk.transpose(1,2).flatten(2,3), C->value);
@@ -371,14 +371,13 @@ void vjp_Mish(Node* n, const Tensor& gy){
 
     // Re-calculate intermediates needed for the derivative
     // softplus(x) = log(1 + exp(x))
-    Tensor sp = OwnTensor::log(1.0f + OwnTensor::exp(X->value));
-    Tensor tanh_sp = OwnTensor::tanh(sp);
+    Tensor tanh_sp = OwnTensor::tanh(OwnTensor::log(1.0f + OwnTensor::exp(X->value)));
     
     // sigmoid(x) = 1 / (1 + exp(-x))
     Tensor sig_x = 1.0f / (1.0f + OwnTensor::exp(X->value * -1.0f));
 
     // The derivative of mish
-    Tensor d_mish = tanh_sp + X->value * (1.0f - (tanh_sp * tanh_sp)) * sig_x;
+    Tensor d_mish = tanh_sp+(  X->value*sig_x  *(1.0f-(tanh_sp*tanh_sp)));
     
     // Apply the chain rule
     X->grad += gy * d_mish;

@@ -163,12 +163,9 @@ std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const st
     Tensor exp_g = exp(g - max_val);
     Tensor sum_exp_g = reduce_sum(exp_g, {-1}, true);
     Tensor s = exp_g / sum_exp_g;
-    ag::debug::print_tensor("Who is v", v);
 
-    ag::debug::print_tensor("S middle", s);
 // try{
     Tensor y = matmul(s, v).transpose(1,2).flatten(2,3);
-        ag::debug::print_tensor("Y middle", y);
 
 // catch(const std::runtime_error& e)
 // {
@@ -522,14 +519,13 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
     const int T = static_cast<int>(dims[1]);
     const int D = static_cast<int>(dims[2]);
 
-    float scale = 1.f / std::sqrt(static_cast<float>(D));
     auto opts   = options(x);
 
     // 1) Projections: [H, T, D]
     Tensor q = matmul(a->value, b->value.t()).unflatten(2, Shape({H, (b->value.shape().dims[1]/H)})).transpose(1,2).clone();
     Tensor k = matmul(a->value, c->value.t()).unflatten(2, Shape({H, (c->value.shape().dims[1]/H)})).transpose(1,2).clone();
     Tensor v = matmul(a->value, d->value.t()).unflatten(2, Shape({H, (d->value.shape().dims[1]/H)})).transpose(1,2).clone();
-
+    float scale = 1.f / sqrtf(static_cast<float>(k.shape().dims.back()));
 
     // 2) Logits: [H, T, T]
     Tensor logits = matmul(q, k.t()) * scale;
@@ -623,6 +619,7 @@ std::shared_ptr<Node> swiglu_nodeops(const std::shared_ptr<Node>& x, const std::
     Tensor w = q * (OwnTensor::matmul(x->value, c->value.t()) + d->value);
     
     auto n = std::make_shared<Node>(w, Op::SWIGLU, (x->requires_grad() || a->requires_grad() || b->requires_grad() || c->requires_grad() || d-> requires_grad()) , "swiglu"); 
+    
     n->inputs={x, a, b, c, d};
     ag::debug::on_node_created(n); 
     return n;
@@ -770,7 +767,7 @@ std::shared_ptr<Node> gaus_nodeops(const std::shared_ptr<Node>& x){
 std::shared_ptr<Node> gelu_nodeops(const std::shared_ptr<Node>& x){
     // All of these operations will correctly use the thread-local stream context.
 
-    // Constants for the GELU approximation
+    // Constants for the GELU approximation using tanh
     const float c1 = 0.7978845608f; // sqrt(2.0f / M_PI)
     const float c2 = 0.044715f;
 

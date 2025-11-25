@@ -344,7 +344,6 @@ void node_AlibiAttention( std::shared_ptr<Node> n) {
     const int T = static_cast<int>(dims[1]);
     const int D = static_cast<int>(dims[2]);
 
-    float scale = 1.f / std::sqrt(static_cast<float>(D));
     auto opts   = options(x);
     int H = static_cast<int>(n->tape[4]->to(Device::CPU).data<float>()[0]);
 
@@ -354,7 +353,7 @@ void node_AlibiAttention( std::shared_ptr<Node> n) {
     Tensor k = matmul(x, Wk.t()).unflatten(2, Shape({H, (Wk.shape().dims[1]/H)})).transpose(1,2).clone();
     Tensor v = matmul(x, Wv.t()).unflatten(2, Shape({H, (Wv.shape().dims[1]/H)})).transpose(1,2).clone();
 
-
+    float scale = 1.f / sqrtf(static_cast<float>(k.shape().dims.back()));
     // 2) Logits: [H, T, T]
     Tensor logits = matmul(q, k.t()) * scale;
 

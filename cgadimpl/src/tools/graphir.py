@@ -13,3 +13,5 @@ cgadimpl.kernels.load_cpu_plugin("/home/blubridge-034/Downloads/Newf/cgadimpl/cg
 
 def qae(a, b):
     c = a+b
+
+
