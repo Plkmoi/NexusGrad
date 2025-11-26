@@ -35,7 +35,7 @@ protected:
 
 class Linear : public Layer {
 public:
-    Linear(int in_features, int out_features, Device dev = Device::CPU);
+    Linear(int batch, int in_features, int out_features, Device dev = Device::CPU);
     Value operator()(Value input) override;
 private:
     Value W, b;

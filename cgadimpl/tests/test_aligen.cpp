@@ -30,6 +30,52 @@ Tensor make_embedding_table(int vocab_size, int d_model) {
     return emb;
 }
 
+
+Tensor embed_tokens_3d(const std::vector<std::vector<int>>& sequences, const Tensor& emb) {
+    int B = sequences.size();           // Batch size
+    if (B == 0) {
+        return Tensor(Shape{{0, 0, 0}}, OwnTensor::TensorOptions().with_device(Device::CPU));
+    }
+
+    int S = sequences[0].size();        // Sequence length (assumes all sequences in batch are same length)
+    int vocab_size = emb.shape().dims[0];
+    int d_model = emb.shape().dims[1];
+
+    // Allocate the 3D output tensor: Shape [B, S, D]
+    Tensor X(Shape{{B, S, d_model}}, OwnTensor::TensorOptions().with_device(Device::CPU));
+
+    const float* E = emb.data<float>();
+    float* out = X.data<float>();
+
+    for (int b = 0; b < B; ++b) {
+        if (sequences[b].size() != S) {
+            // Handle cases where sequences have different lengths (e.g., throw or pad)
+            throw std::runtime_error("All sequences in the batch must have the same length (S) for a single 3D tensor.");
+        }
+
+        for (int s = 0; s < S; ++s) {
+            int id = sequences[b][s];
+
+            // Safety check
+            if (id < 0 || id >= vocab_size) {
+                std::cerr << "Invalid token id found: " << id << std::endl;
+                id = 0; // Fallback to pad id (index 0)
+            }
+
+            // Calculate the correct offset in the flat output buffer
+            // We are moving along the B * S dimension before hitting D
+            size_t output_offset = (b * S + s) * d_model;
+            size_t emb_offset = id * d_model;
+
+            // Copy the embedding row: E[id] → X[b][s]
+            std::memcpy(out + output_offset,
+                        E + emb_offset,
+                        d_model * sizeof(float));
+        }
+    }
+    return X;
+}
+
 // ==================================================
 // tokens: vector<int> of length B
 // emb:   vocab_size x d_model
@@ -163,21 +209,24 @@ int main() {
 
     // 1. --- Hyperparameters ---
     const int B = 32;            // batch size
-    const int d_model = 128;     // model / residual width
     // const int vocab_size = 5000; // number of classes (logits dim)
     const int num_layers = 2;    // (Attn + SWIGLU) block pairs
     const float lr = 0.001f;
     const int epochs = 2100;
     int vocab_size = 5000;       // integer tokens 0..19
+    int Heads = 4;
+
+    const int S = 256; // Sequence length (needs to be defined)
+    const int d_model = 512; // Embedding dimension
+    auto dev = Device::CPU;
 
     // -------------------------------------------
     // Load corpus + tokenize
     // -------------------------------------------
     std::string text = ag::layer::load_text_file("/home/blubridge-034/Downloads/Newf/cgadimpl/cgadimpl/src/layer/corpus.txt");
-    std::vector<int> tokens = ag::layer::tokenize_bytes(text);
+    std::vector<int> all_tokens = ag::layer::tokenize_bytes(text); // Renamed to clarify it's the full corpus
 
-    // derive vocab_size dynamically from corpus
-    for (int id : tokens) {
+    for (int id : all_tokens) {
         vocab_size = std::max(vocab_size, id);
     }
     vocab_size += 1;
@@ -190,38 +239,48 @@ int main() {
     // -------------------------------------------
     // Create one batch from corpus tokens
     // -------------------------------------------
-    if ((int)tokens.size() < B) {
-        std::cerr << "Corpus size < batch size\n";
+
+    // You need enough tokens for BATCH * SEQUENCE LENGTH
+    int required_tokens = B * S;
+    if ((int)all_tokens.size() < required_tokens) {
+        std::cerr << "Corpus size (" << all_tokens.size() << ") is too small for batch size B * S (" << required_tokens << ")\n";
         return -1;
     }
 
-    // -------------------------------------------
-    // Create Autoregressive Inputs and Targets
-    // -------------------------------------------
-    std::vector<int> batch(tokens.begin(), tokens.begin() + B); // batch of tokens
+    // Prepare a 2D input structure: std::vector<std::vector<int>>
+    std::vector<std::vector<int>> batch_sequences;
+    
+    // Extract the required block of tokens from the large corpus vector
+    // This example just takes the first B * S tokens and reshapes them
+    
+    for (int i = 0; i < B; ++i) {
+        std::vector<int> current_sequence(
+            all_tokens.begin() + i * S, 
+            all_tokens.begin() + (i + 1) * S
+        );
+        batch_sequences.push_back(current_sequence);
+    }
 
-    // X is the input sequence, Y is the target sequence (shifted)
-    Tensor X_cpu = embed_tokens(batch, embedding_table); // [B, d_model]
+
 
     std::vector<ag::layer::Layer*> layers;
     layers.reserve(num_layers * 2 + 2);
-    auto dev = Device::CUDA;
 
     // Build model layers
     for (int i = 0; i < num_layers; ++i) {
         layers.push_back(new ag::layer::ResidualBlock({
-            new ag::layer::RMSNorm(),
-            new ag::layer::AlibiAttention(d_model, 4, 1.0f, dev)
+            new ag::layer::RMSNorm(dev),
+            new ag::layer::AlibiAttention(Heads, B, S, d_model, dev)
         }));
 
         layers.push_back(new ag::layer::ResidualBlock({
-            new ag::layer::RMSNorm(),
-            new ag::layer::SWIGLU(d_model, d_model, dev)
+            new ag::layer::RMSNorm(dev),
+            new ag::layer::SWIGLU(B, S, d_model, dev)
         }));
     }
 
-    layers.push_back(new ag::layer::RMSNorm());
-    layers.push_back(new ag::layer::Linear(d_model, vocab_size, dev));
+    layers.push_back(new ag::layer::RMSNorm(dev));
+    layers.push_back(new ag::layer::Linear(B, S, d_model, dev));
 
     ag::layer::Traverse model(layers);
 
@@ -230,26 +289,31 @@ int main() {
 
 
 
-    std::mt19937 gen(42);
-Tensor X_gpu = X_cpu.to(dev);
-Value X = make_tensor(X_gpu, "tokens");
 
-    // ---- Create integer class labels Y (one-hot) ----
-    Tensor Yt(Shape{{B, vocab_size}}, TensorOptions());
-    float* yp = Yt.data<float>();
+Tensor X_cpu = Tensor(Shape{{B, S, d_model}}, OwnTensor::TensorOptions().with_device(Device::CPU));
+    Tensor X_gpu = X_cpu.to(dev);
+    Value X = make_tensor(X_gpu, "tokens");
 
-        for (int i = 0; i < B - 1; ++i) {
-            int c = batch[i + 1];  // next token becomes target
-            for (int j = 0; j < vocab_size; ++j)
-                yp[i * vocab_size + j] = (j == c) ? 1.0f : 0.0f;
-        }
+
+    // ---- Create integer class labels Y (targets) ----
+    // The target tensor must be the same shape as your logits output before cross_entropy.
+    // If your final linear layer is [B, S, D] -> [B, S, vocab_size]
+    Tensor Yt(Shape{{B, S, vocab_size}}, TensorOptions()); // Correct 3D target shape
+    // Note: Yt should generally be integer/long type if using typical cross_entropy implementations
+    // but your original code used float*, implying one-hot encoding or a specific loss function.
+    // We will stick to your float* format for now, assuming your `cross_entropy_with_logits` handles this format.
+    
+    float* yp = Yt.data<float>(); // Pointer to the flat memory of Yt
+
+    // We don't populate Yt here statically, it gets populated dynamically in the loop.
 
     Value Y = make_tensor(Yt, "Y_target");
-                ag::disten(Y, dev);
+    ag::disten(Y, dev); // Distribute Y placeholder to device
 
-                Value logits = model(X);
-                Value loss = cross_entropy_with_logits(logits, Y);
-                zero_val(loss);
+    // Placeholder run (might crash if model weights aren't initialized/sized correctly yet)
+    // Value logits = model(X); 
+    // Value loss = cross_entropy_with_logits(logits, Y);
+    // zero_val(loss);
 
 
     // -------------------------------------------
@@ -257,25 +321,59 @@ Value X = make_tensor(X_gpu, "tokens");
     // -------------------------------------------
     for (int epoch = 0; epoch < epochs; ++epoch) {
         // Create X and Y: shift tokens for autoregressive training
+
+        // Calculate a starting point in the corpus that allows for a full B*S sequence + targets
+        int start = (epoch * B * S) % (all_tokens.size() - B * S - 1); 
+        // A better way to loop through all data might be needed, but this works for epoch cycling
+
+        std::vector<std::vector<int>> batch_sequences;
+        std::vector<std::vector<int>> target_sequences; // We need target sequences too
+
+        for (int i = 0; i < B; ++i) {
+            int sequence_start_index = start + i * S;
+            
+            // Input X sequence: [start ... start + S - 1]
+            std::vector<int> current_x_seq(
+                all_tokens.begin() + sequence_start_index, 
+                all_tokens.begin() + sequence_start_index + S
+            );
+            
+            // Target Y sequence (shifted): [start + 1 ... start + S]
+            std::vector<int> current_y_seq(
+                all_tokens.begin() + sequence_start_index + 1, 
+                all_tokens.begin() + sequence_start_index + S + 1
+            );
+
+            batch_sequences.push_back(current_x_seq);
+            target_sequences.push_back(current_y_seq);
+        }
         
-            int start = epoch % (tokens.size() - B - 1);
-    std::vector<int> batch(tokens.begin() + start, tokens.begin() + start + B);
+        // Use the 3D embedding function for X
+        X_cpu = embed_tokens_3d(batch_sequences, embedding_table);
+        
+        // Update the Value object X with the new data and push to GPU
+        X.node->value = X_cpu.to(dev);
+        // ag::disten(X, dev); // This line is likely redundant if to() already moved it
 
-        Tensor X_cpu = embed_tokens(batch, embedding_table);
-    X.node->value = X_cpu.to(dev);
-    ag::disten(X, dev);
-
-        Tensor Ytn(Shape{{B, vocab_size}}, TensorOptions());
-    float* ypA = Ytn.data<float>();
-
-
-        for (int i = 0; i < B - 1; ++i) {
-            int c = batch[i + 1]; // This is the correct target token ID
-            if (c >= 0 && c < vocab_size) {
-                ypA[i * vocab_size + c] = 1.0f; // This will not segfault now
+        // Prepare the Target Tensor Ytn (Y-target-now)
+        // It must be [B, S, vocab_size] shape (one-hot encoded)
+        Tensor Ytn(Shape{{B, S, vocab_size}}, OwnTensor::TensorOptions().with_device(Device::CPU));
+        float* ypA = Ytn.data<float>();
+        
+        // One-hot encode the target_sequences into the flat Ytn tensor memory
+        for (int b = 0; b < B; ++b) {
+            for (int s = 0; s < S; ++s) {
+                int target_id = target_sequences[b][s];
+                if (target_id < 0 || target_id >= vocab_size) {
+                    throw std::out_of_range("Target ID is invalid during Y prep.");
+                }
+                // Calculate the flat index in the 3D tensor data [b][s][target_id]
+                size_t flat_index = (static_cast<size_t>(b) * S + s) * vocab_size + target_id;
+                ypA[flat_index] = 1.0f; // Set the correct class probability to 1.0
             }
         }
-
+        
+        // Update the Value object Y with the new data and push to GPU
         Y.node->value = Ytn.to(dev);
     ag::disten(Y, dev);
 

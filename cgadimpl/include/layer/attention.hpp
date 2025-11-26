@@ -27,14 +27,12 @@ private:
 
 class AlibiAttention : public Layer {
 public:
-    AlibiAttention(int d_model, int n_heads, float m, Device dev = Device::CPU);
+    AlibiAttention(int batch, int in_features, int out_features, int H, Device dev = Device::CPU);
 
     Value operator()(Value input) override;
 
 private:
-    int d_model_;
-    int n_heads_;
-    int m_;
+    int heads;
     Value Wq_, Wk_, Wv_;
 };
 

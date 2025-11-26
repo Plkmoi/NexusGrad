@@ -10,17 +10,18 @@ int main() {
     using namespace OwnTensor;
 
     Device dev = Device::CPU;
-    const int T = 8;
+    const int seqlen = 64;
     const int d_model = 16;
     const int n_heads = 4;
+    const int batch = 2;
 
     Tensor x_t = Tensor::randn(
-        Shape{{T, d_model}},
+        Shape{{batch, seqlen, d_model}},
         TensorOptions().with_device(dev).with_req_grad(false)
     );
     Value x = make_tensor(x_t, "x_in");
 
-   auto qlayer = ag::layer::AlibiAttention(d_model, n_heads, /*m=*/1.0f, dev);
+   auto qlayer = ag::layer::AlibiAttention(batch, seqlen, d_model, n_heads, dev);
 
     Value y = qlayer(x);   // [T, d_model]
     Tensor y_cpu = y.val().to(Device::CPU);

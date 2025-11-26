@@ -78,7 +78,7 @@ std::shared_ptr<Node> silu_nodeops(const std::shared_ptr<Node>& x); // x * sigmo
 std::shared_ptr<Node> leaky_relu_nodeops(const std::shared_ptr<Node>& x, float alpha=0.01f); // alpha via const input
 std::shared_ptr<Node> lisht_nodeops(const std::shared_ptr<Node>& x);
 std::shared_ptr<Node> transpose_nodeops(const std::shared_ptr<Node>& x);
-std::shared_ptr<Node> swiglu_nodeops(const std::shared_ptr<Node>& x, const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d);
+std::shared_ptr<Node> swiglu_nodeops(const std::shared_ptr<Node>& x, const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d, const std::shared_ptr<Node>& e, const std::shared_ptr<Node>& f);
 std::shared_ptr<Node> rms_nodeops(const std::shared_ptr<Node>& x); // root mean square normalization
 std::shared_ptr<Node> realrms_nodeops(const std::shared_ptr<Node>& x, float& g); // with learned scale
 std::shared_ptr<Node> dyntanh_nodeops(const std::shared_ptr<Node>& x, float& a, float& b, float& g); // dynamic tanh via mean_all

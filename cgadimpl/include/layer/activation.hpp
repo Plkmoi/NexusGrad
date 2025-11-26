@@ -11,10 +11,10 @@ namespace ag::layer {
 
 class SWIGLU : public Layer {
 public:
-    SWIGLU(int batch, int in_features, int out_features, Device dev = Device::CPU);
+    SWIGLU(int batch, int in_features, int out_features, int hidden_features, Device dev = Device::CPU);
     Value operator()(Value input) override;
 private:
-    Value W, b, Wa, ba;
+    Value W, b, Wa, ba, Wc, bc;
 };
 
 

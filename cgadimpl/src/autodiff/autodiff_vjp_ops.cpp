@@ -212,35 +212,39 @@ void vjp_Attention(Node* n, const Tensor& gya){
 
     // All ops below will now use the stream-aware OwnTensor API
     Tensor dL_ds = OwnTensor::matmul(gy, v.t());
-    Tensor dL_dv = OwnTensor::matmul(s.t(), gy);
+    Tensor dL_dv = OwnTensor::matmul(s.t(), gy).transpose(1,2).flatten(2,3);
 
-    //     ag::debug::print_tensor("Gradient s", s);
-    // ag::debug::print_tensor("Value", dL_ds);
+        ag::debug::print_tensor("Gradient s", s);
+    ag::debug::print_tensor("Value", dL_ds);
     
     // VJP of softmax: s * (dL_ds - row_sum(s * dL_ds))
     Tensor dot = OwnTensor::reduce_sum(s * dL_ds, {-1}, true);
     Tensor dL_dg = s * (dL_ds - dot);
     
     // Propagate gradients back through the Q, K projections
-    Tensor dL_dq = OwnTensor::matmul(dL_dg, k);
-    Tensor dL_dk = OwnTensor::matmul(dL_dg.t(), q);
+    Tensor dL_dq = OwnTensor::matmul(dL_dg, k).transpose(1,2).flatten(2,3);
+    Tensor dL_dk = OwnTensor::matmul(dL_dg.t(), q).transpose(1,2).flatten(2,3);
+
+                ag::debug::print_tensor("Gradient q", dL_dq);
+    ag::debug::print_tensor("Value B", B->value);
+    ag::debug::print_tensor("Value A", A->value);
+
 
 //     // Propagate gradients to the weight matrices and the input A
     if (B->requires_grad()) {
-        B->grad += OwnTensor::matmul(A->value, dL_dq) * scale;
+        B->grad += OwnTensor::matmul(dL_dq.t(), A->value) * scale;
     }
     if (C->requires_grad()) {
-        C->grad += OwnTensor::matmul(A->value, dL_dk) * scale;
+        C->grad += OwnTensor::matmul(dL_dk.t(), A->value) * scale;
     }
     if (D->requires_grad()) {
-        D->grad += OwnTensor::matmul(A->value, dL_dv);
+        D->grad += OwnTensor::matmul(dL_dv.t(), A->value);
     }
-    //         ag::debug::print_tensor("Gradient q", dL_dq);
-    // ag::debug::print_tensor("Value B", B->value);
+
     if (A->requires_grad()) {
-    Tensor dL_dA_q = OwnTensor::matmul(dL_dq.transpose(1,2).flatten(2,3), B->value);
-    Tensor dL_dA_k = OwnTensor::matmul(dL_dk.transpose(1,2).flatten(2,3), C->value);
-    Tensor dL_dA_v = OwnTensor::matmul(dL_dv.transpose(1,2).flatten(2,3), D->value);
+    Tensor dL_dA_q = OwnTensor::matmul(dL_dq, B->value);
+    Tensor dL_dA_k = OwnTensor::matmul(dL_dk, C->value);
+    Tensor dL_dA_v = OwnTensor::matmul(dL_dv, D->value);
     A->grad += (dL_dA_q * scale) + (dL_dA_k * scale) + dL_dA_v;
 }
 }
@@ -259,6 +263,8 @@ void vjp_SWIGLU(Node* n, const Tensor& gy){
     Node* B = n->inputs[2].get();
     Node* C = n->inputs[3].get();
     Node* D = n->inputs[4].get();
+    Node* E = n->inputs[5].get();
+    Node* F = n->inputs[6].get();
 
     // Recompute intermediates using OwnTensor API
     Tensor y = OwnTensor::matmul(X->value, A->value.t()) + B->value;
@@ -274,18 +280,26 @@ void vjp_SWIGLU(Node* n, const Tensor& gy){
     Tensor dL_dh = swish_y * gy;
     Tensor dL_dy = h * swish_grad * gy;
 
+    // ag::debug::print_tensor("The reach point", dL_dh);
+    // ag::debug::print_tensor("Vantage", D->grad);
+
         if (D->requires_grad()) {
         // reduce_sum over dim 0 → [1,O]
-        Tensor grad_D = OwnTensor::reduce_sum(dL_dh, {0}, true);
+        Tensor grad_D = OwnTensor::reduce_sum(dL_dh, {1}, true);
+        // ag::debug::print_tensor("Winning", grad_D);
+
         D->grad += grad_D;
     }
+
+    //     ag::debug::print_tensor("The reach point", dL_dh);
+    // ag::debug::print_tensor("Vantage X", X->value);
 
     if (C->requires_grad()) {
         C->grad += OwnTensor::matmul(dL_dh.t(), X->value); // [O,B]@[B,I]=[O,I]
     }
 
     if (B->requires_grad()) {
-        Tensor grad_B = OwnTensor::reduce_sum(dL_dy, {0}, true);
+        Tensor grad_B = OwnTensor::reduce_sum(dL_dy, {1}, true);
         B->grad += grad_B;
     }
 
@@ -786,7 +800,7 @@ void vjp_Linear(Node* n, const Tensor& gy){
     if (b_node->requires_grad()) {
         // Change keepdim from 'false' to 'true'.
         // This makes the result [1, Out] instead of [Out].
-        b_node->grad += OwnTensor::reduce_sum(gy, {0}, true);
+        b_node->grad += OwnTensor::reduce_sum(gy, {1}, true);
     }
 }
 // ===================================================================
@@ -813,15 +827,15 @@ void vjp_RealRMSNorm(Node* n, const Tensor& gy){
     
     const float inv_N = 1.0f / static_cast<float>(x->value.shape().dims.back());
 
-    Tensor dot = OwnTensor::reduce_sum(gy * y_normalized, {-1}, true);
+    Tensor dot = OwnTensor::reduce_sum(gy * y_normalized, {-2}, true);
     
     // grad_x = rsqrt * (gy - y * dot)
     Tensor grad_x = g->value * rms * (gy - y_normalized * dot);
 
     x->grad += grad_x;
-    Tensor gy_y  = gy * y_normalized; // [B,D]
-        Tensor grad_g = OwnTensor::reduce_sum(gy_y, {0, 1}, true); // [1,1] (or do 2-step sum)
-        g->grad += grad_g;
+    // Tensor gy_y  = gy * y_normalized; // [B,D]
+    //     Tensor grad_g = OwnTensor::reduce_sum(gy_y, {0, 1}, true); // [1,1] (or do 2-step sum)
+    //     g->grad += grad_g;
 }
 
 // ===================================================================

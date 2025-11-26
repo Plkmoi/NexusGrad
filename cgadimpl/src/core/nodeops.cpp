@@ -511,9 +511,7 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
     const Tensor& Wv = d->value;  // [D, D]
 
     const auto& dims = x.shape().dims;
-    if (dims.size() != 3) {
-        throw std::runtime_error("alibiatt_nodeops: x must be [H,T,D]");
-    }
+
     const int B = static_cast<int>(dims[0]);
 
     const int T = static_cast<int>(dims[1]);
@@ -578,9 +576,12 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
     Tensor exp_g = exp(g - max_g);                // [H,T,T]
     Tensor sum_g = reduce_sum(exp_g, {-1}, true); // [H,T,1]
     Tensor s     = exp_g / sum_g;                 // [H,T,T]
+    ag::debug::print_tensor("Who is v", v);
 
-    // 5) Output: y = s @ v → [H,T,D]
-    Tensor y = matmul(s, v).transpose(1,2).flatten(2,3);                      // [H,T,D]
+    ag::debug::print_tensor("S middle", s);
+// try{
+    Tensor y = matmul(s, v).transpose(1,2).flatten(2,3);
+        ag::debug::print_tensor("Y middle", y);
 
     // 6) Build Node, save tape for VJP
     auto n = std::make_shared<Node>(
@@ -608,7 +609,7 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
 // ===================================================================
 // swiglu_nodeops
 // ===================================================================
-std::shared_ptr<Node> swiglu_nodeops(const std::shared_ptr<Node>& x, const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d){ 
+std::shared_ptr<Node> swiglu_nodeops(const std::shared_ptr<Node>& x, const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d, const std::shared_ptr<Node>& e, const std::shared_ptr<Node>& f){ 
     // Gate projection
     Tensor y = OwnTensor::matmul(x->value, a->value.t()) + b->value; 
     
@@ -616,7 +617,9 @@ std::shared_ptr<Node> swiglu_nodeops(const std::shared_ptr<Node>& x, const std::
     Tensor q = y * (1.0f / (1.0f + OwnTensor::exp(y * -1.0f)));
     
     // Value projection and final multiplication
-    Tensor w = q * (OwnTensor::matmul(x->value, c->value.t()) + d->value);
+    Tensor r = q * (OwnTensor::matmul(x->value, c->value.t()) + d->value);
+
+    Tensor w = OwnTensor::matmul(r, e->value.t()) + f->value; 
     
     auto n = std::make_shared<Node>(w, Op::SWIGLU, (x->requires_grad() || a->requires_grad() || b->requires_grad() || c->requires_grad() || d-> requires_grad()) , "swiglu"); 
     
