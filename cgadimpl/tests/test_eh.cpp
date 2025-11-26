@@ -425,17 +425,17 @@ void test_swiglu( int H, int B, int S, int D, int K)
     
 
 
-    auto r = swiglu(m, W, b, Wa, ba, Wc, bc);
+    auto r = swiglu(m, W, b, Wa, ba);
     
     auto w = sum(r);
     ag::debug::print_tensor("Result Value SWIGLU", r.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient SWIGLU", m.grad());
-    for(int i=0;i<10;i++){
-        forward(w);
-        backward(w);
-        ag::SGD(w);
-    }
+    // for(int i=0;i<10;i++){
+    //     forward(w);
+    //     backward(w);
+    //     ag::SGD(w);
+    // }
 
 
 

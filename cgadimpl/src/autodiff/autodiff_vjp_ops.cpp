@@ -263,8 +263,6 @@ void vjp_SWIGLU(Node* n, const Tensor& gy){
     Node* B = n->inputs[2].get();
     Node* C = n->inputs[3].get();
     Node* D = n->inputs[4].get();
-    Node* E = n->inputs[5].get();
-    Node* F = n->inputs[6].get();
 
     // Recompute intermediates using OwnTensor API
     Tensor y = OwnTensor::matmul(X->value, A->value.t()) + B->value;
@@ -280,19 +278,11 @@ void vjp_SWIGLU(Node* n, const Tensor& gy){
     Tensor dL_dh = swish_y * gy;
     Tensor dL_dy = h * swish_grad * gy;
 
-    // ag::debug::print_tensor("The reach point", dL_dh);
-    // ag::debug::print_tensor("Vantage", D->grad);
-
         if (D->requires_grad()) {
         // reduce_sum over dim 0 → [1,O]
         Tensor grad_D = OwnTensor::reduce_sum(dL_dh, {1}, true);
-        // ag::debug::print_tensor("Winning", grad_D);
-
         D->grad += grad_D;
     }
-
-    //     ag::debug::print_tensor("The reach point", dL_dh);
-    // ag::debug::print_tensor("Vantage X", X->value);
 
     if (C->requires_grad()) {
         C->grad += OwnTensor::matmul(dL_dh.t(), X->value); // [O,B]@[B,I]=[O,I]

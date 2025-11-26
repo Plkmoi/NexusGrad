@@ -6,7 +6,7 @@
 using namespace ag;
 
 
-void test_aliatt( int Heads, int B, int S, int d_model, int num_layers)
+void test_aliatt( int Heads, int B, int S, int d_model, int K, int num_layers)
 {
     Tensor X = Tensor::randn(Shape({B, S, d_model}), TensorOptions());
     ag::debug::print_tensor("Input Alibi Attention", X);
@@ -26,7 +26,7 @@ void test_aliatt( int Heads, int B, int S, int d_model, int num_layers)
 
         layers.push_back(new ag::layer::ResidualBlock({
             new ag::layer::RMSNorm(),
-            new ag::layer::SWIGLU(B, S, d_model)
+            new ag::layer::SWIGLU(B, S, d_model, K)
         }));
     }
 
@@ -63,7 +63,7 @@ void test_aliatt( int Heads, int B, int S, int d_model, int num_layers)
 
 int main(){
 
-test_aliatt(2, 4, 2, 4, 3);
+test_aliatt(2, 4, 2, 4, 3, 10);
 
 return 0;
 

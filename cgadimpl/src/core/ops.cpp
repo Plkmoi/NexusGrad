@@ -134,8 +134,8 @@ namespace ag {
 
 
 
-    Value swiglu(const Value& x, const Value& a, const Value& b, const Value& c, const Value& d, const Value& e, const Value& f){ 
-    return Value(detail::swiglu_nodeops(x.node, a.node, b.node, c.node, d.node, e.node, f.node));
+    Value swiglu(const Value& x, const Value& a, const Value& b, const Value& c, const Value& d){ 
+    return Value(detail::swiglu_nodeops(x.node, a.node, b.node, c.node, d.node));
     }
 
 

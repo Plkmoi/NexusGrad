@@ -55,7 +55,7 @@ Value silu (const Value& x); // x * sigmoid(x)
 Value leaky_relu(const Value& x, float alpha=0.01f); // alpha via const input
 Value lisht(const Value& x);
 Value transpose(const Value& x);
-Value swiglu(const Value& x, const Value& a, const Value& b, const Value& c, const Value& d, const Value& e, const Value& f);
+Value swiglu(const Value& x, const Value& a, const Value& b, const Value& c, const Value& d);
 Value rms(const Value& x); // root mean square normalization
 Value realrms(const Value& x, float g); // with learned scale
 Value dyntanh(const Value& x, float a, float b, float g); // dynamic tanh via mean_all

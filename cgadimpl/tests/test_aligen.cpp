@@ -275,7 +275,7 @@ int main() {
 
         layers.push_back(new ag::layer::ResidualBlock({
             new ag::layer::RMSNorm(dev),
-            new ag::layer::SWIGLU(B, S, d_model, dev)
+            new ag::layer::SWIGLU(B, S, d_model, 10, dev)
         }));
     }
 

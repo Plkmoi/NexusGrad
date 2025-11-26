@@ -309,7 +309,7 @@ void test_swiglu( int H, int B, int S, int D)
     Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
     ag::debug::print_tensor("Input SWIGLU", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
-    auto swag = ag::layer::SWIGLU(B, S, D);
+    auto swag = ag::layer::SWIGLU(B, S, D, 10);
     auto r = swag(m);
 
     auto w = sum(r);

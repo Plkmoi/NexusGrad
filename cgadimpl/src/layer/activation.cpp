@@ -36,7 +36,7 @@ SWIGLU::SWIGLU(int batch, int in_features, int out_features, int hidden_features
 
 
 Value SWIGLU::operator()(Value input) {   
-    return swiglu(input, W, b, Wa, ba, Wc, bc);
+    return linear(swiglu(input, W, b, Wa, ba), Wc, bc);
 }
 
 

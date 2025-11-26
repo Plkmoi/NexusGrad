@@ -609,7 +609,7 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
 // ===================================================================
 // swiglu_nodeops
 // ===================================================================
-std::shared_ptr<Node> swiglu_nodeops(const std::shared_ptr<Node>& x, const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d, const std::shared_ptr<Node>& e, const std::shared_ptr<Node>& f){ 
+std::shared_ptr<Node> swiglu_nodeops(const std::shared_ptr<Node>& x, const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d){ 
     // Gate projection
     Tensor y = OwnTensor::matmul(x->value, a->value.t()) + b->value; 
     
@@ -617,9 +617,7 @@ std::shared_ptr<Node> swiglu_nodeops(const std::shared_ptr<Node>& x, const std::
     Tensor q = y * (1.0f / (1.0f + OwnTensor::exp(y * -1.0f)));
     
     // Value projection and final multiplication
-    Tensor r = q * (OwnTensor::matmul(x->value, c->value.t()) + d->value);
-
-    Tensor w = OwnTensor::matmul(r, e->value.t()) + f->value; 
+    Tensor w = q * (OwnTensor::matmul(x->value, c->value.t()) + d->value);
     
     auto n = std::make_shared<Node>(w, Op::SWIGLU, (x->requires_grad() || a->requires_grad() || b->requires_grad() || c->requires_grad() || d-> requires_grad()) , "swiglu"); 
     
@@ -627,6 +625,7 @@ std::shared_ptr<Node> swiglu_nodeops(const std::shared_ptr<Node>& x, const std::
     ag::debug::on_node_created(n); 
     return n;
 }
+
 
 // ============================================================================
 // sum_nodeops
