@@ -129,6 +129,7 @@ if(true) # or use if(AG_BUILD_TESTS)
   add_ag_test(test_eh       tests/test_eh.cpp)
   add_ag_test(test_neh       tests/test_neh.cpp)
   add_ag_test(test_aliba       tests/test_aliba.cpp)
+  # add_ag_test(test_aligen       tests/test_aligen.cpp)
   # Add your other CPU tests back here...
 
   # GPU/CUDA Tests

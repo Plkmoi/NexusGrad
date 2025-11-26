@@ -219,6 +219,7 @@ int main() {
     const int S = 256; // Sequence length (needs to be defined)
     const int d_model = 512; // Embedding dimension
     auto dev = Device::CPU;
+    int K = 10;
 
     // -------------------------------------------
     // Load corpus + tokenize
@@ -269,17 +270,17 @@ int main() {
     // Build model layers
     for (int i = 0; i < num_layers; ++i) {
         layers.push_back(new ag::layer::ResidualBlock({
-            new ag::layer::RMSNorm(dev),
+            new ag::layer::RMSNorm(),
             new ag::layer::AlibiAttention(Heads, B, S, d_model, dev)
         }));
 
         layers.push_back(new ag::layer::ResidualBlock({
-            new ag::layer::RMSNorm(dev),
-            new ag::layer::SWIGLU(B, S, d_model, 10, dev)
+            new ag::layer::RMSNorm(),
+            new ag::layer::SWIGLU(B, S, d_model, K, dev)
         }));
     }
 
-    layers.push_back(new ag::layer::RMSNorm(dev));
+    layers.push_back(new ag::layer::RMSNorm());
     layers.push_back(new ag::layer::Linear(B, S, d_model, dev));
 
     ag::layer::Traverse model(layers);
@@ -349,7 +350,7 @@ Tensor X_cpu = Tensor(Shape{{B, S, d_model}}, OwnTensor::TensorOptions().with_de
         }
         
         // Use the 3D embedding function for X
-        X_cpu = embed_tokens_3d(batch_sequences, embedding_table);
+        X_cpu = embed_tokens_3d( batch_sequences, embedding_table);
         
         // Update the Value object X with the new data and push to GPU
         X.node->value = X_cpu.to(dev);

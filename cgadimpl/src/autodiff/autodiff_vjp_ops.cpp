@@ -166,6 +166,8 @@ void vjp_RealLayerNorm(Node* n, const Tensor& gy){
     Tensor std_dev = OwnTensor::sqrt(variance + 1e-5f, ag::current_stream());
     Tensor xmu = x->value - mean;
 
+
+
     // VJP for the core normalization part (same as LayerNorm)
     Tensor grad_sum = OwnTensor::reduce_sum(gy, {-1}, true);
     Tensor grad_dot_xmu = OwnTensor::reduce_sum(gy * x_normalized, {-1}, true);
@@ -175,12 +177,19 @@ void vjp_RealLayerNorm(Node* n, const Tensor& gy){
     Tensor term3 = term2 - (x_normalized * grad_dot_xmu);
     Tensor dx_normalized = term3 / N;
 
+                ag::debug::print_tensor("Gradient xmu", xmu);
+                ag::debug::print_tensor("Gradient gy", gy);
+                ag::debug::print_tensor("Gradient gyxn", gy * x_normalized);
+                ag::debug::print_tensor("Gradient gvalgrad", g->grad);
+
+
+
     // VJP for the affine transformation (scale and shift)
     if (g->requires_grad()) {
-        g->grad += OwnTensor::reduce_sum(gy * x_normalized, {-1});
+        g->grad += OwnTensor::reduce_sum(gy*x_normalized, {0, 1});
     }
     if (b->requires_grad()) {
-        b->grad += OwnTensor::reduce_sum(gy, {-1});
+        b->grad += OwnTensor::reduce_sum(gy, {0, 1});
     }
     if (x->requires_grad()) {
         x->grad += (g->value / std_dev) * dx_normalized;
@@ -817,15 +826,19 @@ void vjp_RealRMSNorm(Node* n, const Tensor& gy){
     
     const float inv_N = 1.0f / static_cast<float>(x->value.shape().dims.back());
 
-    Tensor dot = OwnTensor::reduce_sum(gy * y_normalized, {-2}, true);
+    Tensor dot = OwnTensor::reduce_sum(gy * y_normalized, {-1}, true);
     
     // grad_x = rsqrt * (gy - y * dot)
-    Tensor grad_x = g->value * rms * (gy - y_normalized * dot);
+    Tensor grad_x = g->value  * (gy - (y_normalized * dot*inv_N))/rms;
+    
 
     x->grad += grad_x;
-    // Tensor gy_y  = gy * y_normalized; // [B,D]
-    //     Tensor grad_g = OwnTensor::reduce_sum(gy_y, {0, 1}, true); // [1,1] (or do 2-step sum)
-    //     g->grad += grad_g;
+    ag::debug::print_tensor("Checker", g->grad);
+    ag::debug::print_tensor("Checker2", x->value);
+    ag::debug::print_tensor("Checker3", rms);
+    Tensor gy_y  = gy * y_normalized; // [B,D]
+        Tensor grad_g = OwnTensor::reduce_sum(gy_y, {0, 1}); // [1,1] (or do 2-step sum)
+    g->grad += grad_g;
 }
 
 // ===================================================================

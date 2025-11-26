@@ -939,8 +939,8 @@ std::shared_ptr<Node> realrms_nodeops(const std::shared_ptr<Node>& x, float& g_v
     
     // Calculate mean of squares along the last dim
     Tensor variance = OwnTensor::reduce_sum(x->value * x->value, {-1}, true) * inv_cols;
-    Tensor rsqrt_var = 1.0f / OwnTensor::sqrt(variance + 1e-5f, ag::current_stream());
-    Tensor y_normalized = x->value * rsqrt_var;
+    Tensor rsqrt_var = OwnTensor::sqrt(variance + 1e-5f, ag::current_stream());
+    Tensor y_normalized = x->value / rsqrt_var;
     
     // Use our scalar caching mechanism for the gain 'g'
     // static std::unordered_map<float, std::shared_ptr<Node>> scalar_cache;
@@ -949,7 +949,7 @@ std::shared_ptr<Node> realrms_nodeops(const std::shared_ptr<Node>& x, float& g_v
     // if (it != scalar_cache.end()) {
     //     G = it->second;
     // } else {
-        Tensor g_tensor = Tensor::full(Shape{{1, 1}}, TensorOptions().with_req_grad(true).with_device(x->value.device()), g_val); // Assume gain is trainable
+        Tensor g_tensor = Tensor::full(Shape{{1, x->value.shape().dims.back()}}, TensorOptions().with_req_grad(true).with_device(x->value.device()), g_val); // Assume gain is trainable
         auto G = std::make_shared<Node>(g_tensor, Op::Leaf, "rms_gain");
         // scalar_cache[g_val] = G;
     // }
@@ -1004,14 +1004,19 @@ std::shared_ptr<Node> relaynor_nodeops(const std::shared_ptr<Node>& x, float& b_
     // std::shared_ptr<Node> G, B;
     // if (cache.count(g_val)) G = cache[g_val];
     // else {
-    auto    G = std::make_shared<Node>(Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), g_val), Op::Leaf, "ln_gain");
+
+
+    ag::debug::print_tensor("S middle", y_normalized);
+
+    auto    G = std::make_shared<Node>(Tensor::full(Shape{{1, x->value.shape().dims.back()}}, TensorOptions(), g_val), Op::Leaf, true, "ln_gain");
     //     cache[g_val] = G;
     // }
     // if (cache.count(b_val)) B = cache[b_val];
     // else {
-    auto    B = std::make_shared<Node>(Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), b_val), Op::Leaf, "ln_bias");
+    auto    B = std::make_shared<Node>(Tensor::full(Shape{{1, x->value.shape().dims.back()}}, TensorOptions(), b_val), Op::Leaf, true, "ln_bias");
     //     cache[b_val] = B;
     // }
+        ag::debug::print_tensor("Who is v", B->value);
 
     // 4. Apply scale and shift
     Tensor y = y_normalized * G->value + B->value;

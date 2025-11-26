@@ -97,7 +97,7 @@ Value Softplus::operator()(Value input) {
 }
 
 Value LiSHT::operator()(Value input) {
-    return ag::softplus(input);
+    return ag::lisht(input);
 }
 
 Value Sigmoid::operator()(Value input) {

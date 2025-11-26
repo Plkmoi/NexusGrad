@@ -21,7 +21,7 @@ void test_aliatt( int Heads, int B, int S, int d_model, int K, int num_layers)
     for (int i = 0; i < num_layers; ++i) {
         layers.push_back(new ag::layer::ResidualBlock({
             new ag::layer::RMSNorm(),
-            new ag::layer::AlibiAttention(B, S, d_model, Heads)
+            new ag::layer::Attention(B, S, d_model, Heads)
         }));
 
         layers.push_back(new ag::layer::ResidualBlock({
@@ -49,7 +49,11 @@ void test_aliatt( int Heads, int B, int S, int d_model, int K, int num_layers)
     ag::debug::print_tensor("Result Value Alibi Attention", r.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient Alibi Attention", m.grad());
-
+    for(int i=0;i<10;i++){
+        forward(w);
+        backward(w);
+        ag::SGD(w);
+    }
 
 
 

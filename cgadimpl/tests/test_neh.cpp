@@ -304,23 +304,23 @@ void test_leakyrelu( int H, int B, int S, int D)
 
 
 
-void test_swiglu( int H, int B, int S, int D)
+void test_swiglu( int H, int B, int S, int D, int K)
 {
     Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
     ag::debug::print_tensor("Input SWIGLU", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
-    auto swag = ag::layer::SWIGLU(B, S, D, 10);
+    auto swag = ag::layer::SWIGLU(B, S, D, K);
     auto r = swag(m);
 
     auto w = sum(r);
     ag::debug::print_tensor("Result Value SWIGLU", r.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient SWIGLU", m.grad());
-    for(int i=0;i<10;i++){
-        forward(w);
-        backward(w);
-        ag::SGD(w);
-    }
+    // for(int i=0;i<10;i++){
+    //     forward(w);
+    //     backward(w);
+    //     ag::SGD(w);
+    // }
 
 
 
@@ -332,7 +332,27 @@ void test_rmsnorm( int H, int B, int S, int D)
     ag::debug::print_tensor("Input RMSNorm", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
-    auto swag = ag::layer::RMSNorm();
+    auto swag = ag::layer::RMSNorm(1.0);
+    auto w = swag(m);
+    
+    // auto w = sum(r);
+    ag::debug::print_tensor("Result Value RMSNorm", w.val());
+    backward(w);
+    ag::debug::print_tensor("Result Gradient RMSNorm", m.grad());
+    for(int i=0;i<10;i++){
+        forward(w);
+        backward(w);
+        ag::SGD(w);
+    }
+}
+
+void test_laynorm( int H, int B, int S, int D)
+{
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    ag::debug::print_tensor("Input RMSNorm", X);
+    auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
+
+    auto swag = ag::layer::LayerNorm();
     auto w = swag(m);
     
     // auto w = sum(r);
@@ -358,25 +378,26 @@ test_aliatt(16, 8, 128, 256);
 // test_aliatt(2, 4, 128, 1024);
 // test_aliatt(8, 16, 2048, 1024);
 
-// test_parcon(2, 4, 2, 4);
-// test_mish(2, 4, 2, 4);
-// test_gaus(2, 4, 2, 4);
-// test_silu(2, 4, 2, 4);
+test_parcon(2, 4, 2, 4);
+test_mish(2, 4, 2, 4);
+test_gaus(2, 4, 2, 4);
+test_silu(2, 4, 2, 4);
 
-// test_gcu(2, 4, 2, 4);
-// test_gelu(2, 4, 2, 4);
-// test_sigmoid(2, 4, 2, 4);
+test_gcu(2, 4, 2, 4);
+test_gelu(2, 4, 2, 4);
+test_sigmoid(2, 4, 2, 4);
 
-// test_lisht(2, 4, 2, 4);
-// test_relu(2, 4, 2, 4);
-// test_softplus(2, 4, 2, 4);
-// test_tanh(2, 4, 2, 4);
-// test_leakyrelu(2, 4, 2, 4);
+test_lisht(2, 4, 2, 4);
+test_relu(2, 4, 2, 4);
+test_softplus(2, 4, 2, 4);
+test_tanh(2, 4, 2, 4);
+test_leakyrelu(2, 4, 2, 4);
 
-// test_att(2, 4, 32, 128);
+test_att(2, 4, 2, 4);
 // test_aliatt(2, 4, 2, 4);
-// test_swiglu(2, 4, 2, 4);
-// test_rmsnorm(2, 4, 2, 4);
+test_swiglu(2, 4, 2, 4, 10);
+test_rmsnorm(2, 4, 2, 4);
+test_laynorm(2, 4, 2, 4);
 return 0;
 
 }

@@ -449,17 +449,41 @@ void test_rmsnorm( int H, int B, int S, int D)
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
     // auto swag = ag::layer::RMSNorm();
-    auto w = realrms(m, 0.1);
+    auto w = realrms(m, 1.0);
     
     // auto w = sum(r);
     ag::debug::print_tensor("Result Value RMSNorm", w.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient RMSNorm", m.grad());
-    for(int i=0;i<10;i++){
-        forward(w);
-        backward(w);
-        ag::SGD(w);
-    }
+    // for(int i=0;i<10;i++){
+    //     forward(w);
+    //     backward(w);
+    //     ag::SGD(w);
+    // }
+ag::debug::print_tensor("Result Gradient1 RMSNorm", w.node->inputs[1]->grad);
+}
+
+
+void test_laynorm( int H, int B, int S, int D)
+{
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    ag::debug::print_tensor("Input Layer Norm", X);
+    auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
+
+    // auto swag = ag::layer::RMSNorm();
+    auto w = relaynor(m, 0.0, 1.0);
+    
+    // auto w = sum(r);
+    ag::debug::print_tensor("Result Value Layer Norm", w.val());
+    backward(w);
+    ag::debug::print_tensor("Result Gradient Layer Norm", m.grad());
+//     for(int i=0;i<10;i++){
+//         forward(w);
+//         backward(w);
+//         ag::SGD(w);
+//     }
+ag::debug::print_tensor("Result Gradient Gamma Layer Norm", w.node->inputs[1]->grad);
+ag::debug::print_tensor("Result Gradient Beta Layer Norm", w.node->inputs[2]->grad);
 }
 
 int main(){
@@ -473,26 +497,27 @@ int main(){
 // test_aliatt(2, 4, 128, 1024);
 // test_aliatt(8, 16, 2048, 1024);
 
-// test_parcon(2, 4, 2, 4);
-// test_mish(2, 4, 2, 4);
-// test_gaus(2, 4, 2, 4);
-// test_silu(2, 4, 2, 4);
+test_parcon(2, 4, 2, 4);
+test_mish(2, 4, 2, 4);
+test_gaus(2, 4, 2, 4);
+test_silu(2, 4, 2, 4);
 
-// test_gcu(2, 4, 2, 4);
-// test_gelu(2, 4, 2, 4);
-// test_sigmoid(2, 4, 2, 4);
+test_gcu(2, 4, 2, 4);
+test_gelu(2, 4, 2, 4);
+test_sigmoid(2, 4, 2, 4);
 
-// test_lisht(2, 4, 2, 4);
-// test_relu(2, 4, 2, 4);
-// test_softplus(2, 4, 2, 4);
-// test_tanh(2, 4, 2, 4);
-// test_leakyrelu(2, 4, 2, 4);
+test_lisht(2, 4, 2, 4);
+test_relu(2, 4, 2, 4);
+test_softplus(2, 4, 2, 4);
+test_tanh(2, 4, 2, 4);
+test_leakyrelu(2, 4, 2, 4);
 
-// test_aliatt(2, 4, 32, 128);
-// test_att(2, 4, 2, 4);
+test_aliatt(2, 4, 32, 128);
+test_att(2, 4, 2, 4);
 test_swiglu(2, 4, 2, 4, 10);
 
-// test_rmsnorm(2, 4, 2, 4);
+test_rmsnorm(2, 4, 2, 4);
+test_laynorm(2, 4, 2, 4);
 
 return 0;
 

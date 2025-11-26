@@ -445,8 +445,7 @@ void node_SWIGLU( std::shared_ptr<Node> n) {
     Tensor gate = OwnTensor::matmul(X, A.t()) + B;
     Tensor silu = gate * (1.0f / (1.0f + OwnTensor::exp(gate * -1.0f)));
     Tensor proj = OwnTensor::matmul(X, C.t()) + D;
-    Tensor ret = silu * proj;
-    n->value = OwnTensor::matmul(ret, E.t()) + F;
+    n->value = silu * proj;
 }
 void node_RealLayerNorm( std::shared_ptr<Node> n); // already above
 void node_Dyntanh( std::shared_ptr<Node> n) {
