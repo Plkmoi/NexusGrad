@@ -286,9 +286,9 @@ void node_Attention( std::shared_ptr<Node> n) {
     Tensor exp_g = exp(g - max_val);
     Tensor sum_exp_g = reduce_sum(exp_g, {-1}, true);
     Tensor s = exp_g / sum_exp_g;
-    ag::debug::print_tensor("Who is v", v);
+    //ag::debug::print_tensor("Who is v", v);
 
-    ag::debug::print_tensor("S middle", s);
+    //ag::debug::print_tensor("S middle", s);
 
     n->value = matmul(s, v).transpose(1,2).flatten(2,3);
 

@@ -7,6 +7,7 @@
 #include <cmath>
 #include <stdexcept> // Required for std::runtime_error
 #include "ad/debug.hpp"
+#include "ad/kernels_api.hpp"
 namespace ag {
 namespace detail{
 
@@ -177,10 +178,10 @@ void vjp_RealLayerNorm(Node* n, const Tensor& gy){
     Tensor term3 = term2 - (x_normalized * grad_dot_xmu);
     Tensor dx_normalized = term3 / N;
 
-                ag::debug::print_tensor("Gradient xmu", xmu);
-                ag::debug::print_tensor("Gradient gy", gy);
-                ag::debug::print_tensor("Gradient gyxn", gy * x_normalized);
-                ag::debug::print_tensor("Gradient gvalgrad", g->grad);
+             //ag::debug::print_tensor("Gradient xmu", xmu);
+             //ag::debug::print_tensor("Gradient gy", gy);
+             //ag::debug::print_tensor("Gradient gyxn", gy * x_normalized);
+             //ag::debug::print_tensor("Gradient gvalgrad", g->grad);
 
 
 
@@ -223,8 +224,8 @@ void vjp_Attention(Node* n, const Tensor& gya){
     Tensor dL_ds = OwnTensor::matmul(gy, v.t());
     Tensor dL_dv = OwnTensor::matmul(s.t(), gy).transpose(1,2).flatten(2,3);
 
-        ag::debug::print_tensor("Gradient s", s);
-    ag::debug::print_tensor("Value", dL_ds);
+     //ag::debug::print_tensor("Gradient s", s);
+ //ag::debug::print_tensor("Value", dL_ds);
     
     // VJP of softmax: s * (dL_ds - row_sum(s * dL_ds))
     Tensor dot = OwnTensor::reduce_sum(s * dL_ds, {-1}, true);
@@ -234,9 +235,9 @@ void vjp_Attention(Node* n, const Tensor& gya){
     Tensor dL_dq = OwnTensor::matmul(dL_dg, k).transpose(1,2).flatten(2,3);
     Tensor dL_dk = OwnTensor::matmul(dL_dg.t(), q).transpose(1,2).flatten(2,3);
 
-                ag::debug::print_tensor("Gradient q", dL_dq);
-    ag::debug::print_tensor("Value B", B->value);
-    ag::debug::print_tensor("Value A", A->value);
+             //ag::debug::print_tensor("Gradient q", dL_dq);
+ //ag::debug::print_tensor("Value B", B->value);
+ //ag::debug::print_tensor("Value A", A->value);
 
 
 //     // Propagate gradients to the weight matrices and the input A
@@ -599,15 +600,18 @@ void vjp_Dyntanh(Node* n, const Tensor& gy){
     Tensor d_tanh = 1.0f - (th_h * th_h);
     
     if (G->requires_grad()) {
-        G->grad += gy * th_h;
+        G->grad += OwnTensor::reduce_sum(gy*th_h, {0, 1});
     }
     if (B->requires_grad()) {
-        B->grad += gy;
+        B->grad += OwnTensor::reduce_sum(gy, {0, 1});
     }
-    if (A->requires_grad()) {
+
+        if (A->requires_grad()) {
         // Chain rule: gy * g * d_tanh * x
-        A->grad += gy * G->value * d_tanh * X->value;
+        A->grad += OwnTensor::reduce_sum(gy * G->value * d_tanh * X->value);
     }
+
+
     if (X->requires_grad()) {
         // Chain rule: gy * g * d_tanh * a
         X->grad += gy * G->value * d_tanh * A->value;
@@ -833,9 +837,9 @@ void vjp_RealRMSNorm(Node* n, const Tensor& gy){
     
 
     x->grad += grad_x;
-    ag::debug::print_tensor("Checker", g->grad);
-    ag::debug::print_tensor("Checker2", x->value);
-    ag::debug::print_tensor("Checker3", rms);
+ //ag::debug::print_tensor("Checker", g->grad);
+ //ag::debug::print_tensor("Checker2", x->value);
+ //ag::debug::print_tensor("Checker3", rms);
     Tensor gy_y  = gy * y_normalized; // [B,D]
         Tensor grad_g = OwnTensor::reduce_sum(gy_y, {0, 1}); // [1,1] (or do 2-step sum)
     g->grad += grad_g;

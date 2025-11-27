@@ -34,6 +34,7 @@ public:
             }
         }
     }
+    void checklayer();
 
 protected:
     std::vector<Value> params_;
@@ -82,13 +83,13 @@ public:
             }
         }
     }
+    
 
 private:
     float lr_;
     float momentum_;
     std::vector<Tensor> velocities_; // Stores velocity state for momentum
 };
-
 
 
 

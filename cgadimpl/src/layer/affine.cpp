@@ -3,6 +3,7 @@
 #include <cassert>
 #include "tensor.hpp" 
 #include <ad/autodiff.hpp>
+#include "layer/optim.hpp"
 
 namespace ag::layer {
 
@@ -22,6 +23,7 @@ void Layer::zero_grad() {
         }
     }
 }
+
 
 Linear::Linear(int batch, int in_features, int out_features, Device dev) {
     float scale = sqrtf(0.02f / in_features);

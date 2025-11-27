@@ -349,22 +349,44 @@ void test_rmsnorm( int H, int B, int S, int D)
 void test_laynorm( int H, int B, int S, int D)
 {
     Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
-    ag::debug::print_tensor("Input RMSNorm", X);
+    ag::debug::print_tensor("Input Layer Norm", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
     auto swag = ag::layer::LayerNorm();
     auto w = swag(m);
     
     // auto w = sum(r);
-    ag::debug::print_tensor("Result Value RMSNorm", w.val());
+    ag::debug::print_tensor("Result Value Layer Norm", w.val());
     backward(w);
-    ag::debug::print_tensor("Result Gradient RMSNorm", m.grad());
+    ag::debug::print_tensor("Result Gradient Layer Norm", m.grad());
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
         ag::SGD(w);
     }
 }
+
+void test_dyntanh( int H, int B, int S, int D)
+{
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    ag::debug::print_tensor("Input DynTanh", X);
+    auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
+
+    auto swag = ag::layer::DynTanh();
+    auto w = swag(m);
+    
+    // auto w = sum(r);
+    ag::debug::print_tensor("Result Value DynTanh", w.val());
+    backward(w);
+    ag::debug::print_tensor("Result Gradient DynTanh", m.grad());
+    for(int i=0;i<10;i++){
+        forward(w);
+        backward(w);
+        ag::SGD(w);
+    }
+}
+
+
 
 
 int main(){
@@ -398,6 +420,7 @@ test_att(2, 4, 2, 4);
 test_swiglu(2, 4, 2, 4, 10);
 test_rmsnorm(2, 4, 2, 4);
 test_laynorm(2, 4, 2, 4);
+test_dyntanh(2, 4, 2, 4);
 return 0;
 
 }

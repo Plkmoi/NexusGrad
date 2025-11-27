@@ -25,7 +25,7 @@ void test_expand( int H, int B, int S, int D)
 
 void test_att( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
     ag::debug::print_tensor("Input", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
     // auto atten = ag::layer::Attention(B, S, D, H);
@@ -34,7 +34,7 @@ void test_att( int H, int B, int S, int D)
     auto batch = B;
     auto out_features = D;
 
-            auto param_opts = OwnTensor::TensorOptions().with_device(Device::CPU).with_req_grad(true);
+            auto param_opts = OwnTensor::TensorOptions().with_device(Device::CUDA).with_req_grad(true);
 
 
         float scale = sqrtf(0.02f / out_features);
@@ -48,9 +48,9 @@ void test_att( int H, int B, int S, int D)
     auto r = attention(m, Q, K, V, H);
     
     auto w = sum(r);
-    ag::debug::print_tensor("Result Value Attention", r.val());
+    ag::debug::print_tensor("Result Value Attention", r.val().to_cpu());
     backward(w);
-    ag::debug::print_tensor("Result Gradient Attention", m.grad());
+    ag::debug::print_tensor("Result Gradient Attention", m.grad().to_cpu());
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
@@ -102,7 +102,7 @@ void test_aliatt( int H, int B, int S, int D)
 
 void test_parcon( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
     ag::debug::print_tensor("Input Parametric Cone", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -113,9 +113,9 @@ void test_parcon( int H, int B, int S, int D)
     auto w = parcon(m);
     
     // auto w = sum(r);
-    ag::debug::print_tensor("Result Value Parametric Cone", w.val());
+    ag::debug::print_tensor("Result Value Parametric Cone", w.val().to_cpu());
     backward(w);
-    ag::debug::print_tensor("Result Gradient Parametric Cone", m.grad());
+    ag::debug::print_tensor("Result Gradient Parametric Cone", m.grad().to_cpu());
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
@@ -455,11 +455,11 @@ void test_rmsnorm( int H, int B, int S, int D)
     ag::debug::print_tensor("Result Value RMSNorm", w.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient RMSNorm", m.grad());
-    // for(int i=0;i<10;i++){
-    //     forward(w);
-    //     backward(w);
-    //     ag::SGD(w);
-    // }
+    for(int i=0;i<10;i++){
+        forward(w);
+        backward(w);
+        ag::SGD(w);
+    }
 ag::debug::print_tensor("Result Gradient1 RMSNorm", w.node->inputs[1]->grad);
 }
 
@@ -477,14 +477,40 @@ void test_laynorm( int H, int B, int S, int D)
     ag::debug::print_tensor("Result Value Layer Norm", w.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient Layer Norm", m.grad());
-//     for(int i=0;i<10;i++){
-//         forward(w);
-//         backward(w);
-//         ag::SGD(w);
-//     }
+    // for(int i=0;i<10;i++){
+    //     forward(w);
+    //     backward(w);
+    //     ag::SGD(w);
+    // }
 ag::debug::print_tensor("Result Gradient Gamma Layer Norm", w.node->inputs[1]->grad);
 ag::debug::print_tensor("Result Gradient Beta Layer Norm", w.node->inputs[2]->grad);
 }
+
+
+
+void test_dyntanh( int H, int B, int S, int D)
+{
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    ag::debug::print_tensor("Input DynTanh", X);
+    auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
+
+    // auto swag = ag::layer::RMSNorm();
+    auto w = dyntanh(m, 0.5, 0.0, 1.0);
+    
+    // auto w = sum(r);
+    ag::debug::print_tensor("Result Value DynTanh", w.val());
+    backward(w);
+    ag::debug::print_tensor("Result Gradient DynTanh", m.grad());
+    // for(int i=0;i<10;i++){
+    //     forward(w);
+    //     backward(w);
+    //     ag::SGD(w);
+    // }
+ag::debug::print_tensor("Result Gradient Alpha DynTanh", w.node->inputs[1]->grad);
+ag::debug::print_tensor("Result Gradient Gamma DynTanh", w.node->inputs[3]->grad);
+ag::debug::print_tensor("Result Gradient Beta DynTanh", w.node->inputs[2]->grad);
+}
+
 
 int main(){
 
@@ -513,11 +539,12 @@ test_tanh(2, 4, 2, 4);
 test_leakyrelu(2, 4, 2, 4);
 
 test_aliatt(2, 4, 32, 128);
-test_att(2, 4, 2, 4);
+//test_att(2, 4, 2, 4);
 test_swiglu(2, 4, 2, 4, 10);
 
 test_rmsnorm(2, 4, 2, 4);
 test_laynorm(2, 4, 2, 4);
+test_dyntanh(2, 4, 2, 4);
 
 return 0;
 

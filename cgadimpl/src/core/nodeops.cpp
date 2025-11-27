@@ -3,7 +3,7 @@
 // =====================
 #include "ad/nodeops.hpp"
 #include "ad/runtime.hpp"
-// #include "ad/kernels_api.hpp"
+#include "ad/kernels_api.hpp"
 #include <cuda_runtime.h>
 #include "TensorLib.h" 
 #include <unordered_map>
@@ -576,12 +576,12 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
     Tensor exp_g = exp(g - max_g);                // [H,T,T]
     Tensor sum_g = reduce_sum(exp_g, {-1}, true); // [H,T,1]
     Tensor s     = exp_g / sum_g;                 // [H,T,T]
-    ag::debug::print_tensor("Who is v", v);
+ //ag::debug::print_tensor("Who is v", v);
 
-    ag::debug::print_tensor("S middle", s);
+ //ag::debug::print_tensor("S middle", s);
 // try{
     Tensor y = matmul(s, v).transpose(1,2).flatten(2,3);
-        ag::debug::print_tensor("Y middle", y);
+     //ag::debug::print_tensor("Y middle", y);
 
     // 6) Build Node, save tape for VJP
     auto n = std::make_shared<Node>(
@@ -1006,7 +1006,7 @@ std::shared_ptr<Node> relaynor_nodeops(const std::shared_ptr<Node>& x, float& b_
     // else {
 
 
-    ag::debug::print_tensor("S middle", y_normalized);
+ //ag::debug::print_tensor("S middle", y_normalized);
 
     auto    G = std::make_shared<Node>(Tensor::full(Shape{{1, x->value.shape().dims.back()}}, TensorOptions(), g_val), Op::Leaf, true, "ln_gain");
     //     cache[g_val] = G;
@@ -1016,7 +1016,7 @@ std::shared_ptr<Node> relaynor_nodeops(const std::shared_ptr<Node>& x, float& b_
     auto    B = std::make_shared<Node>(Tensor::full(Shape{{1, x->value.shape().dims.back()}}, TensorOptions(), b_val), Op::Leaf, true, "ln_bias");
     //     cache[b_val] = B;
     // }
-        ag::debug::print_tensor("Who is v", B->value);
+     //ag::debug::print_tensor("Who is v", B->value);
 
     // 4. Apply scale and shift
     Tensor y = y_normalized * G->value + B->value;
@@ -1052,8 +1052,8 @@ std::shared_ptr<Node> dyntanh_nodeops(const std::shared_ptr<Node>& x, float& a_v
     // ... (code to create/cache A, B, and G nodes from a_val, b_val, g_val, similar to relaynor) ...
     // For brevity, assuming they are created and require_grad=true.
     A = std::make_shared<Node>(Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), a_val), Op::Leaf, "dyn_a");
-    B = std::make_shared<Node>(Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), b_val), Op::Leaf, "dyn_b");
-    G = std::make_shared<Node>(Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), g_val), Op::Leaf, "dyn_g");
+    B = std::make_shared<Node>(Tensor::full(Shape{{1, x->value.shape().dims.back()}}, TensorOptions().with_req_grad(true), b_val), Op::Leaf, "dyn_b");
+    G = std::make_shared<Node>(Tensor::full(Shape{{1, x->value.shape().dims.back()}}, TensorOptions().with_req_grad(true), g_val), Op::Leaf, "dyn_g");
     
     Tensor h = x->value * A->value;
     Tensor y = OwnTensor::tanh(h) * G->value + B->value;

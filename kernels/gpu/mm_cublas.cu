@@ -175,8 +175,7 @@ void vjp_linear_cuda(float* gA, float* gB, float* gC, const float* gy,
     cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, K, M, N, &alpha, B, K, gy, N, &beta, gA, K);
 
     // gB(N,K) = gy_t(N,M) @ A(M,K) 
-    cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, K, N, M, &alpha, A, K, gy, N, &beta, gB, K);
-
+    cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, N, K, M, &alpha, gy, N, A, K, &beta, gB, N);
 dim3 blocks( (unsigned int)(((M*K)+ 255) / 256) );
             k_vjp_c_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gC, gy, (M*K));
 
