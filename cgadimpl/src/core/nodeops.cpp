@@ -867,11 +867,11 @@ std::shared_ptr<Node> leaky_relu_nodeops(const std::shared_ptr<Node>& x, float a
 
     // We still need to pass alpha to the backward pass. Create a 1x1 constant node.
     // NOTE: This now creates a NEW tensor with requires_grad=false.
-    Tensor aT = Tensor::full(Shape{{1, 1}}, TensorOptions().with_req_grad(false), alpha);
+    Tensor aT = Tensor::full(Shape{{1, 1}}, TensorOptions().with_req_grad(false).with_device(x->value.device()), alpha);
     auto aC = make_tensor(aT, "alpha"); 
     
     auto n = std::make_shared<Node>(Y, Op::LeakyRelu, x->requires_grad(), "leakyrelu");
-    n->inputs = {x, aC.node}; 
+    n->inputs = {x, aC.node};
     ag::debug::on_node_created(n);  
     return n;
 }
@@ -1008,12 +1008,12 @@ std::shared_ptr<Node> relaynor_nodeops(const std::shared_ptr<Node>& x, float& b_
 
  //ag::debug::print_tensor("S middle", y_normalized);
 
-    auto    G = std::make_shared<Node>(Tensor::full(Shape{{1, x->value.shape().dims.back()}}, TensorOptions(), g_val), Op::Leaf, true, "ln_gain");
+    auto    G = std::make_shared<Node>(Tensor::full(Shape{{1, x->value.shape().dims.back()}}, TensorOptions().with_device(x->value.device()), g_val), Op::Leaf, true, "ln_gain");
     //     cache[g_val] = G;
     // }
     // if (cache.count(b_val)) B = cache[b_val];
     // else {
-    auto    B = std::make_shared<Node>(Tensor::full(Shape{{1, x->value.shape().dims.back()}}, TensorOptions(), b_val), Op::Leaf, true, "ln_bias");
+    auto    B = std::make_shared<Node>(Tensor::full(Shape{{1, x->value.shape().dims.back()}}, TensorOptions().with_device(x->value.device()), b_val), Op::Leaf, true, "ln_bias");
     //     cache[b_val] = B;
     // }
      //ag::debug::print_tensor("Who is v", B->value);
@@ -1051,9 +1051,9 @@ std::shared_ptr<Node> dyntanh_nodeops(const std::shared_ptr<Node>& x, float& a_v
     std::shared_ptr<Node> A, B, G;
     // ... (code to create/cache A, B, and G nodes from a_val, b_val, g_val, similar to relaynor) ...
     // For brevity, assuming they are created and require_grad=true.
-    A = std::make_shared<Node>(Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), a_val), Op::Leaf, "dyn_a");
-    B = std::make_shared<Node>(Tensor::full(Shape{{1, x->value.shape().dims.back()}}, TensorOptions().with_req_grad(true), b_val), Op::Leaf, "dyn_b");
-    G = std::make_shared<Node>(Tensor::full(Shape{{1, x->value.shape().dims.back()}}, TensorOptions().with_req_grad(true), g_val), Op::Leaf, "dyn_g");
+    A = std::make_shared<Node>(Tensor::full(Shape{{1}}, TensorOptions().with_device(x->value.device()).with_req_grad(true), a_val), Op::Leaf, "dyn_a");
+    B = std::make_shared<Node>(Tensor::full(Shape{{1, x->value.shape().dims.back()}}, TensorOptions().with_device(x->value.device()).with_req_grad(true), b_val), Op::Leaf, "dyn_b");
+    G = std::make_shared<Node>(Tensor::full(Shape{{1, x->value.shape().dims.back()}}, TensorOptions().with_device(x->value.device()).with_req_grad(true), g_val), Op::Leaf, "dyn_g");
     
     Tensor h = x->value * A->value;
     Tensor y = OwnTensor::tanh(h) * G->value + B->value;

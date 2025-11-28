@@ -13,3 +13,4 @@
 #include "layer/attention.hpp"
 #include "layer/norm.hpp"
 #include "layer/optim.hpp"
+#include "layer/loss.hpp"

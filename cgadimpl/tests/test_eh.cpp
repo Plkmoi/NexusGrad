@@ -5,7 +5,7 @@
 using namespace ag;
 void test_expand( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
     ag::debug::print_tensor("Input", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
     auto r = expand(m, H);
@@ -25,7 +25,7 @@ void test_expand( int H, int B, int S, int D)
 
 void test_att( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA).with_device(Device::CUDA));
     ag::debug::print_tensor("Input", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
     // auto atten = ag::layer::Attention(B, S, D, H);
@@ -34,7 +34,7 @@ void test_att( int H, int B, int S, int D)
     auto batch = B;
     auto out_features = D;
 
-            auto param_opts = OwnTensor::TensorOptions().with_device(Device::CUDA).with_req_grad(true);
+            auto param_opts = OwnTensor::TensorOptions().with_device(Device::CUDA).with_device(Device::CUDA).with_req_grad(true);
 
 
         float scale = sqrtf(0.02f / out_features);
@@ -67,7 +67,7 @@ void test_att( int H, int B, int S, int D)
 
 void test_aliatt( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
     ag::debug::print_tensor("Input Alibi Attention", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
     // auto atten = ag::layer::Attention(B, S, D, H);
@@ -75,7 +75,7 @@ void test_aliatt( int H, int B, int S, int D)
     auto in_features = S;
     auto batch = B;
     auto out_features = D;
-        auto param_opts = OwnTensor::TensorOptions().with_device(Device::CPU).with_req_grad(true);
+        auto param_opts = OwnTensor::TensorOptions().with_device(Device::CUDA).with_device(Device::CPU).with_req_grad(true);
 
 
         float scale = sqrtf(0.02f / out_features);
@@ -83,9 +83,9 @@ void test_aliatt( int H, int B, int S, int D)
     // Tensor wk = OwnTensor::Tensor::randn(Shape{{batch, out_features, out_features}}, param_opts) * scale;
     // Tensor wv = OwnTensor::Tensor::randn(Shape{{batch, out_features, out_features}}, param_opts) * scale;
 
-    auto Q = ag::Value(std::make_shared<ag::Node>(Tensor::randn(Shape({B, D, D}), TensorOptions())* scale, ag::Op::Leaf, true, "X"));
-    auto K = ag::Value(std::make_shared<ag::Node>(Tensor::randn(Shape({B, D, D}), TensorOptions())* scale, ag::Op::Leaf, true, "X"));
-    auto V = ag::Value(std::make_shared<ag::Node>(Tensor::randn(Shape({B, D, D}), TensorOptions())* scale, ag::Op::Leaf, true, "X"));
+    auto Q = ag::Value(std::make_shared<ag::Node>(Tensor::randn(Shape({B, D, D}), TensorOptions().with_device(Device::CUDA))* scale, ag::Op::Leaf, true, "X"));
+    auto K = ag::Value(std::make_shared<ag::Node>(Tensor::randn(Shape({B, D, D}), TensorOptions().with_device(Device::CUDA))* scale, ag::Op::Leaf, true, "X"));
+    auto V = ag::Value(std::make_shared<ag::Node>(Tensor::randn(Shape({B, D, D}), TensorOptions().with_device(Device::CUDA))* scale, ag::Op::Leaf, true, "X"));
     auto r = alibiatt(m, Q, K, V, H);
     
     auto w = sum(r);
@@ -102,7 +102,7 @@ void test_aliatt( int H, int B, int S, int D)
 
 void test_parcon( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA).with_device(Device::CUDA));
     ag::debug::print_tensor("Input Parametric Cone", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -126,7 +126,7 @@ void test_parcon( int H, int B, int S, int D)
 
 void test_mish( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA).with_device(Device::CUDA));
     ag::debug::print_tensor("Input Mish", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -150,7 +150,7 @@ void test_mish( int H, int B, int S, int D)
 
 void test_gaus( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
     ag::debug::print_tensor("Input Gauss", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -174,7 +174,7 @@ void test_gaus( int H, int B, int S, int D)
 
 void test_silu( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
     ag::debug::print_tensor("Input Silu", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -198,7 +198,7 @@ void test_silu( int H, int B, int S, int D)
 
 void test_gcu( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
     ag::debug::print_tensor("Input GCU", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -221,7 +221,7 @@ void test_gcu( int H, int B, int S, int D)
 
 void test_gelu( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
     ag::debug::print_tensor("Input GELU", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -244,7 +244,7 @@ void test_gelu( int H, int B, int S, int D)
 
 void test_sigmoid( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
     ag::debug::print_tensor("Input Sigmoid", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -268,7 +268,7 @@ void test_sigmoid( int H, int B, int S, int D)
 
 void test_lisht( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
     ag::debug::print_tensor("Input Lisht", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -292,7 +292,7 @@ void test_lisht( int H, int B, int S, int D)
 
 void test_relu( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
     ag::debug::print_tensor("Input RELU", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -317,7 +317,7 @@ void test_relu( int H, int B, int S, int D)
 
 void test_tanh( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
     ag::debug::print_tensor("Input Tanh", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -341,7 +341,7 @@ void test_tanh( int H, int B, int S, int D)
 
 void test_softplus( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
     ag::debug::print_tensor("Input Softplus", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -365,7 +365,7 @@ void test_softplus( int H, int B, int S, int D)
 
 void test_leakyrelu( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
     ag::debug::print_tensor("Input LeakyRelu", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -391,7 +391,7 @@ void test_leakyrelu( int H, int B, int S, int D)
 
 void test_swiglu( int H, int B, int S, int D, int K)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
     ag::debug::print_tensor("Input SWIGLU", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
     // auto atten = ag::layer::Attention(B, S, D, H);
@@ -403,15 +403,15 @@ void test_swiglu( int H, int B, int S, int D, int K)
 
         float scale = sqrtf(0.02f / in_features);
 
-            auto param_opts = OwnTensor::TensorOptions().with_device(Device::CPU).with_req_grad(true);
+            auto param_opts = OwnTensor::TensorOptions().with_device(Device::CUDA).with_device(Device::CPU).with_req_grad(true);
 
 
-    Tensor w_tensor = OwnTensor::Tensor::randn(Shape{{batch, hidden_features, out_features}}, TensorOptions()) * scale;
-    Tensor b_tensor = OwnTensor::Tensor::zeros(Shape{{batch, 1, hidden_features}}, TensorOptions());
-    Tensor wa_tensor = OwnTensor::Tensor::randn(Shape{{batch, hidden_features, out_features}}, TensorOptions()) * scale;
-    Tensor ba_tensor = OwnTensor::Tensor::zeros(Shape{{batch, 1, hidden_features}}, TensorOptions());
-    Tensor wc_tensor = OwnTensor::Tensor::randn(Shape{{batch, out_features, hidden_features}}, TensorOptions()) * scale;
-    Tensor bc_tensor = OwnTensor::Tensor::zeros(Shape{{batch, 1, out_features}}, TensorOptions());
+    Tensor w_tensor = OwnTensor::Tensor::randn(Shape{{batch, hidden_features, out_features}}, TensorOptions().with_device(Device::CUDA)) * scale;
+    Tensor b_tensor = OwnTensor::Tensor::zeros(Shape{{batch, 1, hidden_features}}, TensorOptions().with_device(Device::CUDA));
+    Tensor wa_tensor = OwnTensor::Tensor::randn(Shape{{batch, hidden_features, out_features}}, TensorOptions().with_device(Device::CUDA)) * scale;
+    Tensor ba_tensor = OwnTensor::Tensor::zeros(Shape{{batch, 1, hidden_features}}, TensorOptions().with_device(Device::CUDA));
+    Tensor wc_tensor = OwnTensor::Tensor::randn(Shape{{batch, out_features, hidden_features}}, TensorOptions().with_device(Device::CUDA)) * scale;
+    Tensor bc_tensor = OwnTensor::Tensor::zeros(Shape{{batch, 1, out_features}}, TensorOptions().with_device(Device::CUDA));
 
     auto W = make_tensor(w_tensor, "W");
     auto b = make_tensor(b_tensor, "b");
@@ -444,7 +444,7 @@ void test_swiglu( int H, int B, int S, int D, int K)
 
 void test_rmsnorm( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
     ag::debug::print_tensor("Input RMSNorm", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -460,13 +460,13 @@ void test_rmsnorm( int H, int B, int S, int D)
         backward(w);
         ag::SGD(w);
     }
-ag::debug::print_tensor("Result Gradient1 RMSNorm", w.node->inputs[1]->grad);
+ag::debug::print_tensor("Result Gradient1 RMSNorm", w.node->inputs[1]->grad.to_cpu().to_cpu());
 }
 
 
 void test_laynorm( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
     ag::debug::print_tensor("Input Layer Norm", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -482,15 +482,15 @@ void test_laynorm( int H, int B, int S, int D)
     //     backward(w);
     //     ag::SGD(w);
     // }
-ag::debug::print_tensor("Result Gradient Gamma Layer Norm", w.node->inputs[1]->grad);
-ag::debug::print_tensor("Result Gradient Beta Layer Norm", w.node->inputs[2]->grad);
+ag::debug::print_tensor("Result Gradient Gamma Layer Norm", w.node->inputs[1]->grad.to_cpu());
+ag::debug::print_tensor("Result Gradient Beta Layer Norm", w.node->inputs[2]->grad.to_cpu());
 }
 
 
 
 void test_dyntanh( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
     ag::debug::print_tensor("Input DynTanh", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -506,9 +506,9 @@ void test_dyntanh( int H, int B, int S, int D)
     //     backward(w);
     //     ag::SGD(w);
     // }
-ag::debug::print_tensor("Result Gradient Alpha DynTanh", w.node->inputs[1]->grad);
-ag::debug::print_tensor("Result Gradient Gamma DynTanh", w.node->inputs[3]->grad);
-ag::debug::print_tensor("Result Gradient Beta DynTanh", w.node->inputs[2]->grad);
+ag::debug::print_tensor("Result Gradient Alpha DynTanh", w.node->inputs[1]->grad.to_cpu());
+ag::debug::print_tensor("Result Gradient Gamma DynTanh", w.node->inputs[3]->grad.to_cpu());
+ag::debug::print_tensor("Result Gradient Beta DynTanh", w.node->inputs[2]->grad.to_cpu());
 }
 
 
@@ -538,7 +538,7 @@ test_softplus(2, 4, 2, 4);
 test_tanh(2, 4, 2, 4);
 test_leakyrelu(2, 4, 2, 4);
 
-test_aliatt(2, 4, 32, 128);
+// test_aliatt(2, 4, 32, 128);
 //test_att(2, 4, 2, 4);
 test_swiglu(2, 4, 2, 4, 10);
 

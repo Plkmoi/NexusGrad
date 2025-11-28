@@ -99,7 +99,7 @@ void node_Reciprocal( std::shared_ptr<Node> n) {
 // ------------------------------------------------------------
 void node_LeakyRelu( std::shared_ptr<Node> n) {
      Tensor& X = n->inputs[0]->value;
-     float alpha = scalar_from_1x1(n->inputs[1]->value);
+     float alpha = n->inputs[1]->value.to_cpu().data<float>()[0]; 
     Tensor absx = OwnTensor::abs(X, ag::current_stream());
     Tensor pos  = (X + absx) * 0.5f;
     Tensor neg  = (X - absx) * 0.5f;

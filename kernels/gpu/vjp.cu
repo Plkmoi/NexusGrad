@@ -107,7 +107,7 @@ __global__ void k_vjp_div_accum(float* gA, float* gB, const float* A, const floa
     int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n) {
         atomicAdd(&gA[i], gy[i]/B[i]);
-        atomicAdd(&gB[i], -A[i]*gy[i]/(B[i]*B[i]));
+        atomicAdd(&gB[i], -(A[i]*gA[i])/(B[i]));
     }
 }
 
@@ -241,20 +241,19 @@ void vjp_silu_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cud
 
 // GELU derivative (approximate) using same constants as forward
 __global__ void k_vjp_gelu_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
-  const float k0 = 0.7978845608f; // sqrt(2/pi)
-  const float k1 = 0.044715f;
+  const float c1 = 0.7978845608f; // sqrt(2/pi)
+  const float c2 = 0.044715f;
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) {
-    float x = X[i];
-    float xx3 = x * x * x;
-    float u = k0 * (x + k1 * xx3);
-    float t = tanhf(u);
-    float phi = 0.5f * (1.0f + t);
+    float a_cpu = X[i];
+    float x2 = a_cpu * a_cpu;
+    float x3 = x2 * a_cpu;
+    float u = (a_cpu + x3 * c2) * c1;
+    float th_u = tanhf(u);
     // derivative phi' = 0.5 * (1 - t^2) * du/dx
-    float du_dx = k0 * (1.0f + 3.0f * k1 * x * x);
-    float dphi = 0.5f * (1.0f - t * t) * du_dx;
+    float du_dx = (1.0f + (x2 * (3.0f * c2))) * c1;
     // d gelu = phi + x * dphi
-    float dg = phi + x * dphi;
+    float dg = (1.0f + th_u) * 0.5f + (a_cpu * (1.0f - (th_u * th_u)) * du_dx) * 0.5f;
     atomicAdd(&gX[i], gy[i] * dg);
   }
 }
@@ -363,7 +362,7 @@ void vjp_cos_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda
 __global__ void k_vjp_gauss_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) {
-    atomicAdd(&gX[i], -gy[i] * 2.f* exp(X[i]*X[i])*X[i]);
+    atomicAdd(&gX[i], -gy[i] * 2.f* exp(-X[i]*X[i])*X[i]);
   }
 }
 void vjp_gauss_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda_stream_t s) {
@@ -408,7 +407,7 @@ void vjp_lisht_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cu
 __global__ void k_vjp_gcu_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) {
-    atomicAdd(&gX[i], gy[i] * (  cos(X[i] )- (sin(X[i] * X[i])    )  ) )  ;
+    atomicAdd(&gX[i], gy[i] * (  cos(X[i] )- (sin(X[i] )   * X[i] )  ) )  ;
   }
 }
 void vjp_gcu_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda_stream_t s) {

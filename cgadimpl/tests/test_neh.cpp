@@ -4,10 +4,10 @@
 #include <optim.hpp>
 using namespace ag;
 
-
+Device devc = Device::CUDA;
 void test_att( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(devc));
     ag::debug::print_tensor("Input", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
     auto atten = ag::layer::Attention(B, S, D, H);
@@ -32,7 +32,7 @@ void test_att( int H, int B, int S, int D)
 
 void test_aliatt( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(devc));
     ag::debug::print_tensor("Input Alibi Attention", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
     auto atten = ag::layer::AlibiAttention(B, S, D, H);
@@ -53,7 +53,7 @@ void test_aliatt( int H, int B, int S, int D)
 
 void test_parcon( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(devc));
     ag::debug::print_tensor("Input Parametric Cone", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -74,7 +74,7 @@ void test_parcon( int H, int B, int S, int D)
 
 void test_mish( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(devc));
     ag::debug::print_tensor("Input Mish", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -95,7 +95,7 @@ void test_mish( int H, int B, int S, int D)
 
 void test_gaus( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(devc));
     ag::debug::print_tensor("Input Gauss", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -116,7 +116,7 @@ void test_gaus( int H, int B, int S, int D)
 
 void test_silu( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(devc));
     ag::debug::print_tensor("Input Silu", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -137,7 +137,7 @@ void test_silu( int H, int B, int S, int D)
 
 void test_gcu( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(devc));
     ag::debug::print_tensor("Input GCU", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -157,7 +157,7 @@ void test_gcu( int H, int B, int S, int D)
 
 void test_gelu( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(devc));
     ag::debug::print_tensor("Input GELU", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -177,7 +177,7 @@ void test_gelu( int H, int B, int S, int D)
 
 void test_sigmoid( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(devc));
     ag::debug::print_tensor("Input Sigmoid", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -198,7 +198,7 @@ void test_sigmoid( int H, int B, int S, int D)
 
 void test_lisht( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(devc));
     ag::debug::print_tensor("Input Lisht", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -219,7 +219,7 @@ void test_lisht( int H, int B, int S, int D)
 
 void test_relu( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(devc));
     ag::debug::print_tensor("Input RELU", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -242,7 +242,7 @@ void test_relu( int H, int B, int S, int D)
 
 void test_tanh( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(devc));
     ag::debug::print_tensor("Input Tanh", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -263,7 +263,7 @@ void test_tanh( int H, int B, int S, int D)
 
 void test_softplus( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(devc));
     ag::debug::print_tensor("Input Softplus", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -284,7 +284,7 @@ void test_softplus( int H, int B, int S, int D)
 
 void test_leakyrelu( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(devc));
     ag::debug::print_tensor("Input LeakyRelu", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -306,21 +306,21 @@ void test_leakyrelu( int H, int B, int S, int D)
 
 void test_swiglu( int H, int B, int S, int D, int K)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(devc));
     ag::debug::print_tensor("Input SWIGLU", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
-    auto swag = ag::layer::SWIGLU(B, S, D, K);
+    auto swag = ag::layer::SWIGLU(B, S, D, K, Device::CUDA);
     auto r = swag(m);
 
     auto w = sum(r);
     ag::debug::print_tensor("Result Value SWIGLU", r.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient SWIGLU", m.grad());
-    // for(int i=0;i<10;i++){
-    //     forward(w);
-    //     backward(w);
-    //     ag::SGD(w);
-    // }
+    for(int i=0;i<10;i++){
+        forward(w);
+        backward(w);
+        ag::SGD(w);
+    }
 
 
 
@@ -328,11 +328,11 @@ void test_swiglu( int H, int B, int S, int D, int K)
 
 void test_rmsnorm( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(devc));
     ag::debug::print_tensor("Input RMSNorm", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
-    auto swag = ag::layer::RMSNorm(1.0);
+    auto swag = ag::layer::RMSNorm();
     auto w = swag(m);
     
     // auto w = sum(r);
@@ -348,7 +348,7 @@ void test_rmsnorm( int H, int B, int S, int D)
 
 void test_laynorm( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(devc));
     ag::debug::print_tensor("Input Layer Norm", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -368,7 +368,7 @@ void test_laynorm( int H, int B, int S, int D)
 
 void test_dyntanh( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions());
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(devc));
     ag::debug::print_tensor("Input DynTanh", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
@@ -394,7 +394,7 @@ int main(){
 
 // test_expand(2, 2, 4, 16);
 
-test_aliatt(16, 8, 128, 256);
+// test_aliatt(16, 8, 128, 256);
 // test_aliatt(2, 4, 64, 1024);
 // test_aliatt(2, 4, 64, 2048);
 // test_aliatt(2, 4, 128, 1024);
@@ -415,7 +415,7 @@ test_softplus(2, 4, 2, 4);
 test_tanh(2, 4, 2, 4);
 test_leakyrelu(2, 4, 2, 4);
 
-test_att(2, 4, 2, 4);
+// test_att(2, 4, 2, 4);
 // test_aliatt(2, 4, 2, 4);
 test_swiglu(2, 4, 2, 4, 10);
 test_rmsnorm(2, 4, 2, 4);

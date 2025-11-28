@@ -543,7 +543,7 @@ void vjp_LeakyRelu(Node* n, const Tensor& gy){
     // Get alpha from the second input node
     Node* A_node = n->inputs[1].get();
     // Use .data<T>()[0] to get the scalar value from the 1x1 tensor
-    float alpha = A_node->value.data<float>()[0]; 
+    float alpha = A_node->value.to_cpu().data<float>()[0]; 
 
     // --- Create the Leaky ReLU derivative mask using pure arithmetic ---
     // The mask should be 1 where x > 0 and alpha where x <= 0.
