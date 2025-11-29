@@ -324,7 +324,7 @@ void run_flash_forward(const float* Q, const float* K, const float* V, float* O,
 
 
     cudaMemset(d_l, 0, lm_size);
-    cudaMemset(d_m, 0, lm_size); // init to -inf handled inside kernel
+    cudaMemset(d_m, -INFINITY, lm_size); // init to -inf handled inside kernel
 
     dim3 grid_dim(B, nh, Tr);
     dim3 block_dim(Br, Tc);
@@ -428,7 +428,7 @@ __global__ void flash_aliforward_kernele(
     if (j_pos > i_pos)
         sum = -INFINITY;
     else
-        sum += -(float)(j_pos - i_pos) * slope;
+        sum += -(float)fmaxf((j_pos - i_pos) * slope, -80.0f);
     // ========================
 
 
@@ -500,7 +500,7 @@ void run_flash_aliforward(const float* Q, const float* K, const float* V, float*
 
 
     cudaMemset(d_l, 0, lm_size);
-    cudaMemset(d_m, 0, lm_size); // init to -inf handled inside kernel
+    cudaMemset(d_m, -INFINITY, lm_size); // init to -inf handled inside kernel
 
     dim3 grid_dim(B, nh, Tr);
     dim3 block_dim(Br, Tc);

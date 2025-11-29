@@ -25,7 +25,7 @@ void check_tensors_close(const Tensor& a, const Tensor& b, const std::string& la
     float w = 0;
 
     for (size_t i = 0; i < a.numel(); ++i) {
-        if (std::abs(a_data[i] - b_data[i]) > epsilon) {
+        if (std::abs(a_data[i] - b_data[i]) > epsilon || std::isnan(a_data[i]) || std::isnan(b_data[i])) {
             std::cout << "FAIL: " << label << " mismatch at index " << i << "\n";
 
             q=1;

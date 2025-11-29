@@ -59,7 +59,7 @@ void test_aliatt( int Heads, int B, int S, int d_model, int K, int num_layers)
 
         double initial_loss = -1.0;
     double final_loss = -1.0;
-ag::opti.SGD(w, 0.01);
+ag::opti.SGD(w, 0.00001);
 
 zero_val(w);
     for (int epoch = 0; epoch < 11; ++epoch) {
@@ -99,7 +99,7 @@ void test_atte( int Heads, int B, int S, int d_model, int K, int num_layers)
 
     auto dev = Device::CUDA;
     Tensor X = Tensor::randn(Shape({B, S, d_model}), TensorOptions().with_device(dev));
-    ag::debug::print_tensor("Input Alibi Attention", X);
+    ag::debug::print_tensor("Input Attention", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));  
     std::vector<ag::layer::Layer*> layers;
     layers.reserve(num_layers * 2 + 2);
@@ -107,18 +107,18 @@ void test_atte( int Heads, int B, int S, int d_model, int K, int num_layers)
     // Build model layers
     for (int i = 0; i < num_layers; ++i) {
         layers.push_back(new ag::layer::ResidualBlock({
-            new ag::layer::RMSNorm(),
+            new ag::layer::DynTanh(),
             new ag::layer::Attention(B, S, d_model, Heads, dev)
         }));
 
         layers.push_back(new ag::layer::ResidualBlock({
-            new ag::layer::RMSNorm(),
+            new ag::layer::DynTanh(),
             new ag::layer::SWIGLU(B, S, d_model, K, dev)
             // new ag::layer::Mish()
         }));
     }
 
-    layers.push_back(new ag::layer::RMSNorm());
+    layers.push_back(new ag::layer::DynTanh());
     layers.push_back(new ag::layer::Linear(B, S, d_model, dev));
 
     ag::layer::Traverse modela(layers);
@@ -131,7 +131,36 @@ void test_atte( int Heads, int B, int S, int d_model, int K, int num_layers)
 
     auto r = modela(m);
 
-        ag::Value labels = ag::make_tensor(OwnTensor::Tensor::randn(r.val().shape(), TensorOptions().with_device(dev)), "labels");
+Tensor labels =
+    Tensor::zeros(Shape({B, S}), TensorOptions());
+
+float* lbl = labels.data<float>();
+
+for (int b = 0; b < B; ++b) {
+    for (int s = 0; s < S; ++s) {
+        lbl[b*S + s] = std::rand() % d_model;   // class index
+    }
+}
+Tensor onehot =
+    Tensor::zeros(r.val().shape(),
+        TensorOptions());
+
+float* hot = onehot.data<float>();
+float* lbl2 = labels.data<float>();
+
+for (int b = 0; b < r.val().shape().dims[0]; ++b) {
+    for (int s = 0; s < r.val().shape().dims[1]; ++s) {
+
+        int cls = (int)lbl2[b*S + s];
+
+        // index in flat memory:
+        // (b, s, cls) => b*(S*d_model) + s*(d_model) + cls
+        hot[b * (r.val().shape().dims[1] * r.val().shape().dims[2]) + s * r.val().shape().dims[2] + cls] = 1.0f;
+    }
+}
+
+
+        ag::Value labelsa = ag::make_tensor(onehot.to(dev), "labels");
 
 
 
@@ -139,14 +168,14 @@ void test_atte( int Heads, int B, int S, int d_model, int K, int num_layers)
 
     
         
-    auto w = cross_entropy_with_logits(r, labels);
-    ag::debug::print_tensor("Result Value Alibi Attention", r.val());
+    auto w = cross_entropy_with_logits(r, labelsa);
+    ag::debug::print_tensor("Result Value Attention", r.val());
     backward(w);
-    ag::debug::print_tensor("Result Gradient Alibi Attention", m.grad());
+    ag::debug::print_tensor("Result Gradient Attention", m.grad());
 
         double initial_loss = -1.0;
     double final_loss = -1.0;
-ag::opti.SGD(w, 0.01);
+ag::opti.SGD(w, 0.00001);
 
 zero_val(w);
     for (int epoch = 0; epoch < 11; ++epoch) {
@@ -224,9 +253,9 @@ void test_att( int H, int B, int S, int D)
 
 int main(){
 
-test_aliatt(4, 4, 16, 32, 5, 2);
+test_aliatt(8, 4, 64, 128, 5, 11);
 // test_att(4, 4, 64, 128); // working
-test_atte(4, 4, 16, 32, 5, 2);
+test_atte(2, 2, 8, 8, 2, 1);
 
 return 0;
 
