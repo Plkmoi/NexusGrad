@@ -9,7 +9,7 @@ int main() {
     using namespace ag;
     using namespace OwnTensor;
 
-    Device dev = Device::CPU;
+    Device dev = Device::CUDA;
     const int seqlen = 64;
     const int d_model = 16;
     const int n_heads = 4;

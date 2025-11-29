@@ -9,8 +9,30 @@
 #include <unordered_map>
 #include <cmath> 
 
+
 namespace ag {
 namespace detail {
+
+static void init_cuda_plugin() {
+    try {
+        #if defined(_WIN32)
+            const char* plugin_path = "./agkernels_cuda.dll";
+        #elif defined(__APPLE__)
+            const char* plugin_path = "./libagkernels_cuda.dylib";
+        #else
+            const char* plugin_path = "/home/blubridge-034/Downloads/Newf/cgadimpl/cgadimpl/build/libagkernels_cuda.so";
+        #endif
+
+        std::cout << "Loading GPU plugin from: " << plugin_path << "\n";
+        kernels::load_cuda_plugin(plugin_path);
+    }
+    catch (const std::exception& e) {
+        std::cerr << "ERROR LOADING CUDA PLUGIN: " << e.what() << std::endl;
+    }
+}
+
+// force it to run at startup
+static bool _cuda_loaded = (init_cuda_plugin(), true);
 
 
 std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){
@@ -150,21 +172,21 @@ std::shared_ptr<Node> matmul_nodeops(const std::shared_ptr<Node>& a, const std::
 // attention nodeops
 // =====================================================================================================
 std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d, int H){
-    Tensor q = matmul(a->value, b->value.t()).to_cpu().unflatten(2, Shape({H, (b->value.shape().dims[1]/H)})).transpose(1,2).clone();
-    Tensor k = matmul(a->value, c->value.t()).to_cpu().unflatten(2, Shape({H, (c->value.shape().dims[1]/H)})).transpose(1,2).clone();
-    Tensor v = matmul(a->value, d->value.t()).to_cpu().unflatten(2, Shape({H, (d->value.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor q = matmul(a->value, b->value.t()).unflatten(2, Shape({H, (b->value.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor k = matmul(a->value, c->value.t()).unflatten(2, Shape({H, (c->value.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor v = matmul(a->value, d->value.t()).unflatten(2, Shape({H, (d->value.shape().dims[1]/H)})).transpose(1,2).clone();
 
 
-    Tensor q_gpu = q.to(a->value.device());
-    Tensor k_gpu = k.to(a->value.device());
-    Tensor v_gpu = v.to(a->value.device());
+    Tensor q_gpu = q;
+    Tensor k_gpu = k;
+    Tensor v_gpu = v;
     Tensor out_gpu(Shape({/*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[2]/H}), TensorOptions().with_device(a->value.device()));
 
     // flash attention call (standard softmax)
     kernels::cuda().flash(q_gpu.data<float>(), k_gpu.data<float>(), v_gpu.data<float>(), out_gpu.data<float>(),
             /*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[2]/H, ag::current_stream());
     cudaDeviceSynchronize();
-    auto outa = out_gpu.to_cpu().transpose(1,2).flatten(2,3).clone();
+    auto y = out_gpu.transpose(1,2).flatten(2,3).clone();
 
 
     // float scale = 1.f / sqrtf(static_cast<float>(k.shape().dims.back()));
@@ -177,7 +199,6 @@ std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const st
     // Tensor s = exp_g / sum_exp_g;
 
 // try{
-    Tensor y = outa.to(a->value.device());
 
 // catch(const std::runtime_error& e)
 // {

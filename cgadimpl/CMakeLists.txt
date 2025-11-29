@@ -125,10 +125,10 @@ if(true) # or use if(AG_BUILD_TESTS)
   # --- Define Test Sources ---
   
   # CPU Tests
-  add_ag_test(test_layalib     tests/test_layalib.cpp)
+  # add_ag_test(test_layalib     tests/test_layalib.cpp)
   add_ag_test(test_eh       tests/test_eh.cpp)
-#   add_ag_test(test_neh       tests/test_neh.cpp)
-#   add_ag_test(test_aliba       tests/test_aliba.cpp)
+  add_ag_test(test_neh       tests/test_neh.cpp)
+  add_ag_test(test_aliba       tests/test_aliba.cpp)
 #  add_ag_test(test_keretu       tests/test_keretu.cpp)
   # add_ag_test(test_layer       tests/test_layer.cpp)
   # add_ag_test(test_aligen       tests/test_aligen.cpp)
