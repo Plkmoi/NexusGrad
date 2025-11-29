@@ -58,6 +58,8 @@ extern void gemm_cuda   (const float*, const float*, float*, float*, int, int, i
 extern void linear_cuda   (const float*, const float*, float*, float*, int, int, int, ag_cuda_stream_t);
 extern void run_flash_forward(const float* Q, const float* K, const float* V, float* O,
                        int B, int nh, int N, int d, ag_cuda_stream_t);
+extern void run_flash_aliforward(const float* Q, const float* K, const float* V, float* O,
+                       int B, int nh, int N, int d, ag_cuda_stream_t);
 extern void run_flashrelu_forward(const float* Q, const float* K, const float* V, float* O,
                        int B, int nh, int N, int d, ag_cuda_stream_t);
 extern void run_flashsig_forward(const float* Q, const float* K, const float* V, float* O,
@@ -168,6 +170,7 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->reluflash = &run_flashrelu_forward;
   out->sigflash        = &run_flashsig_forward;
   out->flexflash        = &run_flashflex_forwardz;
+  out->flashali         = &run_flash_aliforward;
 
   out->sum = &sumall_cuda;
   out->mseloss       = &mseloss_cuda;

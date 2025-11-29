@@ -154,6 +154,8 @@ typedef void (*ag_gemm_cuda_fn)(const float* A, const float* B, float* C, float*
 typedef void (*ag_linear_cuda_fn)(const float* A, const float* B, float* C, float* E, int M, int K, int N, ag_cuda_stream_t s);
 typedef void (*ag_flash_attention)(const float* Q, const float* K, const float* V, float* O,
                        int B, int nh, int N, int d, ag_cuda_stream_t);
+typedef void (*ag_flash_alibattention)(const float* Q, const float* K, const float* V, float* O,
+                       int B, int nh, int N, int d, ag_cuda_stream_t);
 typedef void (*ag_reluflash_attention)(const float* Q, const float* K, const float* V, float* O,
                        int B, int nh, int N, int d, ag_cuda_stream_t);
 typedef void (*ag_sigflash_attention)(const float* Q, const float* K, const float* V, float* O,
@@ -312,6 +314,7 @@ struct ag_cuda_v1 {
   ag_lisht_cuda_fn lisht ;
   ag_reci_cuda_fn reci ;
   ag_dyntanh_cuda_fn dyntanh ;
+  ag_flash_alibattention flashali;
 
   ag_sin_cuda_fn        sin; 
   ag_cos_cuda_fn        cos;
@@ -457,6 +460,7 @@ struct Cuda {
   ag_linear_cuda_fn       linear         = nullptr;
   ag_sqrt_cuda_fn    sqrt   = nullptr;
   ag_dyntanh_cuda_fn dyntanh = nullptr;
+  ag_flash_alibattention flashali = nullptr;
 
   ag_flash_attention flash = nullptr;
   ag_softplus_cuda_fn         softplus = nullptr;

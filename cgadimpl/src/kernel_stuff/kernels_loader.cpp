@@ -118,6 +118,7 @@ void load_cuda_plugin(const char* path) {
   g_cuda.gemm       = table.gemm;
   g_cuda.linear       = table.linear;
   g_cuda.flash = table.flash;
+  g_cuda.flashali = table.flashali;
   g_cuda.reluflash      = table.reluflash;
   g_cuda.sigflash       = table.sigflash;
   g_cuda.flexflash       = table.flexflash;

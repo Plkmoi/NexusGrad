@@ -347,87 +347,111 @@ void node_RELUAtt( std::shared_ptr<Node> n) {
     n->value = OwnTensor::matmul(relu, v);
 }
 void node_AlibiAttention( std::shared_ptr<Node> n) {
-    const Tensor& x = n->inputs[0]->value;   // [H, T, D]
+    // const Tensor& x = n->inputs[0]->value;   // [H, T, D]
 
-    const Tensor& Wq = n->inputs[1]->value;  // [D, D]
-    const Tensor& Wk = n->inputs[2]->value;  // [D, D]
-    const Tensor& Wv = n->inputs[3]->value;  // [D, D]
-
-
-    // All tensors follow the device / dtype of x
-    const auto& dims = x.shape().dims;
-    if (dims.size() != 3) {
-        throw std::runtime_error("alibiatt_nodeops: x must be [H,T,D]");
-    }
-    const int B = static_cast<int>(dims[0]);
-
-    const int T = static_cast<int>(dims[1]);
-    const int D = static_cast<int>(dims[2]);
-
-    auto opts   = options(x);
-    int H = static_cast<int>(n->tape[4]->to(Device::CPU).data<float>()[0]);
+    // const Tensor& Wq = n->inputs[1]->value;  // [D, D]
+    // const Tensor& Wk = n->inputs[2]->value;  // [D, D]
+    // const Tensor& Wv = n->inputs[3]->value;  // [D, D]
 
 
-    // 1) Projections: [H, T, D]
-    Tensor q = matmul(x, Wq.t()).unflatten(2, Shape({H, (Wq.shape().dims[1]/H)})).transpose(1,2).clone();
-    Tensor k = matmul(x, Wk.t()).unflatten(2, Shape({H, (Wk.shape().dims[1]/H)})).transpose(1,2).clone();
-    Tensor v = matmul(x, Wv.t()).unflatten(2, Shape({H, (Wv.shape().dims[1]/H)})).transpose(1,2).clone();
+    // // All tensors follow the device / dtype of x
+    // const auto& dims = x.shape().dims;
+    // if (dims.size() != 3) {
+    //     throw std::runtime_error("alibiatt_nodeops: x must be [H,T,D]");
+    // }
+    // const int B = static_cast<int>(dims[0]);
 
-    float scale = 1.f / sqrtf(static_cast<float>(k.shape().dims.back()));
-    // 2) Logits: [H, T, T]
-    Tensor logits = matmul(q, k.t()) * scale;
+    // const int T = static_cast<int>(dims[1]);
+    // const int D = static_cast<int>(dims[2]);
 
-    // 3) Build ALiBi bias [H, T, T] on CPU, then move to logits.device()
-    Tensor bias_cpu(
-        logits.shape(),
-        TensorOptions()
-            .with_device(Device::CPU)
-            .with_dtype(logits.dtype())
-    );
+    // auto opts   = options(x);
+    // int H = static_cast<int>(n->tape[4]->to(Device::CPU).data<float>()[0]);
 
-    {
-        float slope_start = 1.0f / std::pow(2.0f, 8.0f / H);
 
-        dispatch_by_dtype(bias_cpu.dtype(), [&](auto dummy) {
-            using Tval = decltype(dummy);
-            Tval* data = bias_cpu.data<Tval>();
+    // // 1) Projections: [H, T, D]
+    // Tensor q = matmul(x, Wq.t()).unflatten(2, Shape({H, (Wq.shape().dims[1]/H)})).transpose(1,2).clone();
+    // Tensor k = matmul(x, Wk.t()).unflatten(2, Shape({H, (Wk.shape().dims[1]/H)})).transpose(1,2).clone();
+    // Tensor v = matmul(x, Wv.t()).unflatten(2, Shape({H, (Wv.shape().dims[1]/H)})).transpose(1,2).clone();
 
-            for (int b = 0; b < B; ++b) {
-                for (int h = 0; h < H; ++h) {
-                                    float slope = std::pow(slope_start, h + 1);
+    // float scale = 1.f / sqrtf(static_cast<float>(k.shape().dims.back()));
+    // // 2) Logits: [H, T, T]
+    // Tensor logits = matmul(q, k.t()) * scale;
 
-                for (int i = 0; i < T; ++i) {
+    // // 3) Build ALiBi bias [H, T, T] on CPU, then move to logits.device()
+    // Tensor bias_cpu(
+    //     logits.shape(),
+    //     TensorOptions()
+    //         .with_device(Device::CPU)
+    //         .with_dtype(logits.dtype())
+    // );
 
-                    for (int j = 0; j < T; ++j) {
-                        float v;
-                        if (j > i) {
-                            v = -std::numeric_limits<float>::infinity(); // causal mask
-                        } else {
-                            v = -static_cast<float>(j - i) * slope;  // ALiBi penalty
-                        }
+    // {
+    //     float slope_start = 1.0f / std::pow(2.0f, 8.0f / H);
 
-                        const int idx = j + T*i + T*T*h + H*T*T*b;
-                        data[idx] = static_cast<Tval>(v);
-                    }
-                }
-            }
-            }
-        });
-    }
+    //     dispatch_by_dtype(bias_cpu.dtype(), [&](auto dummy) {
+    //         using Tval = decltype(dummy);
+    //         Tval* data = bias_cpu.data<Tval>();
+
+    //         for (int b = 0; b < B; ++b) {
+    //             for (int h = 0; h < H; ++h) {
+    //                                 float slope = std::pow(slope_start, h + 1);
+
+    //             for (int i = 0; i < T; ++i) {
+
+    //                 for (int j = 0; j < T; ++j) {
+    //                     float v;
+    //                     if (j > i) {
+    //                         v = -std::numeric_limits<float>::infinity(); // causal mask
+    //                     } else {
+    //                         v = -static_cast<float>(j - i) * slope;  // ALiBi penalty
+    //                     }
+
+    //                     const int idx = j + T*i + T*T*h + H*T*T*b;
+    //                     data[idx] = static_cast<Tval>(v);
+    //                 }
+    //             }
+    //         }
+    //         }
+    //     });
+    // }
 
     
 
-    // Tensor bias = bias_cpu.to(logits.device());
-    Tensor g    = logits +bias_cpu;  // [H,T,T]
+    // // Tensor bias = bias_cpu.to(logits.device());
+    // Tensor g    = logits +bias_cpu;  // [H,T,T]
 
-    // 4) Softmax over last dim
-    Tensor max_g = reduce_max(g, {-1}, true);     // [H,T,1]
-    Tensor exp_g = exp(g - max_g);                // [H,T,T]
-    Tensor sum_g = reduce_sum(exp_g, {-1}, true); // [H,T,1]
-    Tensor s     = exp_g / sum_g;                 // [H,T,T]
+    // // 4) Softmax over last dim
+    // Tensor max_g = reduce_max(g, {-1}, true);     // [H,T,1]
+    // Tensor exp_g = exp(g - max_g);                // [H,T,T]
+    // Tensor sum_g = reduce_sum(exp_g, {-1}, true); // [H,T,1]
+    // Tensor s     = exp_g / sum_g;                 // [H,T,T]
 
-    // 5) Output: y = s @ v → [H,T,D]
-    n->value = matmul(s, v).transpose(1,2).flatten(2,3);       
+    // // 5) Output: y = s @ v → [H,T,D]
+    // n->value = matmul(s, v).transpose(1,2).flatten(2,3);     
+    
+         Tensor& A = n->inputs[0]->value;
+     Tensor& B = n->inputs[1]->value;
+     Tensor& C = n->inputs[2]->value;
+     Tensor& D = n->inputs[3]->value;
+     auto a = n->inputs[0];
+             int H = static_cast<int>(n->tape[3]->to(Device::CPU).data<float>()[0]);
+
+   Tensor q = matmul(A, B.t()).to_cpu().unflatten(2, Shape({H, (B.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor k = matmul(A, C.t()).to_cpu().unflatten(2, Shape({H, (C.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor v = matmul(A, D.t()).to_cpu().unflatten(2, Shape({H, (D.shape().dims[1]/H)})).transpose(1,2).clone();
+
+
+
+    Tensor q_gpu = q.to(n->value.device());
+    Tensor k_gpu = k.to(n->value.device());
+    Tensor v_gpu = v.to(n->value.device());
+    Tensor out_gpu(Shape({/*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[2]/H}), TensorOptions().with_device(a->value.device()));
+
+    // flash attention call (standard softmax)
+    kernels::cuda().flashali(q_gpu.data<float>(), k_gpu.data<float>(), v_gpu.data<float>(), out_gpu.data<float>(),
+            /*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[2]/H, ag::current_stream());
+    cudaDeviceSynchronize();
+    auto outa = out_gpu.to_cpu().transpose(1,2).flatten(2,3).clone();
 
 }
 

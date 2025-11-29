@@ -80,25 +80,32 @@ void test_aliatt( int H, int B, int S, int D)
     auto in_features = S;
     auto batch = B;
     auto out_features = D;
-        auto param_opts = OwnTensor::TensorOptions().with_device(Device::CUDA).with_device(Device::CPU).with_req_grad(true);
+
+            auto param_opts = OwnTensor::TensorOptions().with_device(Device::CUDA).with_req_grad(true);
 
 
         float scale = sqrtf(0.02f / out_features);
-    // Tensor wq = OwnTensor::Tensor::randn(Shape{{batch, out_features, out_features}}, param_opts) * scale;
-    // Tensor wk = OwnTensor::Tensor::randn(Shape{{batch, out_features, out_features}}, param_opts) * scale;
-    // Tensor wv = OwnTensor::Tensor::randn(Shape{{batch, out_features, out_features}}, param_opts) * scale;
+    Tensor wq = OwnTensor::Tensor::randn(Shape{{batch, out_features, out_features}}, param_opts) * scale;
+    Tensor wk = OwnTensor::Tensor::randn(Shape{{batch, out_features, out_features}}, param_opts) * scale;
+    Tensor wv = OwnTensor::Tensor::randn(Shape{{batch, out_features, out_features}}, param_opts) * scale;
 
-    auto Q = ag::Value(std::make_shared<ag::Node>(Tensor::randn(Shape({B, D, D}), TensorOptions().with_device(Device::CUDA))* scale, ag::Op::Leaf, true, "X"));
-    auto K = ag::Value(std::make_shared<ag::Node>(Tensor::randn(Shape({B, D, D}), TensorOptions().with_device(Device::CUDA))* scale, ag::Op::Leaf, true, "X"));
-    auto V = ag::Value(std::make_shared<ag::Node>(Tensor::randn(Shape({B, D, D}), TensorOptions().with_device(Device::CUDA))* scale, ag::Op::Leaf, true, "X"));
+    auto Q = make_tensor(wq, "q");
+    auto K = make_tensor(wk, "k");
+    auto V = make_tensor(wv, "v");
     auto r = alibiatt(m, Q, K, V, H);
     
     auto w = sum(r);
-    ag::debug::print_tensor("Result Value Alibi Attention", r.val());
+    ag::debug::print_tensor("Result Value Alibi Attention", r.val().to_cpu());
     backward(w);
-    ag::debug::print_tensor("Result Gradient Alibi Attention", m.grad());
+    ag::debug::print_tensor("Result Gradient Alibi Attention", m.grad().to_cpu());
 ag::opti.SGD(w, 0.01);
+      
 
+    for(int i=0;i<10;i++){
+        forward(w);
+        backward(w);
+        opti.epoch();
+    }
 
 
 
@@ -586,7 +593,7 @@ test_softplus(2, 4, 2, 4);
 test_tanh(2, 4, 2, 4);
 test_leakyrelu(2, 4, 2, 4);
 
-// test_aliatt(2, 4, 32, 128);
+test_aliatt(2, 4, 2, 4);
 test_att(2, 4, 2, 4);
 test_swiglu(2, 4, 2, 4, 10);
 

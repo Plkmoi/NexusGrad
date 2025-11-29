@@ -21,7 +21,7 @@ namespace ag {
         static constexpr float _lr = 0.1f;
         static constexpr float _m = 0.01f;
 
-        std::vector<std::shared_ptr<Tensor>> veloc;
+        
 
 
 struct Bag {
@@ -30,10 +30,16 @@ std::shared_ptr<ag::Node> noda;
 std::shared_ptr<Tensor> velocia;
     Bag(const std::shared_ptr<ag::Node>& n_val) 
         : noda(n_val),        // Initialize the 'noda' member
-          velocia(std::make_shared<Tensor>(Tensor(n_val->value.shape(), TensorOptions().with_device(n_val->value.device()))))      // Initialize the 'velocia' member
+          velocia(std::make_shared<Tensor>(
+    Tensor::zeros(n_val->value.shape(),
+                  TensorOptions().with_device(n_val->value.device()))
+))
+      // Initialize the 'velocia' member
     {
         std::cout<<"I was called\n";
     }
+
+
 
 };
 
@@ -47,10 +53,12 @@ std::vector<std::shared_ptr<Bag>> bagstore;
         if (!n || vis.count(n)) return;
         vis.insert(n);
         for (auto& p : n->inputs)
+        if(n->op==Op::Leaf && n->requires_grad()){
             dfs(p); 
         bagstore.push_back(std::make_shared<Bag>(n));
         // storestuf.veloci.push_back(std::make_shared<Tensor>(Tensor(n->value.shape(), TensorOptions().with_device(n->value.device()))));
         // storestuf.nod.push_back(n);
+        }
     };
     dfs(root);
 
@@ -63,6 +71,19 @@ std::vector<std::shared_ptr<Bag>> bagstore;
         using EpochFn = std::function<void()>;
 
         EpochFn epoch;
+    //     ~Optimizer()
+    //     {
+
+    //  for (auto ww : bagstore) 
+    // {
+    //     auto n = ww->noda;
+    //     n->value = n->value.to(Device::CPU);
+    //     n->grad = n->grad.to(Device::CPU);
+        
+
+    // }
+
+    //     }
 
 // void optiche(Value f) {
 //     // auto order = topon_from(root.node);

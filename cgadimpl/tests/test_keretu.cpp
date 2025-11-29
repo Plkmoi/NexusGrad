@@ -340,6 +340,107 @@ void test_gpu_unified_attention() {
     check_tensors_close(refa, outa, "test_gpu_attention", 0.01);
 }
 
+
+
+void test_gpu_unified_alibattention() {
+    auto& K = kernels::cuda();
+    auto cpu_opts = TensorOptions().with_device(Device::CPU);
+    auto gpu_opts = TensorOptions().with_device(Device::CUDA);
+
+    int H = 4;
+    int B = 11;
+    int S = 7;
+    int D = 3;
+
+    // A: (11,9,3) B: (9,14,4) C: (9,14,5) D: (9,14,6) -> output (11,14)
+    Tensor a_cpu = Tensor::randn(Shape{{11,7,12}}, cpu_opts);
+    Tensor b_cpu = Tensor::randn(Shape{{11,12,12}}, cpu_opts);
+    Tensor c_cpu = Tensor::randn(Shape{{11,12,12}}, cpu_opts);
+    Tensor d_cpu = Tensor::randn(Shape{{11,12,12}}, cpu_opts);
+
+    // Build Q,K,V via matmul as original code
+
+
+    Tensor q = matmul(a_cpu, b_cpu.t()).unflatten(2, Shape({H, (b_cpu.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor k = matmul(a_cpu, c_cpu.t()).unflatten(2, Shape({H, (c_cpu.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor v = matmul(a_cpu, d_cpu.t()).unflatten(2, Shape({H, (d_cpu.shape().dims[1]/H)})).transpose(1,2).clone();
+
+
+    float scale = 1.f / sqrtf(static_cast<float>(k.shape().dims.back()));
+    Tensor logits = matmul(q, k.t()) * scale;
+
+// 3) Build ALiBi bias [B, H, S, S] on CPU, then move to logits.device()
+Tensor bias_cpu(
+    logits.shape(),
+    TensorOptions()
+        .with_device(Device::CPU)
+        .with_dtype(logits.dtype())
+);
+
+{
+    float slope_start = 1.0f / std::pow(2.0f, 8.0f / H);
+
+    dispatch_by_dtype(bias_cpu.dtype(), [&](auto dummy) {
+        using Tval = decltype(dummy);
+        Tval* data = bias_cpu.data<Tval>();
+
+        for (int b = 0; b < B; ++b) {
+            for (int h = 0; h < H; ++h) {
+
+                float slope = std::pow(slope_start, h + 1);
+
+                for (int i = 0; i < S; ++i) {
+                    for (int j = 0; j < S; ++j) {
+
+                        float v;
+                        if (j > i)
+                            v = -std::numeric_limits<float>::infinity();  // causal
+                        else
+                            v = -float(j - i) * slope;                    // ALiBi
+
+                        // index = (((b*H + h)*S + i)*S + j)
+                        const int idx = (((b * H + h) * S + i) * S + j);
+
+                        data[idx] = static_cast<Tval>(v);
+                    }
+                }
+            }
+        }
+    });
+}
+
+    
+
+    // Tensor bias = bias_cpu.to(logits.device());
+    Tensor g    = logits +bias_cpu;  // [H,T,T]
+
+    // Re-implement softmax using OwnTensor ops
+    Tensor max_val = reduce_max(g, {-1}, true);
+    Tensor exp_g = exp(g - max_val);
+    Tensor sum_exp_g = reduce_sum(exp_g, {-1}, true);
+    Tensor s = exp_g / sum_exp_g;
+    //ag::debug::print_tensor("Who is v", v);
+
+    //ag::debug::print_tensor("S middle", s);
+
+    auto ref = matmul(s, v);
+
+
+    Tensor q_gpu = q.to(gpu_opts.device);
+    Tensor k_gpu = k.to(gpu_opts.device);
+    Tensor v_gpu = v.to(gpu_opts.device);
+    Tensor out_gpu(ref.shape(), options(ref).with_device(gpu_opts.device));
+
+    // flash attention call (standard softmax)
+    K.flashali(q_gpu.data<float>(), k_gpu.data<float>(), v_gpu.data<float>(), out_gpu.data<float>(),
+            /*batches=*/11, /*heads=*/H, /*M=*/7, /*N=*/12/H, ag::current_stream());
+    cudaDeviceSynchronize();
+    auto refa = ref.transpose(1,2).flatten(2,3).clone();
+    auto outa = out_gpu.to_cpu().transpose(1,2).flatten(2,3).clone();
+
+    check_tensors_close(refa, outa, "test_gpu_aliattention", 0.01);
+}
+
 // void test_gpu_unified_reluattention() {
 //     auto& K = kernels::cuda();
 //     auto cpu_opts = TensorOptions().with_device(Device::CPU);
@@ -998,17 +1099,17 @@ void test_gpu_unified_lisht() {
 
 int main() {
     std::cout << "=== Running GPU Kernel Tests ===\n";
-    try {
-        #if defined(_WIN32)
-            const char* plugin_path = "./agkernels_cuda.dll";
-        #elif defined(__APPLE__)
-            const char* plugin_path = "./libagkernels_cuda.dylib";
-        #else
-            const char* plugin_path = "/home/blubridge-034/Downloads/Newf/cgadimpl/cgadimpl/build/libagkernels_cuda.so";
-        #endif
+    // try {
+    //     #if defined(_WIN32)
+    //         const char* plugin_path = "./agkernels_cuda.dll";
+    //     #elif defined(__APPLE__)
+    //         const char* plugin_path = "./libagkernels_cuda.dylib";
+    //     #else
+    //         const char* plugin_path = "/home/blubridge-034/Downloads/Newf/cgadimpl/cgadimpl/build/libagkernels_cuda.so";
+    //     #endif
 
-        std::cout << "Loading GPU plugin from: " << plugin_path << "\n";
-        kernels::load_cuda_plugin(plugin_path);
+    //     std::cout << "Loading GPU plugin from: " << plugin_path << "\n";
+    //     kernels::load_cuda_plugin(plugin_path);
 
         test_gpu_unified_add();
         test_gpu_unified_matmul();
@@ -1027,12 +1128,13 @@ int main() {
         test_gpu_unified_gelu();
         test_gpu_unified_parcon();
         test_gpu_unified_attention();
+        test_gpu_unified_alibattention();
         
 
-    } catch (const std::exception& e) {
-        std::cerr << "ERROR: " << e.what() << std::endl;
-        return 1;
-    }
+    // } catch (const std::exception& e) {
+    //     std::cerr << "ERROR: " << e.what() << std::endl;
+    //     return 1;
+    // }
 
     std::cout << "\nAll GPU kernel tests passed successfully!\n";
     return 0;

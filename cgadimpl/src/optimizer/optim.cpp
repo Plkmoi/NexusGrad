@@ -44,6 +44,7 @@ void Optimizer::SGD(const Value& root, float learning_rate) { // Changed to floa
 
 
 void Optimizer::SGDm(const Value& root, float learning_rate, float momen) { // Changed to float for consistency
+    bagstore.clear();
     topovel_from(root.node);
 
     this->epoch = [this, learning_rate, momen]()  {
