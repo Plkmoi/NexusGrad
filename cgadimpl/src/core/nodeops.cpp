@@ -13,26 +13,7 @@
 namespace ag {
 namespace detail {
 
-static void init_cuda_plugin() {
-    try {
-        #if defined(_WIN32)
-            const char* plugin_path = "./agkernels_cuda.dll";
-        #elif defined(__APPLE__)
-            const char* plugin_path = "./libagkernels_cuda.dylib";
-        #else
-            const char* plugin_path = "/home/blubridge-034/Downloads/Newf/cgadimpl/cgadimpl/build/libagkernels_cuda.so";
-        #endif
-
-        std::cout << "Loading GPU plugin from: " << plugin_path << "\n";
-        kernels::load_cuda_plugin(plugin_path);
-    }
-    catch (const std::exception& e) {
-        std::cerr << "ERROR LOADING CUDA PLUGIN: " << e.what() << std::endl;
-    }
-}
-
 // force it to run at startup
-static bool _cuda_loaded = (init_cuda_plugin(), true);
 
 
 std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){

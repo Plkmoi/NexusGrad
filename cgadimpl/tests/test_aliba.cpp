@@ -9,31 +9,30 @@ using namespace ag;
 
 void test_aliatt( int Heads, int B, int S, int d_model, int K, int num_layers)
 {
-    Tensor X = Tensor::randn(Shape({B, S, d_model}), TensorOptions());
-    ag::debug::print_tensor("Input Alibi Attention", X);
-    auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
     auto dev = Device::CUDA;
-    
+    Tensor X = Tensor::randn(Shape({B, S, d_model}), TensorOptions().with_device(dev));
+    ag::debug::print_tensor("Input Alibi Attention", X);
+    auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));  
     std::vector<ag::layer::Layer*> layers;
     layers.reserve(num_layers * 2 + 2);
 
     // Build model layers
     for (int i = 0; i < num_layers; ++i) {
         layers.push_back(new ag::layer::ResidualBlock({
-            new ag::layer::DynTanh(),
+            new ag::layer::RMSNorm(),
             new ag::layer::Attention(B, S, d_model, Heads, dev)
         }));
 
         layers.push_back(new ag::layer::ResidualBlock({
-            new ag::layer::DynTanh(),
-            //new ag::layer::SWIGLU(B, S, d_model, K, dev)
-            new ag::layer::Mish()
+            new ag::layer::RMSNorm(),
+            new ag::layer::SWIGLU(B, S, d_model, K, dev)
+            // new ag::layer::Mish()
         }));
     }
 
     layers.push_back(new ag::layer::RMSNorm());
-    layers.push_back(new ag::layer::Linear(B, S, d_model));
+    layers.push_back(new ag::layer::Linear(B, S, d_model, dev));
 
     ag::layer::Traverse modela(layers);
 
@@ -62,7 +61,7 @@ void test_aliatt( int Heads, int B, int S, int d_model, int K, int num_layers)
     double final_loss = -1.0;
 ag::opti.SGD(w, 0.01);
 
-
+zero_val(w);
     for (int epoch = 0; epoch < 11; ++epoch) {
         // a. Zero out all gradients from the previous iteration.
         zero_grad(w);
