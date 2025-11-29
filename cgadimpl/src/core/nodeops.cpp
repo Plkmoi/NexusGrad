@@ -150,22 +150,34 @@ std::shared_ptr<Node> matmul_nodeops(const std::shared_ptr<Node>& a, const std::
 // attention nodeops
 // =====================================================================================================
 std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d, int H){
-    Tensor q = matmul(a->value, b->value.t()).unflatten(2, Shape({H, (b->value.shape().dims[1]/H)})).transpose(1,2).clone();
-    Tensor k = matmul(a->value, c->value.t()).unflatten(2, Shape({H, (c->value.shape().dims[1]/H)})).transpose(1,2).clone();
-    Tensor v = matmul(a->value, d->value.t()).unflatten(2, Shape({H, (d->value.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor q = matmul(a->value, b->value.t()).to_cpu().unflatten(2, Shape({H, (b->value.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor k = matmul(a->value, c->value.t()).to_cpu().unflatten(2, Shape({H, (c->value.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor v = matmul(a->value, d->value.t()).to_cpu().unflatten(2, Shape({H, (d->value.shape().dims[1]/H)})).transpose(1,2).clone();
 
 
-    float scale = 1.f / sqrtf(static_cast<float>(k.shape().dims.back()));
-    Tensor g = matmul(q, k.t()) * scale;
+    Tensor q_gpu = q.to(a->value.device());
+    Tensor k_gpu = k.to(a->value.device());
+    Tensor v_gpu = v.to(a->value.device());
+    Tensor out_gpu(Shape({/*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[2]/H}), TensorOptions().with_device(a->value.device()));
 
-    // Re-implement softmax using OwnTensor ops
-    Tensor max_val = reduce_max(g, {-1}, true);
-    Tensor exp_g = exp(g - max_val);
-    Tensor sum_exp_g = reduce_sum(exp_g, {-1}, true);
-    Tensor s = exp_g / sum_exp_g;
+    // flash attention call (standard softmax)
+    kernels::cuda().flash(q_gpu.data<float>(), k_gpu.data<float>(), v_gpu.data<float>(), out_gpu.data<float>(),
+            /*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[2]/H, ag::current_stream());
+    cudaDeviceSynchronize();
+    auto outa = out_gpu.to_cpu().transpose(1,2).flatten(2,3).clone();
+
+
+    // float scale = 1.f / sqrtf(static_cast<float>(k.shape().dims.back()));
+    // Tensor g = matmul(q, k.t()) * scale;
+
+    // // Re-implement softmax using OwnTensor ops
+    // Tensor max_val = reduce_max(g, {-1}, true);
+    // Tensor exp_g = exp(g - max_val);
+    // Tensor sum_exp_g = reduce_sum(exp_g, {-1}, true);
+    // Tensor s = exp_g / sum_exp_g;
 
 // try{
-    Tensor y = matmul(s, v).transpose(1,2).flatten(2,3);
+    Tensor y = outa.to(a->value.device());
 
 // catch(const std::runtime_error& e)
 // {
@@ -175,10 +187,9 @@ std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const st
     auto n = std::make_shared<Node>(y, Op::Attention, (a->requires_grad() || b->requires_grad() || c->requires_grad() || d->requires_grad()), "attention");
     n->inputs = {a, b, c, d};
     // Save intermediate tensors needed for the backward pass to the tape
-    n->tape.push_back(std::make_shared<Tensor>(q));
-    n->tape.push_back(std::make_shared<Tensor>(k));
-    n->tape.push_back(std::make_shared<Tensor>(v));
-    n->tape.push_back(std::make_shared<Tensor>(s));
+    n->tape.push_back(std::make_shared<Tensor>(q.to(a->value.device())));
+    n->tape.push_back(std::make_shared<Tensor>(k.to(a->value.device())));
+    n->tape.push_back(std::make_shared<Tensor>(v.to(a->value.device())));
     Tensor tapeH = Tensor::full(Shape{{1}}, ag::options(a->value).with_req_grad(false), H);
     n->tape.push_back(std::make_shared<Tensor>(tapeH));
     ag::debug::on_node_created(n);

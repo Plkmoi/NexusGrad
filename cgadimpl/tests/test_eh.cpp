@@ -16,7 +16,8 @@ void test_expand( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 
 
@@ -25,8 +26,8 @@ void test_expand( int H, int B, int S, int D)
 
 void test_att( int H, int B, int S, int D)
 {
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA).with_device(Device::CUDA));
-    ag::debug::print_tensor("Input", X);
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
+    ag::debug::print_tensor("Input Attention", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
     // auto atten = ag::layer::Attention(B, S, D, H);
     // auto r = atten(m);
@@ -34,13 +35,13 @@ void test_att( int H, int B, int S, int D)
     auto batch = B;
     auto out_features = D;
 
-            auto param_opts = OwnTensor::TensorOptions().with_device(Device::CUDA).with_device(Device::CUDA).with_req_grad(true);
+            auto param_opts = OwnTensor::TensorOptions().with_device(Device::CUDA).with_req_grad(true);
 
 
         float scale = sqrtf(0.02f / out_features);
-    Tensor wq = OwnTensor::Tensor::randn(Shape{{batch, in_features, out_features}}, param_opts) * scale;
-    Tensor wk = OwnTensor::Tensor::randn(Shape{{batch, in_features, out_features}}, param_opts) * scale;
-    Tensor wv = OwnTensor::Tensor::randn(Shape{{batch, in_features, out_features}}, param_opts) * scale;
+    Tensor wq = OwnTensor::Tensor::randn(Shape{{batch, out_features, out_features}}, param_opts) * scale;
+    Tensor wk = OwnTensor::Tensor::randn(Shape{{batch, out_features, out_features}}, param_opts) * scale;
+    Tensor wv = OwnTensor::Tensor::randn(Shape{{batch, out_features, out_features}}, param_opts) * scale;
 
     auto Q = make_tensor(wq, "q");
     auto K = make_tensor(wk, "k");
@@ -49,13 +50,14 @@ void test_att( int H, int B, int S, int D)
     
     auto w = sum(r);
     ag::debug::print_tensor("Result Value Attention", r.val().to_cpu());
-    backward(w);
-    ag::debug::print_tensor("Result Gradient Attention", m.grad().to_cpu());
-    for(int i=0;i<10;i++){
-        forward(w);
-        backward(w);
-        ag::SGD(w);
-    }
+    // backward(w);
+    // ag::debug::print_tensor("Result Gradient Attention", m.grad().to_cpu());
+    // for(int i=0;i<10;i++){
+    //     forward(w);
+    //     // backward(w);
+    //     ag::opti.SGD(w, 0.001);
+    //     opti.epoch();
+    // }
 
 
 
@@ -119,7 +121,8 @@ void test_parcon( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -143,7 +146,8 @@ void test_mish( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGDm(w, 0.01, 0.0001);
+        opti.epoch();
     }
 }
 
@@ -167,7 +171,8 @@ void test_gaus( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -191,7 +196,8 @@ void test_silu( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -215,7 +221,8 @@ void test_gcu( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -238,7 +245,8 @@ void test_gelu( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -261,7 +269,8 @@ void test_sigmoid( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -285,7 +294,8 @@ void test_lisht( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -309,7 +319,8 @@ void test_relu( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -334,7 +345,8 @@ void test_tanh( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -358,7 +370,8 @@ void test_softplus( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -383,7 +396,8 @@ void test_leakyrelu( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -434,7 +448,8 @@ void test_swiglu( int H, int B, int S, int D, int K)
     // for(int i=0;i<10;i++){
     //     forward(w);
     //     backward(w);
-    //     ag::SGD(w);
+    //             ag::opti.SGD(w, 0.001);
+        opti.epoch();
     // }
 
 
@@ -458,7 +473,8 @@ void test_rmsnorm( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 ag::debug::print_tensor("Result Gradient1 RMSNorm", w.node->inputs[1]->grad.to_cpu().to_cpu());
 }
@@ -480,7 +496,8 @@ void test_laynorm( int H, int B, int S, int D)
     // for(int i=0;i<10;i++){
     //     forward(w);
     //     backward(w);
-    //     ag::SGD(w);
+    //             ag::opti.SGD(w, 0.001);
+        opti.epoch();
     // }
 ag::debug::print_tensor("Result Gradient Gamma Layer Norm", w.node->inputs[1]->grad.to_cpu());
 ag::debug::print_tensor("Result Gradient Beta Layer Norm", w.node->inputs[2]->grad.to_cpu());
@@ -504,7 +521,8 @@ void test_dyntanh( int H, int B, int S, int D)
     // for(int i=0;i<10;i++){
     //     forward(w);
     //     backward(w);
-    //     ag::SGD(w);
+    //             ag::opti.SGD(w, 0.001);
+        opti.epoch();
     // }
 ag::debug::print_tensor("Result Gradient Alpha DynTanh", w.node->inputs[1]->grad.to_cpu());
 ag::debug::print_tensor("Result Gradient Gamma DynTanh", w.node->inputs[3]->grad.to_cpu());
@@ -522,7 +540,17 @@ int main(){
 // test_aliatt(2, 4, 64, 2048);
 // test_aliatt(2, 4, 128, 1024);
 // test_aliatt(8, 16, 2048, 1024);
+try {
+        #if defined(_WIN32)
+            const char* plugin_path = "./agkernels_cuda.dll";
+        #elif defined(__APPLE__)
+            const char* plugin_path = "./libagkernels_cuda.dylib";
+        #else
+            const char* plugin_path = "/home/blubridge-034/Downloads/Newf/cgadimpl/cgadimpl/build/libagkernels_cuda.so";
+        #endif
 
+        std::cout << "Loading GPU plugin from: " << plugin_path << "\n";
+        kernels::load_cuda_plugin(plugin_path);
 test_parcon(2, 4, 2, 4);
 test_mish(2, 4, 2, 4);
 test_gaus(2, 4, 2, 4);
@@ -539,13 +567,17 @@ test_tanh(2, 4, 2, 4);
 test_leakyrelu(2, 4, 2, 4);
 
 // test_aliatt(2, 4, 32, 128);
-//test_att(2, 4, 2, 4);
+test_att(2, 4, 2, 4);
 test_swiglu(2, 4, 2, 4, 10);
 
 test_rmsnorm(2, 4, 2, 4);
 test_laynorm(2, 4, 2, 4);
 test_dyntanh(2, 4, 2, 4);
-
+}
+catch (const std::exception& e) {
+        std::cerr << "ERROR: " << e.what() << std::endl;
+        return 1;
+    }
 return 0;
 
 }

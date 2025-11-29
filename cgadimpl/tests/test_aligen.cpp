@@ -396,7 +396,8 @@ Tensor X_cpu = Tensor(Shape{{B, S, d_model}}, OwnTensor::TensorOptions().with_de
         // Backward pass and optimization
         zero_grad(logits);
         backward(loss);
-        ag::SGD(loss, nullptr, lr);
+        ag::opti.SGD(loss, lr);
+        opti.epoch();
     }
 
 

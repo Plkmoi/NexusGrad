@@ -27,8 +27,7 @@ void check_tensors_close(const Tensor& a, const Tensor& b, const std::string& la
     for (size_t i = 0; i < a.numel(); ++i) {
         if (std::abs(a_data[i] - b_data[i]) > epsilon) {
             std::cout << "FAIL: " << label << " mismatch at index " << i << "\n";
-            debug::print_tensor("Tensor A (ref)", a);
-            debug::print_tensor("Tensor B (out)", b);
+
             q=1;
             w=w+std::abs(a_data[i] - b_data[i]);
         }
@@ -36,6 +35,8 @@ void check_tensors_close(const Tensor& a, const Tensor& b, const std::string& la
     auto f = (w/a.numel());
     if(q>0 && (w/a.numel())>0.2)
     {
+                    debug::print_tensor("Tensor A (ref)", a);
+            debug::print_tensor("Tensor B (out)", b);
                     throw std::runtime_error("Tensor check failed for " + label +" mismatch value " + std::to_string(f));
 
     }
@@ -331,10 +332,12 @@ void test_gpu_unified_attention() {
 
     // flash attention call (standard softmax)
     K.flash(q_gpu.data<float>(), k_gpu.data<float>(), v_gpu.data<float>(), out_gpu.data<float>(),
-            /*batches=*/11, /*heads=*/H, /*M=*/7, /*N=*/12/H, nullptr);
+            /*batches=*/11, /*heads=*/H, /*M=*/7, /*N=*/12/H, ag::current_stream());
     cudaDeviceSynchronize();
+    auto refa = ref.transpose(1,2).flatten(2,3).clone();
+    auto outa = out_gpu.to_cpu().transpose(1,2).flatten(2,3).clone();
 
-    check_tensors_close(ref.transpose(1,2).flatten(2,3), out_gpu.to_cpu().transpose(1,2).flatten(2,3), "test_gpu_attention", 0.01);
+    check_tensors_close(refa, outa, "test_gpu_attention", 0.01);
 }
 
 // void test_gpu_unified_reluattention() {

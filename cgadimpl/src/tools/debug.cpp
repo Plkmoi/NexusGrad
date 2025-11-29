@@ -80,7 +80,7 @@ void print_all_values(const Value& root){
         label << "[" << op_name(n->op) << "]"
               << (n->requires_grad() ? " (grad)" : "      ")
               << " value " << shape_str(n->value)
-              << " @" << n;
+              << " @" << n << " with name "<<n->debug_name;
         print_tensor(label.str(), n->value); // This will now use the powerful display()
     }
 }

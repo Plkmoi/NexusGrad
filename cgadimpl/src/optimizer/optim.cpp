@@ -8,7 +8,7 @@
 
 namespace ag {
 
-void SGD(const Value& root, const Tensor* grad_seed, float learning_rate) { // Changed to float for consistency
+void Optimizer::SGD(const Value& root, float learning_rate) { // Changed to float for consistency
     auto order = topo_from(root.node.get());
 
     // NOTE: The 'backward' function is responsible for seeding the initial gradient.
@@ -18,6 +18,9 @@ void SGD(const Value& root, const Tensor* grad_seed, float learning_rate) { // C
     // We can remove it for a cleaner implementation.
 
     // The loop now correctly iterates forward to find Leaf nodes that are parameters.
+    this->epoch = [this, learning_rate, order]()  {
+
+        
     for (Node* n : order) {
         // We only update nodes that are trainable parameters.
         // In our design, these are Leaf nodes that require a gradient.
@@ -35,6 +38,30 @@ void SGD(const Value& root, const Tensor* grad_seed, float learning_rate) { // C
             n->value += -learning_rate * n->grad;
         }
     }
+};
 }
+
+
+
+void Optimizer::SGDm(const Value& root, float learning_rate, float momen) { // Changed to float for consistency
+    topovel_from(root.node);
+
+    this->epoch = [this, learning_rate, momen]()  {
+    for (auto ww : bagstore) 
+    {
+        auto n = ww->noda;
+        if (n->op == Op::Leaf && n->requires_grad()) {
+            
+            *(ww->velocia) = momen*(*(ww->velocia)) +learning_rate * n->grad;
+            n->value = n->value-*(ww->velocia);
+            std::cout<<"I am here";
+            
+        }
+    }
+    };
+
+
+}
+Optimizer opti; 
 
 } // namespace ag

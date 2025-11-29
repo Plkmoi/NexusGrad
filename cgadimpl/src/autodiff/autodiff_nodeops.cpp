@@ -271,26 +271,40 @@ void node_Attention( std::shared_ptr<Node> n) {
      Tensor& B = n->inputs[1]->value;
      Tensor& C = n->inputs[2]->value;
      Tensor& D = n->inputs[3]->value;
-             int H = static_cast<int>(n->tape[4]->to(Device::CPU).data<float>()[0]);
+     auto a = n->inputs[0];
+             int H = static_cast<int>(n->tape[3]->to(Device::CPU).data<float>()[0]);
 
-   Tensor q = matmul(A, B.t()).unflatten(2, Shape({H, (B.shape().dims[1]/H)})).transpose(1,2).clone();
-    Tensor k = matmul(A, C.t()).unflatten(2, Shape({H, (C.shape().dims[1]/H)})).transpose(1,2).clone();
-    Tensor v = matmul(A, D.t()).unflatten(2, Shape({H, (D.shape().dims[1]/H)})).transpose(1,2).clone();
+   Tensor q = matmul(A, B.t()).to_cpu().unflatten(2, Shape({H, (B.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor k = matmul(A, C.t()).to_cpu().unflatten(2, Shape({H, (C.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor v = matmul(A, D.t()).to_cpu().unflatten(2, Shape({H, (D.shape().dims[1]/H)})).transpose(1,2).clone();
 
 
-    float scale = 1.f / sqrtf(static_cast<float>(k.shape().dims.back()));
-    Tensor g = matmul(q, k.t()) * scale;
 
-    // Re-implement softmax using OwnTensor ops
-    Tensor max_val = reduce_max(g, {-1}, true);
-    Tensor exp_g = exp(g - max_val);
-    Tensor sum_exp_g = reduce_sum(exp_g, {-1}, true);
-    Tensor s = exp_g / sum_exp_g;
-    //ag::debug::print_tensor("Who is v", v);
+    Tensor q_gpu = q.to(n->value.device());
+    Tensor k_gpu = k.to(n->value.device());
+    Tensor v_gpu = v.to(n->value.device());
+    Tensor out_gpu(Shape({/*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[2]/H}), TensorOptions().with_device(a->value.device()));
 
-    //ag::debug::print_tensor("S middle", s);
+    // flash attention call (standard softmax)
+    kernels::cuda().flash(q_gpu.data<float>(), k_gpu.data<float>(), v_gpu.data<float>(), out_gpu.data<float>(),
+            /*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[2]/H, ag::current_stream());
+    cudaDeviceSynchronize();
+    auto outa = out_gpu.to_cpu().transpose(1,2).flatten(2,3).clone();
 
-    n->value = matmul(s, v).transpose(1,2).flatten(2,3);
+
+    // float scale = 1.f / sqrtf(static_cast<float>(k.shape().dims.back()));
+    // Tensor g = matmul(q, k.t()) * scale;
+
+    // // Re-implement softmax using OwnTensor ops
+    // Tensor max_val = reduce_max(g, {-1}, true);
+    // Tensor exp_g = exp(g - max_val);
+    // Tensor sum_exp_g = reduce_sum(exp_g, {-1}, true);
+    // Tensor s = exp_g / sum_exp_g;
+
+// try{
+    n->value = outa.to(a->value.device());
+
+
 
 
 }

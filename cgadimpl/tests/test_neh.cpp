@@ -21,7 +21,8 @@ void test_att( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 
 }
@@ -67,7 +68,8 @@ void test_parcon( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -88,7 +90,8 @@ void test_mish( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -109,7 +112,8 @@ void test_gaus( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -130,7 +134,8 @@ void test_silu( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -151,7 +156,8 @@ void test_gcu( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -171,7 +177,8 @@ void test_gelu( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -191,7 +198,8 @@ void test_sigmoid( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -212,7 +220,8 @@ void test_lisht( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -234,7 +243,8 @@ void test_relu( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -256,7 +266,8 @@ void test_tanh( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -277,7 +288,8 @@ void test_softplus( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -298,7 +310,8 @@ void test_leakyrelu( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -319,7 +332,8 @@ void test_swiglu( int H, int B, int S, int D, int K)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 
 
@@ -342,7 +356,8 @@ void test_rmsnorm( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -362,7 +377,8 @@ void test_laynorm( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 
@@ -382,7 +398,8 @@ void test_dyntanh( int H, int B, int S, int D)
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        ag::SGD(w);
+                ag::opti.SGD(w, 0.001);
+        opti.epoch();
     }
 }
 

@@ -14,3 +14,4 @@
 #include "layer/norm.hpp"
 #include "layer/optim.hpp"
 #include "layer/loss.hpp"
+#include "optim.hpp"

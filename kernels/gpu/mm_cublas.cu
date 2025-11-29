@@ -244,7 +244,7 @@ __global__ void flash_forward_kernele(
                     Vj[tx * d + x] = 0.0f;
                 }
             }
-            printf("wefgrhy46k");
+            //printf("wefgrhy46k");
 
             __syncthreads();
 
