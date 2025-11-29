@@ -3,26 +3,26 @@
 #include "ad/ag_all.hpp"
 #include <optim.hpp>
 using namespace ag;
-void test_expand( int H, int B, int S, int D)
-{
-    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
-    ag::debug::print_tensor("Input", X);
-    auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
-    auto r = expand(m, H);
-    auto w = sum(r);
-    ag::debug::print_tensor("Result Value", r.val());
-    backward(w);
-    ag::debug::print_tensor("Result Gradient", m.grad());
-    for(int i=0;i<10;i++){
-        forward(w);
-        backward(w);
-                ag::opti.SGD(w, 0.001);
-        opti.epoch();
-    }
+// void test_expand( int H, int B, int S, int D)
+// {
+//     Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
+//     ag::debug::print_tensor("Input", X);
+//     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
+//     auto r = expand(m, H);
+//     auto w = sum(r);
+//     ag::debug::print_tensor("Result Value", r.val());
+//     backward(w);
+//     ag::debug::print_tensor("Result Gradient", m.grad());
+//     for(int i=0;i<10;i++){
+//         forward(w);
+//         backward(w);
+//                 ag::opti.SGD(w, 0.001);
+//         opti.epoch();
+//     }
 
 
 
-}
+// }
 
 void test_att( int H, int B, int S, int D)
 {
@@ -50,8 +50,8 @@ void test_att( int H, int B, int S, int D)
     
     auto w = sum(r);
     ag::debug::print_tensor("Result Value Attention", r.val().to_cpu());
-    // backward(w);
-    // ag::debug::print_tensor("Result Gradient Attention", m.grad().to_cpu());
+    backward(w);
+    ag::debug::print_tensor("Result Gradient Attention", m.grad().to_cpu());
     // for(int i=0;i<10;i++){
     //     forward(w);
     //     // backward(w);
@@ -449,7 +449,7 @@ void test_swiglu( int H, int B, int S, int D, int K)
     //     forward(w);
     //     backward(w);
     //             ag::opti.SGD(w, 0.001);
-        opti.epoch();
+        // opti.epoch();
     // }
 
 
@@ -497,7 +497,7 @@ void test_laynorm( int H, int B, int S, int D)
     //     forward(w);
     //     backward(w);
     //             ag::opti.SGD(w, 0.001);
-        opti.epoch();
+        // opti.epoch();
     // }
 ag::debug::print_tensor("Result Gradient Gamma Layer Norm", w.node->inputs[1]->grad.to_cpu());
 ag::debug::print_tensor("Result Gradient Beta Layer Norm", w.node->inputs[2]->grad.to_cpu());
@@ -522,7 +522,7 @@ void test_dyntanh( int H, int B, int S, int D)
     //     forward(w);
     //     backward(w);
     //             ag::opti.SGD(w, 0.001);
-        opti.epoch();
+        // opti.epoch();
     // }
 ag::debug::print_tensor("Result Gradient Alpha DynTanh", w.node->inputs[1]->grad.to_cpu());
 ag::debug::print_tensor("Result Gradient Gamma DynTanh", w.node->inputs[3]->grad.to_cpu());
