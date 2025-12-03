@@ -280,9 +280,11 @@ void node_Attention( std::shared_ptr<Node> n) {
      auto a = n->inputs[0];
              int H = static_cast<int>(n->tape[3]->to(Device::CPU).data<float>()[0]);
 
-   Tensor q = matmul(A, B.t()).to_cpu().unflatten(2, Shape({H, (B.shape().dims[1]/H)})).transpose(1,2).clone();
-    Tensor k = matmul(A, C.t()).to_cpu().unflatten(2, Shape({H, (C.shape().dims[1]/H)})).transpose(1,2).clone();
-    Tensor v = matmul(A, D.t()).to_cpu().unflatten(2, Shape({H, (D.shape().dims[1]/H)})).transpose(1,2).clone();
+
+    Tensor q = matmul(A, B.t()).unflatten(2, Shape({H, (B.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor k = matmul(A, C.t()).unflatten(2, Shape({H, (C.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor v = matmul(A, D.t()).unflatten(2, Shape({H, (D.shape().dims[1]/H)})).transpose(1,2).clone();
+
 
 
 
@@ -434,7 +436,7 @@ void node_AlibiAttention( std::shared_ptr<Node> n) {
      Tensor& C = n->inputs[2]->value;
      Tensor& D = n->inputs[3]->value;
      auto a = n->inputs[0];
-             int H = static_cast<int>(n->tape[3]->to(Device::CPU).data<float>()[0]);
+             int H = static_cast<int>(n->tape[4]->to(Device::CPU).data<float>()[0]);
 
    Tensor q = matmul(A, B.t()).to_cpu().unflatten(2, Shape({H, (B.shape().dims[1]/H)})).transpose(1,2).clone();
     Tensor k = matmul(A, C.t()).to_cpu().unflatten(2, Shape({H, (C.shape().dims[1]/H)})).transpose(1,2).clone();

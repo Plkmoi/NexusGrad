@@ -36,14 +36,22 @@ void test_aliatt( int H, int B, int S, int D)
     Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(devc));
     ag::debug::print_tensor("Input Alibi Attention", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
-    auto atten = ag::layer::AlibiAttention(B, S, D, H);
+    auto atten = ag::layer::AlibiAttention(B, S, D, H, devc);
     auto r = atten(m);
 
     
     auto w = sum(r);
     ag::debug::print_tensor("Result Value Alibi Attention", r.val());
-    // backward(w);
-    // ag::debug::print_tensor("Result Gradient Alibi Attention", m.grad());
+    backward(w);
+    ag::debug::print_tensor("Result Gradient Alibi Attention", m.grad());
+    ag::opti.SGD(w, 0.01);
+      
+
+    for(int i=0;i<10;i++){
+        forward(w);
+        backward(w);
+        opti.epoch();
+    }
 
 
 
@@ -439,7 +447,7 @@ test_tanh(2, 4, 2, 4);
 test_leakyrelu(2, 4, 2, 4);
 
 test_att(2, 4, 2, 4);
-// test_aliatt(2, 4, 2, 4);
+test_aliatt(2, 4, 2, 4);
 test_swiglu(2, 4, 2, 4, 10);
 test_rmsnorm(2, 4, 2, 4);
 test_laynorm(2, 4, 2, 4);

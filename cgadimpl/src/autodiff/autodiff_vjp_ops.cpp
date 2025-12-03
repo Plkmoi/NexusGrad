@@ -201,70 +201,132 @@ void vjp_RealLayerNorm(Node* n, const Tensor& gy){
 // ===================================================================
 // vjp_Attention
 // ===================================================================
-void vjp_Attention(Node* n, const Tensor& gya){
-    Node* A = n->inputs[0].get();
-    Node* B = n->inputs[1].get();
-    Node* C = n->inputs[2].get();
-    Node* D = n->inputs[3].get();
-    
-    // Tensors from the forward pass, saved on the tape
-    const Tensor& q = (*n->tape[0]);
-    const Tensor& k = (*n->tape[1]);
-    const Tensor& v = (*n->tape[2]);
-    // const Tensor& s = (*n->tape[3]); // The softmax output
+void vjp_Attention(Node* n, const Tensor& gyb){
 
-    float scale = 1.0f / std::sqrt(static_cast<float>(k.shape().dims.back()));
-    // ag::debug::print_tensor("Gradient ya", gya);
-    auto gy = gya.unflatten(2, Shape({q.shape().dims[1], (q.shape().dims[3])})).transpose(1,2).clone();
-    // auto gy = gyo.to(n->value.device());
-    // auto gy = gyo.to(n->value.device());
-    // ag::debug::print_tensor("Gradient y", gy);
-    // ag::debug::print_tensor("Value", v);
+    Node* A = n->inputs[0].get();   // input
+    Node* Wq = n->inputs[1].get();  // query weight
+    Node* Wk = n->inputs[2].get();  // key weight
+    Node* Wv = n->inputs[3].get();  // value weight
 
-        Tensor g = matmul(q, k.t()) * scale;
+    // -------------------------------------------------------
+    // Retrieve saved Q,K,V from tape (already B,H,L,Dh)
+    // -------------------------------------------------------
+    Tensor q = *n->tape[0];
+    Tensor k = *n->tape[1];
+    Tensor v = *n->tape[2];
 
-    // Re-implement softmax using OwnTensor ops
-    Tensor max_val = reduce_max(g, {-1}, true);
-    Tensor exp_g = exp(g - max_val);
-    Tensor sum_exp_g = reduce_sum(exp_g, {-1}, true);
-    Tensor s = exp_g / sum_exp_g;
-    
-        Tensor dL_ds = OwnTensor::matmul(gy, v.t());
-    Tensor dL_dv = OwnTensor::matmul(s.t(), gy).transpose(1,2).flatten(2,3);
+    int B = q.shape().dims[0];
+    int H = q.shape().dims[1];
+    int L = q.shape().dims[2];
+    int Dh = q.shape().dims[3];
+    int D = H * Dh;   // embed dim
 
-     //ag::debug::print_tensor("Gradient s", s);
- //ag::debug::print_tensor("Value", dL_ds);
-    
-    // VJP of softmax: s * (dL_ds - row_sum(s * dL_ds))
-    Tensor dot = OwnTensor::reduce_sum(s * dL_ds, {-1}, true);
-    Tensor dL_dg = s * (dL_ds - dot);
-    
-    // Propagate gradients back through the Q, K projections
-    Tensor dL_dq = OwnTensor::matmul(dL_dg, k).transpose(1,2).flatten(2,3);
-    Tensor dL_dk = OwnTensor::matmul(dL_dg.t(), q).transpose(1,2).flatten(2,3);
+    // -------------------------------------------------------
+    // Reshape gya: (B,L,D) → (B,H,L,Dh)
+    // -------------------------------------------------------
+    Tensor gya = gyb
+        .unflatten(2, Shape({H, Dh}))
+        .transpose(1, 2)           // (B,L,H,Dh) → (B,H,L,Dh)
+        .contiguous();
 
-             //ag::debug::print_tensor("Gradient q", dL_dq);
- //ag::debug::print_tensor("Value B", B->value);
- //ag::debug::print_tensor("Value A", A->value);
+    // -------------------------------------------------------
+    // Compute attention scores g = QKᵀ / sqrt(dk)
+    // -------------------------------------------------------
+    float scale = 1.0f / std::sqrt(float(Dh));
 
+    Tensor k_T = k.transpose(-1, -2);        // (B,H,Dh,L)
 
-//     // Propagate gradients to the weight matrices and the input A
-    if (B->requires_grad()) {
-        B->grad += OwnTensor::matmul(dL_dq.t(), A->value) * scale;
+    Tensor g = OwnTensor::matmul(q, k_T) * scale;   // (B,H,L,L)
+
+    // -------------------------------------------------------
+    // Add ALiBi if taped
+    // -------------------------------------------------------
+    if (n->tape.size() > 4) {
+        g = g + (*n->tape[3]);
     }
-    if (C->requires_grad()) {
-        C->grad += OwnTensor::matmul(dL_dk.t(), A->value) * scale;
+
+    // -------------------------------------------------------
+    // Softmax forward
+    // -------------------------------------------------------
+    Tensor max_val = OwnTensor::reduce_max(g, {-1}, true);
+    Tensor exp_g = OwnTensor::exp(g - max_val);
+    Tensor sum_exp = OwnTensor::reduce_sum(exp_g, {-1}, true);
+    Tensor s = exp_g / sum_exp;               // (B,H,L,L)
+
+    // -------------------------------------------------------
+    // 1. dV = Sᵀ * gya
+    // -------------------------------------------------------
+    Tensor s_T = s.transpose(-1, -2);         // (B,H,L,L)
+    Tensor dV = OwnTensor::matmul(s_T, gya);  // (B,H,L,Dh)
+
+    // -------------------------------------------------------
+    // 2. dS = gya * Vᵀ
+    // -------------------------------------------------------
+    Tensor v_T = v.transpose(-1, -2);         // (B,H,Dh,L)
+    Tensor dS = OwnTensor::matmul(gya, v_T);  // (B,H,L,L)
+
+    // -------------------------------------------------------
+    // 3. Softmax VJP: dG = s * (dS - sum(s * dS))
+    // -------------------------------------------------------
+    Tensor dot = OwnTensor::reduce_sum(s * dS, {-1}, true);
+    Tensor dG = s * (dS - dot);               // (B,H,L,L)
+
+    // -------------------------------------------------------
+    // 4. dQ = dG * K
+    // -------------------------------------------------------
+    Tensor dQ = OwnTensor::matmul(dG, k) * scale;      // (B,H,L,Dh)
+
+    // -------------------------------------------------------
+    // 5. dK = dGᵀ * Q
+    // -------------------------------------------------------
+    Tensor dG_T = dG.transpose(-1, -2);                // (B,H,L,L)
+    Tensor dK = OwnTensor::matmul(dG_T, q) * scale;    // (B,H,L,Dh)
+
+    // -------------------------------------------------------
+    // 6. Weight gradients: Wq,Wk,Wv are (D,D)
+    // Need reshape heads back to D
+    // -------------------------------------------------------
+    auto merge_heads = [&](const Tensor& X) {
+        // X: (B,H,L,Dh) → (B,L,D)
+        return X
+            .transpose(1,2)             // (B,H,L,Dh)->(B,L,H,Dh)
+            .flatten(2,3)               // (B,L,D)
+            .contiguous();
+    };
+
+    Tensor dQ_m = merge_heads(dQ);
+    Tensor dK_m = merge_heads(dK);
+    Tensor dV_m = merge_heads(dV);
+
+    Tensor A_val = A->value;            // (B,L,D)
+    Tensor A_T = A_val.transpose(-1, -2); // (B,D,L)
+
+    if (Wq->requires_grad()) {
+        Tensor gradWq = OwnTensor::matmul(dQ_m.t(), A_val); // (B,D,D)
+        Wq->grad += OwnTensor::reduce_sum(gradWq, {0});  // (D,D)
     }
-    if (D->requires_grad()) {
-        D->grad += OwnTensor::matmul(dL_dv.t(), A->value);
+
+    if (Wk->requires_grad()) {
+        Tensor gradWk = OwnTensor::matmul(dK_m.t(), A_val);
+        Wk->grad += OwnTensor::reduce_sum(gradWk, {0});
     }
+
+    if (Wv->requires_grad()) {
+        Tensor gradWv = OwnTensor::matmul(dV_m.t(), A_val);
+        Wv->grad += OwnTensor::reduce_sum(gradWv, {0});
+    }
+
+    // -------------------------------------------------------
+    // 7. Input gradient dA from Q,K,V contributions
+    // -------------------------------------------------------
+Tensor dAq = OwnTensor::matmul(dQ_m, Wq->value);   // correct
+Tensor dAk = OwnTensor::matmul(dK_m, Wk->value);   // correct
+Tensor dAv = OwnTensor::matmul(dV_m, Wv->value);   // correct
+
 
     if (A->requires_grad()) {
-    Tensor dL_dA_q = OwnTensor::matmul(dL_dq, B->value);
-    Tensor dL_dA_k = OwnTensor::matmul(dL_dk, C->value);
-    Tensor dL_dA_v = OwnTensor::matmul(dL_dv, D->value);
-    A->grad += (dL_dA_q * scale) + (dL_dA_k * scale) + dL_dA_v;
-}
+        A->grad += (dAq + dAk + dAv);
+    }
 }
 
 void vjp_AlibiAttention(Node* n, const Tensor& gy){
@@ -636,7 +698,8 @@ void vjp_Sum(Node* n, const Tensor& gy){
 
     // `gy` is a 1x1 scalar tensor. The '+' operator will automatically
     // broadcast it to the shape of X->grad.
-    X->grad += gy;
+    X->grad += gy*Tensor::ones(X->grad.shape(), TensorOptions().with_device(X->grad.device()));
+    
 }
 
 // ===================================================================
