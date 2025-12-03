@@ -130,6 +130,7 @@ if(true) # or use if(AG_BUILD_TESTS)
   add_ag_test(test_neh       tests/test_neh.cpp)
   add_ag_test(test_aliop       tests/test_aliop.cpp)
  add_ag_test(test_keretu       tests/test_keretu.cpp)
+ add_ag_test(test_alimass       tests/test_alimass.cpp)
   # add_ag_test(test_layer       tests/test_layer.cpp)
   # add_ag_test(test_aligen       tests/test_aligen.cpp)
   # Add your other CPU tests back here...

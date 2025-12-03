@@ -22,16 +22,16 @@ using namespace ag;
 //     }
 
 
-void test_att( int Ha, int Ba, int Sa, int Da)
+void test_att( int H, int B, int S, int D)
 {
         auto& K = kernels::cuda();
     auto cpu_opts = TensorOptions().with_device(Device::CPU);
     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
 
-    int H = 2;
-    int B = 3;
-    int S = 5;
-    int D = 6;
+    // int H = 2;
+    // int B = 3;
+    // int S = 5;
+    // int D = 6;
 
     // A: (11,9,3) B: (9,14,4) C: (9,14,5) D: (9,14,6) -> output (11,14)
     Tensor a_cpu = Tensor::randn(Shape{{B,S,D}}, cpu_opts);
@@ -578,8 +578,8 @@ int main(){
 //         kernels::load_cuda_plugin(plugin_path);
 
 
-test_att(4, 11, 7, 12);
-test_aliatt(2, 4, 2, 4);
+test_att(16, 32, 512, 1024);
+// test_aliatt(2, 4, 2, 4);
 
 // }
 // catch (const std::exception& e) {

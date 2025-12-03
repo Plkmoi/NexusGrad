@@ -219,7 +219,6 @@ void test_att( int Ha, int Ba, int Sa, int Da)
 
 void test_aliatt( int Ha, int Ba, int Sa, int Da)
 {
-        auto& K = kernels::cuda();
     auto cpu_opts = TensorOptions().with_device(Device::CPU);
     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
 

@@ -566,10 +566,12 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
     int B = a->value.shape().dims[0];
     int T = a->value.shape().dims[1];
 
+    std::cout<<"herertete";
+
 
      // 3) Build ALiBi bias [H, T, T] on CPU, then move to logits.device()
     Tensor bias_cpu(
-        Shape({/*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[2]/H}),
+        Shape({/*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[1]}),
         TensorOptions()
             .with_device(Device::CPU)
     );
@@ -605,6 +607,7 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
     }
 
     
+    std::cout<<"herertete";
 
     Tensor bias = bias_cpu.to(q.device());
 
