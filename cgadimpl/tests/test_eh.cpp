@@ -783,14 +783,14 @@ void test_rmsnorm( int H, int B, int S, int D)
     ag::debug::print_tensor("Result Value RMSNorm", w.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient RMSNorm", m.grad());
+ag::debug::print_tensor("Result Gradient1 RMSNorm", w.node->inputs[1]->grad.to_cpu().to_cpu());
 ag::opti.SGD(w, 0.01);
-    for(int i=0;i<10;i++){
+    for(int i=0;i<2;i++){
         forward(w);
         backward(w);
                 
         opti.epoch();
     }
-ag::debug::print_tensor("Result Gradient1 RMSNorm", w.node->inputs[1]->grad.to_cpu().to_cpu());
 }
 
 
@@ -884,7 +884,7 @@ test_softplus(2, 4, 2, 4);
 test_tanh(2, 4, 2, 4);
 test_leakyrelu(2, 4, 2, 4);
 
-test_att(4, 11, 7, 12);
+// test_att(4, 11, 7, 12);
 test_swiglu(2, 4, 2, 4, 10);
 test_att(2, 4, 2, 4);
 

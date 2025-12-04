@@ -34,7 +34,7 @@ static Tensor reduce_for_broadcast(const Tensor& grad_in, const Tensor& target_v
 
     Tensor summed_grad = grad_in;
     if (!axes_to_sum.empty()) {
-        summed_grad = OwnTensor::reduce_sum(grad_in, axes_to_sum, true);
+        summed_grad = OwnTensor::reduce_nansum(grad_in, axes_to_sum, true);
     }
     
     // Reshape to exactly match the target shape (e.g., from [1, 5] to [5]).
@@ -664,21 +664,21 @@ void vjp_Dyntanh(Node* n, const Tensor& gy){
     
     // The tape stores h = a*x from the forward pass.
     const Tensor& h = *(n->tape.back());
-    Tensor th_h = OwnTensor::tanh(h);
+    Tensor th_h = OwnTensor::tanh(h+0.01f);
     
     // Derivative of tanh(h) is 1 - tanh(h)^2
     Tensor d_tanh = 1.0f - (th_h * th_h);
     
     if (G->requires_grad()) {
-        G->grad += OwnTensor::reduce_sum(gy*th_h, {0, 1});
+        G->grad += OwnTensor::reduce_nansum(gy*th_h);
     }
     if (B->requires_grad()) {
-        B->grad += OwnTensor::reduce_sum(gy, {0, 1});
+        B->grad += OwnTensor::reduce_nansum(gy);
     }
 
         if (A->requires_grad()) {
         // Chain rule: gy * g * d_tanh * x
-        A->grad += OwnTensor::reduce_sum(gy * G->value * d_tanh * X->value);
+        A->grad += OwnTensor::reduce_nansum(gy * G->value * d_tanh * X->value);
     }
 
 
@@ -897,22 +897,38 @@ void vjp_RealRMSNorm(Node* n, const Tensor& gy){
     if (!x->requires_grad()) return;
 
     const Tensor& rms = *n->tape[0]; // rsqrt(variance + epsilon)
-    const Tensor& y_normalized = *n->tape[1]; // x * rsqrt(...)
-    
-    const float inv_N = 1.0f / static_cast<float>(x->value.shape().dims.back());
+    const Tensor& y_norm = *n->tape[1]; // x * rsqrt(...)
+    float inv_N = 1.0f / x->value.shape().dims.back();
 
-    Tensor dot = OwnTensor::reduce_sum(gy * y_normalized, {-1}, true);
-    
-    // grad_x = rsqrt * (gy - y * dot)
-    Tensor grad_x = g->value  * (gy - (y_normalized * dot*inv_N))/rms;
+    ag::debug::print_tensor("How do i look", (*n->tape[3]).to_cpu());
+
+    ag::debug::print_tensor("I just vary", (*n->tape[2]).to_cpu());
+
+    ag::debug::print_tensor("WHY WOULD YOU SUSPECT ME", rms.to_cpu());
+
+
+    ag::debug::print_tensor("whats my purpose", x->value.to_cpu());
+
+    ag::debug::print_tensor("gee i am cute", g->value.to_cpu());
+
+
+    ag::debug::print_tensor("its me nan", y_norm.to_cpu());
+
+    // dot = sum(gy * y_norm)
+    Tensor dot = OwnTensor::reduce_nansum(gy * y_norm, {-1}, true);
+
+    ag::debug::print_tensor("dot nan", dot.to_cpu());
+
+    // ★★ Correct grad_x (no extra divide by rms again)
+    Tensor grad_x = g->value  * (gy - ((y_norm * dot)*inv_N))/(rms+1e-5);
+
+    ag::debug::print_tensor("Who nan", grad_x.to_cpu());
     
 
     x->grad += grad_x;
- //ag::debug::print_tensor("Checker", g->grad);
- //ag::debug::print_tensor("Checker2", x->value);
- //ag::debug::print_tensor("Checker3", rms);
-    Tensor gy_y  = gy * y_normalized; // [B,D]
-        Tensor grad_g = OwnTensor::reduce_sum(gy_y, {0, 1}); // [1,1] (or do 2-step sum)
+
+    // ★★ Correct grad_g
+    Tensor grad_g = OwnTensor::reduce_nansum(gy * y_norm);
     g->grad += grad_g;
 }
 

@@ -545,13 +545,18 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
     Tensor k_gpu = k;
     Tensor v_gpu = v;
     Tensor out_gpu(Shape({/*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[2]/H}), TensorOptions().with_device(a->value.device()));
-
+    ag::debug::print_tensor("QAnon", q.to_cpu());
+    ag::debug::print_tensor("Key Kentucky hero", k.to_cpu());
+    ag::debug::print_tensor("Value Florida girl", v.to_cpu());
+    ag::debug::print_tensor("Out Based", out_gpu.to_cpu());
+    
+    
     // flash attention call (standard softmax)
     kernels::cuda().flashali(q_gpu.data<float>(), k_gpu.data<float>(), v_gpu.data<float>(), out_gpu.data<float>(),
             /*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[2]/H, ag::current_stream());
     cudaDeviceSynchronize();
     auto y = out_gpu.transpose(1,2).flatten(2,3).clone();
-
+ ag::debug::print_tensor("Out Really Based", out_gpu.to_cpu());
     // 6) Build Node, save tape for VJP
     auto n = std::make_shared<Node>(
         y,
@@ -566,7 +571,6 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
     int B = a->value.shape().dims[0];
     int T = a->value.shape().dims[1];
 
-    std::cout<<"herertete";
 
 
      // 3) Build ALiBi bias [H, T, T] on CPU, then move to logits.device()
@@ -607,7 +611,6 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
     }
 
     
-    std::cout<<"herertete";
 
     Tensor bias = bias_cpu.to(q.device());
 
@@ -1019,9 +1022,12 @@ std::shared_ptr<Node> realrms_nodeops(const std::shared_ptr<Node>& x, float& g_v
     const float inv_cols = 1.0f / static_cast<float>(x->value.shape().dims.back());
     
     // Calculate mean of squares along the last dim
-    Tensor variance = OwnTensor::reduce_sum(x->value * x->value, {-1}, true) * inv_cols;
+    ag::debug::print_tensor("whats my purpose again", x->value.to_cpu());
+    ag::debug::print_tensor("whats my purpose again now", (x->value*x->value).to_cpu());
+
+    Tensor variance = OwnTensor::reduce_mean(x->value * x->value, {2}, true);
     Tensor rsqrt_var = OwnTensor::sqrt(variance + 1e-5f, ag::current_stream());
-    Tensor y_normalized = x->value / rsqrt_var;
+    Tensor y_normalized = (x->value) / (rsqrt_var+1e-5);
     
     // Use our scalar caching mechanism for the gain 'g'
     // static std::unordered_map<float, std::shared_ptr<Node>> scalar_cache;
@@ -1030,17 +1036,21 @@ std::shared_ptr<Node> realrms_nodeops(const std::shared_ptr<Node>& x, float& g_v
     // if (it != scalar_cache.end()) {
     //     G = it->second;
     // } else {
-        Tensor g_tensor = Tensor::full(Shape{{1, x->value.shape().dims.back()}}, TensorOptions().with_req_grad(true).with_device(x->value.device()), g_val); // Assume gain is trainable
-        auto G = std::make_shared<Node>(g_tensor, Op::Leaf, "rms_gain");
+        Tensor g_tensor = Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true).with_device(x->value.device()), g_val); // Assume gain is trainable
+        auto G = std::make_shared<Node>(g_tensor, Op::Leaf, true, "rms_gain");
         // scalar_cache[g_val] = G;
     // }
 
     Tensor y_scaled = y_normalized * G->value;
 
+    ag::debug::print_tensor("where even do i normalize", y_scaled.to_cpu());
+
     auto n = std::make_shared<Node>(y_scaled, Op::RealRMSNorm,
                                 x->requires_grad() || G->requires_grad(), "realrmsnorm");
     n->tape.push_back(std::make_shared<Tensor>(rsqrt_var));
     n->tape.push_back(std::make_shared<Tensor>(y_normalized));
+    n->tape.push_back(std::make_shared<Tensor>(variance));
+    n->tape.push_back(std::make_shared<Tensor>(x->value*x->value));
     n->inputs = {x, G};
     ag::debug::on_node_created(n);
     return n;
@@ -1133,8 +1143,8 @@ std::shared_ptr<Node> dyntanh_nodeops(const std::shared_ptr<Node>& x, float& a_v
     // ... (code to create/cache A, B, and G nodes from a_val, b_val, g_val, similar to relaynor) ...
     // For brevity, assuming they are created and require_grad=true.
     A = std::make_shared<Node>(Tensor::full(Shape{{1}}, TensorOptions().with_device(x->value.device()).with_req_grad(true), a_val), Op::Leaf, "dyn_a");
-    B = std::make_shared<Node>(Tensor::full(Shape{{1, x->value.shape().dims.back()}}, TensorOptions().with_device(x->value.device()).with_req_grad(true), b_val), Op::Leaf, "dyn_b");
-    G = std::make_shared<Node>(Tensor::full(Shape{{1, x->value.shape().dims.back()}}, TensorOptions().with_device(x->value.device()).with_req_grad(true), g_val), Op::Leaf, "dyn_g");
+    B = std::make_shared<Node>(Tensor::full(Shape{{1}}, TensorOptions().with_device(x->value.device()).with_req_grad(true), b_val), Op::Leaf, "dyn_b");
+    G = std::make_shared<Node>(Tensor::full(Shape{{1}}, TensorOptions().with_device(x->value.device()).with_req_grad(true), g_val), Op::Leaf, "dyn_g");
     
     Tensor h = x->value * A->value;
     Tensor y = OwnTensor::tanh(h) * G->value + B->value;

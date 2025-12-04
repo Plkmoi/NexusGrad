@@ -61,7 +61,10 @@ __global__ void k_pow(const float* __restrict__ a, const float* __restrict__ b,
 
 __global__ void k_square(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
-  if (i < n) y[i] = x[i] * x[i];
+  if (i < n) 
+  
+  y[i] = isnan(x[i])? x[i]: x[i] * x[i];
+  
 }
 
 __global__ void k_neg(const float* __restrict__ x, float* __restrict__ y, int64_t n) {

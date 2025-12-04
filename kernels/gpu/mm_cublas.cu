@@ -346,171 +346,172 @@ void run_flash_forward(const float* Q, const float* K, const float* V, float* O,
 // Flash Attention Forward Kernel (Fixed Logic)
 // --------------------------------------------
 __global__ void flash_aliforward_kernele(
-    const float* Q, const float* K, const float* V, float* O,
-    const int N, const int d,
-    const int Tc, const int Tr, const int Bc, const int Br,
-    float* l, float* m, const float softmax_scale)
-{
-    int tx = threadIdx.x;
-    int bx = blockIdx.x;
-    int by = blockIdx.y; // batch and head index
-    int i = blockIdx.z;
-    int j = threadIdx.y;
+    const float* __restrict__ Q,
+    const float* __restrict__ K,
+    const float* __restrict__ V,
+    float* __restrict__ O,
+    int N, int d, int Bc, int Br,
+    float softmax_scale){
+    extern __shared__ float smem[]; // layout explained below
+    // smem layout:
+    // Qi: Br * d
+    // Kj: Bc * d
+    // Vj: Bc * d
+    // P : Br * Bc
 
-    int qkv_offset = (bx * gridDim.y * N * d) + (by * N * d); // per batch+head
-    int lm_offset  = (bx * gridDim.y * N) + (by * N);
+    float* Qi = smem;                                 // Br * d
+    float* Kj = Qi + Br * d;                          // Bc * d
+    float* Vj = Kj + Bc * d;                          // Bc * d
+    float* P  = Vj + Bc * d;                          // Br * Bc
 
-    extern __shared__ float sram[];
-    int tile_size = Bc * d;
-    float* Qi = sram;
-    float* Kj = &sram[tile_size];
-    float* Vj = &sram[tile_size * 2];
-    float* S  = &sram[tile_size * 3]; // S has shape [Br x Bc]
+    int batch  = blockIdx.x;
+    int head   = blockIdx.y;
+    int tile_i = blockIdx.z; // i tile index
 
-        int row_idx = i * Br + tx;
-        if (row_idx < N) {
+    int tx = threadIdx.x; // 0..Br-1
 
-        // load Qi
-        for (int x = 0; x < d; x++) {
-            Qi[tx * d + x] = Q[qkv_offset + row_idx * d + x];
-        }
+    int qkv_offset = ((batch * gridDim.y) + head) * N * d;
 
-        float row_m_prev = -INFINITY;
-        float row_l_prev = 0.0f;
-        if (m && l && i < Tr) {
-            // if we already processed previous tiles
-            row_m_prev = m[lm_offset + row_idx];
-            row_l_prev = l[lm_offset + row_idx];
-        }
+    int row = tile_i * Br + tx;
+    if (row >= N) return;
 
-        float row_m_new = row_m_prev;
-        float row_l_new = row_l_prev;
+    // load Q[row] into Qi[tx*d + ...]
+    for (int x = 0; x < d; ++x) {
+        Qi[tx * d + x] = Q[qkv_offset + row * d + x];
+    }
 
-        // process each K/V tile
-        if (j < Tc) {
-            int col_base = j * Bc;
-            __syncthreads();
+    // prefix stats
+    float m_prev = -INFINITY;
+    float l_prev = 0.0f;
 
-            // Load K/V to SRAM
-            if (col_base + tx < N) {
-                for (int x = 0; x < d; x++) {
-                    Kj[tx * d + x] = K[qkv_offset + (col_base + tx) * d + x];
-                    Vj[tx * d + x] = V[qkv_offset + (col_base + tx) * d + x];
+    // ALiBi slope: correct formula using nh = gridDim.y
+    float slope_start = powf(2.0f, -8.0f / (float)gridDim.y);
+    float slope = powf(slope_start, (float)head);
+
+    int Tc = (N + Bc - 1) / Bc;
+
+    // For each K/V tile (sequentially!)
+    for (int t = 0; t < Tc; ++t) {
+        int col_base = t * Bc;
+
+        __syncthreads();
+
+        // load K/V tile into shared mem with strided loads so all entries are filled
+        // each thread loads multiple rows of K/V: idx ranges over [0, Bc)
+        for (int idx = tx; idx < Bc; idx += Br) {
+            int col = col_base + idx;
+            if (col < N) {
+                for (int x = 0; x < d; ++x) {
+                    Kj[idx * d + x] = K[qkv_offset + col * d + x];
+                    Vj[idx * d + x] = V[qkv_offset + col * d + x];
                 }
             } else {
-                for (int x = 0; x < d; x++) {
-                    Kj[tx * d + x] = 0.0f;
-                    Vj[tx * d + x] = 0.0f;
+                // pad zeros for out-of-range columns
+                for (int x = 0; x < d; ++x) {
+                    Kj[idx * d + x] = 0.0f;
+                    Vj[idx * d + x] = 0.0f;
                 }
             }
-            //printf("wefgrhy46k");
+        }
+        __syncthreads();
 
-            __syncthreads();
+        // compute Q * K^T for this tile, store in P, track max
+        float m_curr = -INFINITY;
+        for (int y = 0; y < Bc; ++y) {
+            int j_pos = col_base + y;
+            float s = 0.0f;
+            // dot product Qi[tx,:] . Kj[y,:]
+            for (int x = 0; x < d; ++x) {
+                s += Qi[tx * d + x] * Kj[y * d + x];
+            }
+            s *= softmax_scale;
 
-
-            // compute attention scores S = QK^T
-            float row_m = -INFINITY;
-            for (int y = 0; y < Bc; y++) {
-                float sum = 0.0f;
-                for (int x = 0; x < d; x++) {
-                    sum += Qi[tx * d + x] * Kj[y * d + x];
-                }
-                sum *= softmax_scale;
-
-                    // === ALIBI INSERTION ===
-    int head = by;
-    int i_pos = row_idx;
-    int j_pos = col_base + y;
-
-    float slope_start = 1.0f / powf(2.0f, 8.0f / gridDim.y);
-    float slope = powf(slope_start, head + 1);
-
-    if (j_pos > i_pos)
-        sum = -INFINITY;
-    else
-        sum += -(float)fmaxf((j_pos - i_pos) * slope, -80.0f);
-    // ========================
-
-
-                S[tx * Bc + y] = sum;
-                if (sum > row_m) row_m = sum;
+            // causal mask + ALiBi
+            if (j_pos > row) {
+                s = -INFINITY;
+            } else {
+                s += (float)(row - j_pos) * slope;
             }
 
-            // compute P = exp(S - row_m)
-            float row_l = 0.0f;
-            for (int y = 0; y < Bc; y++) {
-                float val = __expf(S[tx * Bc + y] - row_m);
-                S[tx * Bc + y] = val;
-                row_l += val;
-            }
-
-            // combine with running max/sum
-            float new_m = fmaxf(row_m_prev, row_m);
-            float new_l = __expf(row_m_prev - new_m) * row_l_prev +
-                          __expf(row_m - new_m) * row_l;
-
-            // accumulate O
-            for (int x = 0; x < d; x++) {
-                float pv = 0.0f;
-                for (int y = 0; y < Bc; y++) {
-                    pv += S[tx * Bc + y] * Vj[y * d + x];
-                }
-
-                float old_O = (row_l_prev > 0)
-                    ? O[qkv_offset + row_idx * d + x]
-                    : 0.0f;
-
-                float new_O = (1.0f / new_l) *
-                              ( __expf(row_m_prev - new_m) * row_l_prev * old_O +
-                                __expf(row_m - new_m) * pv );
-
-                O[qkv_offset + row_idx * d + x] = new_O;
-            }
-
-            row_m_prev = new_m;
-            row_l_prev = new_l;
-            row_m_new  = new_m;
-            row_l_new  = new_l;
+            P[tx * Bc + y] = s;
+            if (s > m_curr) m_curr = s;
         }
 
-        // store back updated m and l
-        m[lm_offset + row_idx] = row_m_new;
-        l[lm_offset + row_idx] = row_l_new;
-        __syncthreads();
-    }
+        // compute unnormalized probs for this tile and l_curr
+        float l_curr = 0.0f;
+        // If m_curr == -INFINITY (all masked) then all exps are 0 and l_curr stays 0
+        if (m_curr > -INFINITY/2.0f) {
+            for (int y = 0; y < Bc; ++y) {
+                float v = __expf(P[tx * Bc + y] - m_curr);
+                P[tx * Bc + y] = v;
+                l_curr += v;
+            }
+        } else {
+            // all masked -> set P entries to 0
+            for (int y = 0; y < Bc; ++y) P[tx * Bc + y] = 0.0f;
+            l_curr = 0.0f;
+        }
+
+        // prefix-merge in a numerically stable way
+        float m_new = fmaxf(m_prev, m_curr);
+        // handle m_prev == -INF case: exp(-INF - m_new) -> 0, fine
+        float l_new;
+        if (l_prev == 0.0f && l_curr == 0.0f) {
+            l_new = 0.0f;
+        } else {
+            l_new = ( (l_prev == 0.0f) ? 0.0f : __expf(m_prev - m_new) * l_prev )
+                  + ( (l_curr == 0.0f) ? 0.0f : __expf(m_curr - m_new) * l_curr );
+        }
+
+        // accumulate output for this tile: O_new = (exp(m_prev-m_new)*l_prev*old_O + exp(m_curr-m_new)*pv) / l_new
+        if (l_new == 0.0f) {
+            // nothing to accumulate (all masked). Keep O as-is or zero (O should be zero-initialized).
+            // For safety, write zero (this avoids any 0/0).
+            for (int x = 0; x < d; ++x) {
+                O[qkv_offset + row * d + x] = 0.0f;
+            }
+        } else {
+            float coef_prev = (l_prev == 0.0f) ? 0.0f : __expf(m_prev - m_new) * l_prev / l_new;
+            float coef_curr = (l_curr == 0.0f) ? 0.0f : __expf(m_curr - m_new) * 1.0f / l_new; // multiply pv by l_curr inside acc
+            // compute pv = sum_y P[y] * Vj[y,:]  (note P[y] is already exp(S - m_curr))
+            for (int x = 0; x < d; ++x) {
+                float pv = 0.0f;
+                for (int y = 0; y < Bc; ++y) {
+                    pv += P[tx * Bc + y] * Vj[y * d + x];
+                }
+                float old = (coef_prev == 0.0f) ? 0.0f : O[qkv_offset + row * d + x];
+                float newO = coef_prev * old + coef_curr * pv * l_curr; // note coef_curr * pv * l_curr == exp(m_curr-m_new)*pv / l_new
+                O[qkv_offset + row * d + x] = newO;
+            }
+        }
+
+        // update prefix stats
+        m_prev = m_new;
+        l_prev = l_new;
+    } // for tiles
 }
 
 // --------------------------------------------
 // Host Launcher
 // --------------------------------------------
 void run_flash_aliforward(const float* Q, const float* K, const float* V, float* O,
-                       int B, int nh, int N, int d, ag_cuda_stream_t s) {
-    const int Bc = 32, Br = 32;
-    const int Tc = (N + Bc - 1) / Bc;
-    const int Tr = (N + Br - 1) / Br;
-    const float softmax_scale = 1.0f / sqrtf((float)d);
+                       int B, int H, int N, int d, ag_cuda_stream_t s) {
+    const int Br = 32;
+    const int Bc = 32;
+    float softmax_scale = 1.0f / sqrtf((float)d);
 
-    size_t qkv_size = B * nh * N * d * sizeof(float);
-    size_t lm_size  = B * nh * N * sizeof(float);
+    dim3 grid(B, H, (N + Br - 1) / Br);
+    dim3 block(Br);
 
-    float *d_l, *d_m;
+    size_t qkv_size = (size_t)B * H * N * d * sizeof(float);
 
-    cudaMalloc(&d_l, lm_size);
-    cudaMalloc(&d_m, lm_size);
+    // ZERO O before running (VERY IMPORTANT)
+    cudaMemsetAsync(O, 0, qkv_size, (cudaStream_t)s);
 
-
-    cudaMemset(d_l, 0, lm_size);
-    cudaMemset(d_m, -INFINITY, lm_size); // init to -inf handled inside kernel
-
-    dim3 grid_dim(B, nh, Tr);
-    dim3 block_dim(Br, Tc);
-    int shared_mem = (3 * Bc * d + Br * Bc) * sizeof(float);
-
-    flash_aliforward_kernele<<<grid_dim, block_dim, shared_mem, (cudaStream_t)s>>>(
-        Q, K, V, O,
-        N, d, Tc, Tr, Bc, Br, d_l, d_m, softmax_scale
+    int smem = (Br * d + Bc * d + Bc * d + Br * Bc) * sizeof(float);
+    flash_aliforward_kernele<<<grid, block, smem, (cudaStream_t)s>>>(
+        Q, K, V, O, N, d, Bc, Br, softmax_scale
     );
-    cudaDeviceSynchronize();
 
 
 }

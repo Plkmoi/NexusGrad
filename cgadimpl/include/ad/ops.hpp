@@ -58,7 +58,7 @@ Value transpose(const Value& x);
 Value swiglu(const Value& x, const Value& a, const Value& b, const Value& c, const Value& d);
 Value rms(const Value& x); // root mean square normalization
 Value realrms(const Value& x, float g); // with learned scale
-Value dyntanh(const Value& x, float a, float b, float g); // dynamic tanh via mean_all
+Value dyntanh(const Value& x, float a=1.0f, float b=0.0f, float g=0.5f); // dynamic tanh via mean_all
 Value relaynor(const Value& x, float b, float g); // with learned scale and bias
 Value mambassm(const Value& z, const Value& a, const Value& b, const Value& c, const Value& d); // state space model
 Value sign (const Value& a, const Value& b);
