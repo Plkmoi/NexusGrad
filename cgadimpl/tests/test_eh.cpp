@@ -845,6 +845,37 @@ ag::debug::print_tensor("Result Gradient Gamma DynTanh", w.node->inputs[3]->grad
 ag::debug::print_tensor("Result Gradient Beta DynTanh", w.node->inputs[2]->grad.to_cpu());
 }
 
+void test_cewithlogits( int H, int B, int S, int D)
+{
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
+    ag::debug::print_tensor("Input Layer Norm", X);
+    auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
+
+    Tensor onehot = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
+    auto target = ag::Value(std::make_shared<ag::Node>(onehot, ag::Op::Leaf, true, "X"));
+
+    // auto swag = ag::layer::RMSNorm();
+    auto w = cross_entropy_with_logits(m, target);
+    
+    // auto w = sum(r);
+    ag::debug::print_tensor("Input Target Value CE With Logits", target.val());
+
+    ag::debug::print_tensor("Result Value CE With Logits", w.val());
+    backward(w);
+    ag::debug::print_tensor("Result Input Gradient CE With Logits", m.grad());
+    ag::debug::print_tensor("Result Target Gradient CE With Logits", target.grad());
+ag::opti.SGD(w, 0.01);
+    // for(int i=0;i<10;i++){
+    //     forward(w);
+    //     backward(w);
+    //             
+       opti.epoch();
+    // }
+// ag::debug::print_tensor("Result Gradient Gamma Layer Norm", w.node->inputs[1]->grad.to_cpu());
+// ag::debug::print_tensor("Result Gradient Beta Layer Norm", w.node->inputs[2]->grad.to_cpu());
+}
+
+
 
 int main(){
 
@@ -891,6 +922,10 @@ test_att(2, 4, 2, 4);
 test_rmsnorm(2, 4, 2, 4);
 test_laynorm(2, 4, 2, 4);
 test_dyntanh(2, 4, 2, 4);
+
+test_cewithlogits(2, 4, 2, 4);
+
+
 // }
 // catch (const std::exception& e) {
 //         std::cerr << "ERROR: " << e.what() << std::endl;

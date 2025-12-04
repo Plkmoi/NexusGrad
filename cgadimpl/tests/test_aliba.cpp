@@ -56,9 +56,9 @@ void test_aliatt( int Heads, int B, int S, int d_model, int K, int num_layers)
 
     // A: (11,9,3) B: (9,14,4) C: (9,14,5) D: (9,14,6) -> output (11,14)
     Tensor a_cpu = Tensor::randn(Shape{{B,S,D}}, cpu_opts);
-Tensor b_cpu = Tensor::randn(Shape{{D, D}}, cpu_opts) * (0.02f / sqrtf(D));
-Tensor c_cpu = Tensor::randn(Shape{{D, D}}, cpu_opts) * (0.02f / sqrtf(D));
-Tensor d_cpu = Tensor::randn(Shape{{D, D}}, cpu_opts) * (0.02f / sqrtf(D));
+Tensor b_cpu = Tensor::randn(Shape{{D, D}}, cpu_opts) * (0.002f / sqrtf(D));
+Tensor c_cpu = Tensor::randn(Shape{{D, D}}, cpu_opts) * (0.002f / sqrtf(D));
+Tensor d_cpu = Tensor::randn(Shape{{D, D}}, cpu_opts) * (0.002f / sqrtf(D));
 
 
     // Build Q,K,V via matmul as original code
@@ -104,11 +104,11 @@ Tensor d_cpu = Tensor::randn(Shape{{D, D}}, cpu_opts) * (0.02f / sqrtf(D));
             auto param_opts = OwnTensor::TensorOptions().with_device(Device::CUDA).with_device(Device::CPU).with_req_grad(true);
 
 
-    Tensor w_tensor = OwnTensor::Tensor::randn(Shape{{hidden_features, out_features}}, TensorOptions().with_device(Device::CUDA)) *sqrtf(0.02f / D);
+    Tensor w_tensor = OwnTensor::Tensor::randn(Shape{{hidden_features, out_features}}, TensorOptions().with_device(Device::CUDA)) *sqrtf(0.002f / D);
     Tensor b_tensor = OwnTensor::Tensor::zeros(Shape{{1, hidden_features}}, TensorOptions().with_device(Device::CUDA));
-    Tensor wa_tensor = OwnTensor::Tensor::randn(Shape{{hidden_features, out_features}}, TensorOptions().with_device(Device::CUDA)) *sqrtf(0.02f  / D);
+    Tensor wa_tensor = OwnTensor::Tensor::randn(Shape{{hidden_features, out_features}}, TensorOptions().with_device(Device::CUDA)) *sqrtf(0.002f  / D);
     Tensor ba_tensor = OwnTensor::Tensor::zeros(Shape{{1, hidden_features}}, TensorOptions().with_device(Device::CUDA));
-    Tensor wc_tensor = OwnTensor::Tensor::randn(Shape{{out_features, hidden_features}}, TensorOptions().with_device(Device::CUDA)) *sqrtf(0.02f / D);
+    Tensor wc_tensor = OwnTensor::Tensor::randn(Shape{{out_features, hidden_features}}, TensorOptions().with_device(Device::CUDA)) *sqrtf(0.002f / D);
     Tensor bc_tensor = OwnTensor::Tensor::zeros(Shape{{1, out_features}}, TensorOptions().with_device(Device::CUDA));
 
     auto W = make_tensor(w_tensor, "W");
@@ -133,7 +133,7 @@ Tensor d_cpu = Tensor::randn(Shape{{D, D}}, cpu_opts) * (0.02f / sqrtf(D));
 
     
         
-    auto w = sum(r);
+    auto w = cross_entropy_with_logits(r, labels);
     zero_val(w);
     forward(w);
 
@@ -143,10 +143,10 @@ Tensor d_cpu = Tensor::randn(Shape{{D, D}}, cpu_opts) * (0.02f / sqrtf(D));
 
         double initial_loss = -1.0;
     double final_loss = -1.0;
-ag::opti.SGD(w, 0.01);
+ag::opti.SGD(w, 0.001);
 
 zero_val(w);
-    for (int epoch = 0; epoch < 11; ++epoch) {
+    for (int epoch = 0; epoch < 10; ++epoch) {
         // a. Zero out all gradients from the previous iteration.
         zero_grad(w);
 

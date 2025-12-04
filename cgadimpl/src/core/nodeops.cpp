@@ -1277,11 +1277,15 @@ std::shared_ptr<Node> cross_entropy_with_logits_nodeops(const std::shared_ptr<No
     Tensor log_sum_exp = OwnTensor::log(OwnTensor::reduce_sum(OwnTensor::exp(z_shifted), {-1}, true));
     Tensor log_sm = z_shifted - log_sum_exp;
 
+    // ag::debug::print_tensor("log_sm", log_sm);
+
     // 2. Calculate the cross-entropy loss: -mean(sum(Y * log_sm))
     // The sum is over the class dimension (-1), the mean is over the batch dimension (0).
     Tensor prod = Y * log_sm;
+    // ag::debug::print_tensor("prod", prod);
     Tensor sum_prod = OwnTensor::reduce_sum(prod, {-1}); // Sum over classes, shape=[B]
     Tensor loss = OwnTensor::reduce_mean(sum_prod * -1.0f); // Mean over batch and negate
+    // ag::debug::print_tensor("loss", loss);
 
     auto n = std::make_shared<Node>(loss, Op::CeWithLogits, (logits->requires_grad() || onehot->requires_grad()), "ce_with_logits");
     n->inputs = {logits, onehot};

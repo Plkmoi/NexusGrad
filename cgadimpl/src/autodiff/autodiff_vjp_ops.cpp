@@ -788,28 +788,36 @@ void vjp_CeWithLogits(Node* n, const Tensor& gy){
     Node* Y_node = n->inputs[1].get();
     const Tensor& Z = Z_node->value;
     const Tensor& Y = Y_node->value;
-    
-    // Batch size is the size of the first dimension
-    const float inv_batch_size = 1.0f / static_cast<float>(Z.shape().dims[0]);
 
-    // Re-calculate stable softmax and log_softmax
-    Tensor max_val = OwnTensor::reduce_max(Z, {-1}, true);
+    int B = Z.shape().dims[0];
+    int S = (Z.ndim() == 3) ? Z.shape().dims[1] : 1;
+
+    float inv_factor = 1.0f / float(B * S);
+
+    // --- recompute softmax ---
+    Tensor max_val   = OwnTensor::reduce_max(Z, {-1}, true);
     Tensor z_shifted = Z - max_val;
-    Tensor exp_z = OwnTensor::exp(z_shifted);
+    Tensor exp_z     = OwnTensor::exp(z_shifted);
     Tensor sum_exp_z = OwnTensor::reduce_sum(exp_z, {-1}, true);
     Tensor softmax_z = exp_z / sum_exp_z;
     Tensor log_softmax_z = z_shifted - OwnTensor::log(sum_exp_z);
-    
-    if (Z_node->requires_grad()) {
-        // gZ = (softmax(Z) - Y) / batch_size
-        Tensor gZ = (softmax_z - Y) * inv_batch_size;
-        // The `gy` for a loss function is typically a scalar. The operators will broadcast it.
-        Z_node->grad += gy * gZ;
+
+    // gy must be scalar → broadcast to [B,S,V] needed
+    Tensor gy_broadcast = gy;
+    if (gy.numel() == 1) {
+        gy_broadcast = Tensor::ones(Z.shape(), TensorOptions().with_device(Z.device())) * gy;
     }
+
+    // dZ = gy * (softmax - Y) * inv_factor
+    if (Z_node->requires_grad()) {
+        Tensor gZ = (softmax_z - Y) * inv_factor;
+        Z_node->grad += gy_broadcast * gZ;
+    }
+
+    // dY = gy * (-log_softmax) * inv_factor
     if (Y_node->requires_grad()) {
-        // gY = -log_softmax(Z) / batch_size
-        Tensor gY = log_softmax_z * (-1.0f * inv_batch_size);
-        Y_node->grad += gy * gY;
+        Tensor gY = (-1.0f*log_softmax_z) * inv_factor;
+        Y_node->grad += gy_broadcast * gY;
     }
 }
 

@@ -340,6 +340,20 @@ void run_flash_forward(const float* Q, const float* K, const float* V, float* O,
 }
 
 
+inline __device__ float alibi_slope(int head, float nh) {
+    // Same formula as the paper
+    // Example: slopes follow powers of 2 and fractional bases
+    int closest_power_of_2 = 1 << (int)floorf(log2f(nh));
+    int base_head = head;
+
+    if (head < closest_power_of_2) {
+        return powf(2.0f, -8.0f * base_head / closest_power_of_2);
+    } else {
+        return powf(2.0f,
+            -8.0f * (head - closest_power_of_2)
+            / closest_power_of_2) * 0.5f;
+    }
+}
 
 
 // --------------------------------------------
@@ -387,6 +401,7 @@ __global__ void flash_aliforward_kernele(
     // ALiBi slope: correct formula using nh = gridDim.y
     float slope_start = powf(2.0f, -8.0f / (float)gridDim.y);
     float slope = powf(slope_start, (float)head);
+    // float slope = alibi_slope(head, (float)gridDim.y);
 
     int Tc = (N + Bc - 1) / Bc;
 
