@@ -197,11 +197,11 @@ auto d_cpu = d->value.clone();
     auto outa = out_gpu.transpose(1,2).flatten(2,3).clone();
 
    // PRINT EXACT SHAPES
-    ag::debug::print_tensor("QQQQQ", q_gpu);
-    ag::debug::print_tensor("KKKKK", k_gpu);
-    ag::debug::print_tensor("VVVVV", v_gpu);
-    ag::debug::print_tensor("OOOOO", out_gpu);
-    ag::debug::print_tensor("RRRRR", ref);
+    // ag::debug::print_tensor("QQQQQ", q_gpu);
+    // ag::debug::print_tensor("KKKKK", k_gpu);
+    // ag::debug::print_tensor("VVVVV", v_gpu);
+    // ag::debug::print_tensor("OOOOO", out_gpu);
+    // ag::debug::print_tensor("RRRRR", ref);
 
 
     auto n = std::make_shared<Node>(outa.to(a->value.device()), Op::Attention, (a->requires_grad() || b->requires_grad() || c->requires_grad() || d->requires_grad()), "attention");
@@ -545,10 +545,10 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
     Tensor k_gpu = k;
     Tensor v_gpu = v;
     Tensor out_gpu(Shape({/*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[2]/H}), TensorOptions().with_device(a->value.device()));
-    ag::debug::print_tensor("QAnon", q.to_cpu());
-    ag::debug::print_tensor("Key Kentucky hero", k.to_cpu());
-    ag::debug::print_tensor("Value Florida girl", v.to_cpu());
-    ag::debug::print_tensor("Out Based", out_gpu.to_cpu());
+    // ag::debug::print_tensor("QAnon", q.to_cpu());
+    // ag::debug::print_tensor("Key Kentucky hero", k.to_cpu());
+    // ag::debug::print_tensor("Value Florida girl", v.to_cpu());
+    // ag::debug::print_tensor("Out Based", out_gpu.to_cpu());
     
     
     // flash attention call (standard softmax)
@@ -556,7 +556,7 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
             /*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[2]/H, ag::current_stream());
     cudaDeviceSynchronize();
     auto y = out_gpu.transpose(1,2).flatten(2,3).clone();
- ag::debug::print_tensor("Out Really Based", out_gpu.to_cpu());
+ // ag::debug::print_tensor("Out Really Based", out_gpu.to_cpu());
     // 6) Build Node, save tape for VJP
     auto n = std::make_shared<Node>(
         y,
@@ -678,12 +678,12 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
 //     Tensor exp_g = exp(g - max_g);                // [H,T,T]
 //     Tensor sum_g = reduce_sum(exp_g, {-1}, true); // [H,T,1]
 //     Tensor s     = exp_g / sum_g;                 // [H,T,T]
-// //  //ag::debug::print_tensor("Who is v", v);
+// //  //// ag::debug::print_tensor("Who is v", v);
 
-// //  //ag::debug::print_tensor("S middle", s);
+// //  //// ag::debug::print_tensor("S middle", s);
 // // // try{
 //     Tensor ya = matmul(s, v).transpose(1,2).flatten(2,3);
-// //      //ag::debug::print_tensor("Y middle", y);
+// //      //// ag::debug::print_tensor("Y middle", y);
 // auto outa = ya.clone();
 
 // check_tensors_close(y.to_cpu(), outa.to_cpu(), "test_gpu_attention", 0.01);
@@ -1022,8 +1022,8 @@ std::shared_ptr<Node> realrms_nodeops(const std::shared_ptr<Node>& x, float& g_v
     const float inv_cols = 1.0f / static_cast<float>(x->value.shape().dims.back());
     
     // Calculate mean of squares along the last dim
-    ag::debug::print_tensor("whats my purpose again", x->value.to_cpu());
-    ag::debug::print_tensor("whats my purpose again now", (x->value*x->value).to_cpu());
+    // ag::debug::print_tensor("whats my purpose again", x->value.to_cpu());
+    // ag::debug::print_tensor("whats my purpose again now", (x->value*x->value).to_cpu());
 
     Tensor variance = OwnTensor::reduce_mean(x->value * x->value, {2}, true);
     Tensor rsqrt_var = OwnTensor::sqrt(variance + 1e-5f, ag::current_stream());
@@ -1043,7 +1043,7 @@ std::shared_ptr<Node> realrms_nodeops(const std::shared_ptr<Node>& x, float& g_v
 
     Tensor y_scaled = y_normalized * G->value;
 
-    ag::debug::print_tensor("where even do i normalize", y_scaled.to_cpu());
+    // ag::debug::print_tensor("where even do i normalize", y_scaled.to_cpu());
 
     auto n = std::make_shared<Node>(y_scaled, Op::RealRMSNorm,
                                 x->requires_grad() || G->requires_grad(), "realrmsnorm");
@@ -1097,7 +1097,7 @@ std::shared_ptr<Node> relaynor_nodeops(const std::shared_ptr<Node>& x, float& b_
     // else {
 
 
- //ag::debug::print_tensor("S middle", y_normalized);
+ //// ag::debug::print_tensor("S middle", y_normalized);
 
     auto    G = std::make_shared<Node>(Tensor::full(Shape{{1, x->value.shape().dims.back()}}, TensorOptions().with_device(x->value.device()), g_val), Op::Leaf, true, "ln_gain");
     //     cache[g_val] = G;
@@ -1107,7 +1107,7 @@ std::shared_ptr<Node> relaynor_nodeops(const std::shared_ptr<Node>& x, float& b_
     auto    B = std::make_shared<Node>(Tensor::full(Shape{{1, x->value.shape().dims.back()}}, TensorOptions().with_device(x->value.device()), b_val), Op::Leaf, true, "ln_bias");
     //     cache[b_val] = B;
     // }
-     //ag::debug::print_tensor("Who is v", B->value);
+     //// ag::debug::print_tensor("Who is v", B->value);
 
     // 4. Apply scale and shift
     Tensor y = y_normalized * G->value + B->value;
@@ -1277,15 +1277,15 @@ std::shared_ptr<Node> cross_entropy_with_logits_nodeops(const std::shared_ptr<No
     Tensor log_sum_exp = OwnTensor::log(OwnTensor::reduce_sum(OwnTensor::exp(z_shifted), {-1}, true));
     Tensor log_sm = z_shifted - log_sum_exp;
 
-    // ag::debug::print_tensor("log_sm", log_sm);
+    // // ag::debug::print_tensor("log_sm", log_sm);
 
     // 2. Calculate the cross-entropy loss: -mean(sum(Y * log_sm))
     // The sum is over the class dimension (-1), the mean is over the batch dimension (0).
     Tensor prod = Y * log_sm;
-    // ag::debug::print_tensor("prod", prod);
+    // // ag::debug::print_tensor("prod", prod);
     Tensor sum_prod = OwnTensor::reduce_sum(prod, {-1}); // Sum over classes, shape=[B]
     Tensor loss = OwnTensor::reduce_mean(sum_prod * -1.0f); // Mean over batch and negate
-    // ag::debug::print_tensor("loss", loss);
+    // // ag::debug::print_tensor("loss", loss);
 
     auto n = std::make_shared<Node>(loss, Op::CeWithLogits, (logits->requires_grad() || onehot->requires_grad()), "ce_with_logits");
     n->inputs = {logits, onehot};

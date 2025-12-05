@@ -34,7 +34,8 @@ Value Attention::operator()(Value input) {
 AlibiAttention::AlibiAttention(int batch, int in_features, int out_features, int H, Device dev)
 
 {
-    float scale = sqrtf(20.0f / out_features);
+    float scale = sqrtf(0.002f / out_features);
+    
     auto param_opts = OwnTensor::TensorOptions().with_device(dev).with_req_grad(true);
 
     // Simple per-head-shared projection weights [d_model, d_model]

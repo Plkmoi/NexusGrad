@@ -10,12 +10,13 @@ namespace ag::layer {
 
 SWIGLU::SWIGLU(int batch, int in_features, int out_features, int hidden_features, Device dev) {
     float scale = sqrtf(0.02f / in_features);
+    auto D = out_features;
     auto param_opts = OwnTensor::TensorOptions().with_device(dev).with_req_grad(true);
-    Tensor w_tensor = OwnTensor::Tensor::randn(Shape{{hidden_features, out_features}}, param_opts) * scale;
+    Tensor w_tensor = OwnTensor::Tensor::randn(Shape{{hidden_features, out_features}}, param_opts) *sqrtf(0.002f / D);
     Tensor b_tensor = OwnTensor::Tensor::zeros(Shape{{1, hidden_features}}, param_opts);
-    Tensor wa_tensor = OwnTensor::Tensor::randn(Shape{{hidden_features, out_features}}, param_opts) * scale;
+    Tensor wa_tensor = OwnTensor::Tensor::randn(Shape{{hidden_features, out_features}}, param_opts) *sqrtf(0.002f  / D);
     Tensor ba_tensor = OwnTensor::Tensor::zeros(Shape{{1, hidden_features}}, param_opts);
-    Tensor wc_tensor = OwnTensor::Tensor::randn(Shape{{out_features, hidden_features}}, param_opts) * scale;
+    Tensor wc_tensor = OwnTensor::Tensor::randn(Shape{{out_features, hidden_features}}, param_opts) *sqrtf(0.002f / D);
     Tensor bc_tensor = OwnTensor::Tensor::zeros(Shape{{1, out_features}}, param_opts);
 
     W = make_tensor(w_tensor, "W");

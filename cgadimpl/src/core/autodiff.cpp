@@ -43,8 +43,8 @@ void check_tensors_nangrad(const Node* a) {
             std::string  cpp_str(a->debug_name);
             // w=w+std::abs(a_data[i] - b_data[i]);
 
-                debug::print_tensor("Tensor A val", a_cpu);
-            debug::print_tensor("Tensor A grad", b_cpu);
+                // debug::print_tensor("Tensor A val", a_cpu);
+            // debug::print_tensor("Tensor A grad", b_cpu);
             std::cout << "FAIL: " << a->debug_name << " mismatch at index " << i << "\n";
 
             throw std::runtime_error("Tensor check failed for NANGRAD  mismatch value " + cpp_str);
@@ -53,15 +53,15 @@ void check_tensors_nangrad(const Node* a) {
     // auto f = (w/a.val().numel());
     // if(q>0 && (w/a.val().numel())>0.2)
     // {
-    //                 debug::print_tensor("Tensor A (ref)", a_cpu);
-    //         debug::print_tensor("Tensor B (out)", b_cpu);
+    //                 // debug::print_tensor("Tensor A (ref)", a_cpu);
+    //         // debug::print_tensor("Tensor B (out)", b_cpu);
     //                 throw std::runtime_error("Tensor check failed for " + label +" mismatch value " + std::to_string(f));
 
     // }
 
             
-    debug::print_tensor("Tensor A val", a_cpu);
-            debug::print_tensor("Tensor A grad", b_cpu);
+    // debug::print_tensor("Tensor A val", a_cpu);
+            // debug::print_tensor("Tensor A grad", b_cpu);
 
     std::cout << "PASS: " << a->debug_name << "\n";
 }
@@ -88,8 +88,8 @@ void check_tensors_nangrad(const std::shared_ptr<Node> a) {
             std::string  cpp_str(a->debug_name);
             // w=w+std::abs(a_data[i] - b_data[i]);
 
-                debug::print_tensor("Tensor A val", a_cpu);
-            debug::print_tensor("Tensor A grad", b_cpu);
+                // debug::print_tensor("Tensor A val", a_cpu);
+            // debug::print_tensor("Tensor A grad", b_cpu);
 
             throw std::runtime_error("Tensor check failed for NANVALLLFOR  mismatch value " + cpp_str);
         }
@@ -97,15 +97,15 @@ void check_tensors_nangrad(const std::shared_ptr<Node> a) {
     // auto f = (w/a.val().numel());
     // if(q>0 && (w/a.val().numel())>0.2)
     // {
-    //                 debug::print_tensor("Tensor A (ref)", a_cpu);
-    //         debug::print_tensor("Tensor B (out)", b_cpu);
+    //                 // debug::print_tensor("Tensor A (ref)", a_cpu);
+    //         // debug::print_tensor("Tensor B (out)", b_cpu);
     //                 throw std::runtime_error("Tensor check failed for " + label +" mismatch value " + std::to_string(f));
 
     // }
 
             
-    debug::print_tensor("Tensor A val", a_cpu);
-            debug::print_tensor("Tensor A grad", b_cpu);
+    // debug::print_tensor("Tensor A val", a_cpu);
+            // debug::print_tensor("Tensor A grad", b_cpu);
 
     std::cout << "PASS: " << a->debug_name << "\n";
 }
@@ -182,7 +182,7 @@ void backward(const Value& root, const Tensor* grad_seed){
         VjpFn fn = vjp_lookup(n->op);
         if (fn) fn(n, gy); // handler accumulates into parents
 
-        check_tensors_nangrad(n);
+        // check_tensors_nangrad(n);
     }
 }
 
@@ -235,7 +235,7 @@ void forward(const Value& root) {
         // auto r = n->shared_from_this();
         if (fn) fn(n);
         
-                check_tensors_nangrad(n);
+                // check_tensors_nangrad(n);
 
     }
 }
@@ -263,7 +263,7 @@ Value forwardstor(const Value& root) {
 //         if (fn) {
 //             n = fn(n->inputs).get(); // recompute
 //             std::cout<<"HERE  ";
-//             ag::debug::print_tensor("Work Y", n->value);
+//             ag::// debug::print_tensor("Work Y", n->value);
 //         }
 //     }
 // }

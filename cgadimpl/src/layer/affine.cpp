@@ -28,8 +28,8 @@ void Layer::zero_grad() {
 Linear::Linear(int batch, int in_features, int out_features, Device dev) {
     float scale = sqrtf(0.02f / in_features);
     auto param_opts = OwnTensor::TensorOptions().with_device(dev).with_req_grad(true);
-    Tensor w_tensor = OwnTensor::Tensor::randn(Shape{{batch, in_features, out_features}}, param_opts) * scale;
-    Tensor b_tensor = OwnTensor::Tensor::zeros(Shape{{batch, 1, in_features}}, param_opts);
+    Tensor w_tensor = OwnTensor::Tensor::randn(Shape{{out_features, out_features}}, param_opts);
+    Tensor b_tensor = OwnTensor::Tensor::zeros(Shape{{1, out_features}}, param_opts);
     W = make_tensor(w_tensor, "W");
     b = make_tensor(b_tensor, "b");
     params_.push_back(W);

@@ -178,10 +178,10 @@ void vjp_RealLayerNorm(Node* n, const Tensor& gy){
     Tensor term3 = term2 - (x_normalized * grad_dot_xmu);
     Tensor dx_normalized = term3 / N;
 
-             //ag::debug::print_tensor("Gradient xmu", xmu);
-             //ag::debug::print_tensor("Gradient gy", gy);
-             //ag::debug::print_tensor("Gradient gyxn", gy * x_normalized);
-             //ag::debug::print_tensor("Gradient gvalgrad", g->grad);
+             //// ag::debug::print_tensor("Gradient xmu", xmu);
+             //// ag::debug::print_tensor("Gradient gy", gy);
+             //// ag::debug::print_tensor("Gradient gyxn", gy * x_normalized);
+             //// ag::debug::print_tensor("Gradient gvalgrad", g->grad);
 
 
 
@@ -361,20 +361,20 @@ void vjp_SWIGLU(Node* n, const Tensor& gy){
         if (D->requires_grad()) {
         // reduce_sum over dim 0 → [1,O]
         Tensor grad_D = OwnTensor::reduce_sum(dL_dh, {1}, true);
-        D->grad += grad_D;
+        D->grad += OwnTensor::reduce_sum(grad_D, {0});
     }
 
     if (C->requires_grad()) {
-        C->grad += OwnTensor::matmul(dL_dh.t(), X->value); // [O,B]@[B,I]=[O,I]
+        C->grad += OwnTensor::reduce_sum(OwnTensor::matmul(dL_dh.t(), X->value), {0}); // [O,B]@[B,I]=[O,I]
     }
 
     if (B->requires_grad()) {
-        Tensor grad_B = OwnTensor::reduce_sum(dL_dy, {1}, true);
+        Tensor grad_B = OwnTensor::reduce_sum(OwnTensor::reduce_sum(dL_dy, {1}, true), {0});
         B->grad += grad_B;
     }
 
     if (A->requires_grad()) {
-        A->grad += OwnTensor::matmul(dL_dy.t(), X->value); // [O,I]
+        A->grad += OwnTensor::reduce_sum(OwnTensor::matmul(dL_dy.t(), X->value), {0}); // [O,I]
     }
 
     if (X->requires_grad()) {
@@ -870,20 +870,28 @@ void vjp_Linear(Node* n, const Tensor& gy){
     if (X_node->requires_grad()) {
         X_node->grad += OwnTensor::matmul(gy, W);
     }
+    // ag::debug::print_tensor("xgrad", X_node->grad);
+    // ag::debug::print_tensor("gy", gy);
+    // ag::debug::print_tensor("wgradbef", W_node->grad.to_cpu());
 
     // VJP for weight W: dW = dY.T @ X. Correct math for Y = X @ W.T + b
     // [Out, B] @ [B, In] -> [Out, In]
     if (W_node->requires_grad()) {
-        W_node->grad += OwnTensor::matmul(gy.t(), X);
+        W_node->grad += OwnTensor::reduce_sum(OwnTensor::matmul(gy.t(), X), {0});
     }
+
+       // ag::debug::print_tensor("wgrad", W_node->grad.to_cpu());
+
 
     // VJP for bias b: sum(dY) over batch dimension, keeping rank. Correct.
     // [B, Out] -> reduce(axis=0) -> [1, Out]
     if (b_node->requires_grad()) {
         // Change keepdim from 'false' to 'true'.
         // This makes the result [1, Out] instead of [Out].
-        b_node->grad += OwnTensor::reduce_sum(gy, {1}, true);
+        b_node->grad += OwnTensor::reduce_sum(OwnTensor::reduce_sum(gy, {1}, true), {0});
     }
+
+    // ag::debug::print_tensor("bgrad", b_node->grad);
 }
 // ===================================================================
 // vjp_Reciprocal
@@ -908,29 +916,29 @@ void vjp_RealRMSNorm(Node* n, const Tensor& gy){
     const Tensor& y_norm = *n->tape[1]; // x * rsqrt(...)
     float inv_N = 1.0f / x->value.shape().dims.back();
 
-    ag::debug::print_tensor("How do i look", (*n->tape[3]).to_cpu());
+    // ag::debug::print_tensor("How do i look", (*n->tape[3]).to_cpu());
 
-    ag::debug::print_tensor("I just vary", (*n->tape[2]).to_cpu());
+    // ag::debug::print_tensor("I just vary", (*n->tape[2]).to_cpu());
 
-    ag::debug::print_tensor("WHY WOULD YOU SUSPECT ME", rms.to_cpu());
-
-
-    ag::debug::print_tensor("whats my purpose", x->value.to_cpu());
-
-    ag::debug::print_tensor("gee i am cute", g->value.to_cpu());
+    // ag::debug::print_tensor("WHY WOULD YOU SUSPECT ME", rms.to_cpu());
 
 
-    ag::debug::print_tensor("its me nan", y_norm.to_cpu());
+    // ag::debug::print_tensor("whats my purpose", x->value.to_cpu());
+
+    // ag::debug::print_tensor("gee i am cute", g->value.to_cpu());
+
+
+    // ag::debug::print_tensor("its me nan", y_norm.to_cpu());
 
     // dot = sum(gy * y_norm)
     Tensor dot = OwnTensor::reduce_nansum(gy * y_norm, {-1}, true);
 
-    ag::debug::print_tensor("dot nan", dot.to_cpu());
+    // ag::debug::print_tensor("dot nan", dot.to_cpu());
 
     // ★★ Correct grad_x (no extra divide by rms again)
     Tensor grad_x = g->value  * (gy - ((y_norm * dot)*inv_N))/(rms+1e-5);
 
-    ag::debug::print_tensor("Who nan", grad_x.to_cpu());
+    // ag::debug::print_tensor("Who nan", grad_x.to_cpu());
     
 
     x->grad += grad_x;
@@ -970,7 +978,7 @@ void vjp_ExpandHeads(Node* n, const Tensor& gy) {
     
     // gy: [H,T,D] → sum across H
     Tensor grad_out = gy.flatten(2,3);
-    // ag::debug::print_tensor("Checker", grad_out);
+    // // ag::debug::print_tensor("Checker", grad_out);
 
     // Accumulate
     X->grad += grad_out;
