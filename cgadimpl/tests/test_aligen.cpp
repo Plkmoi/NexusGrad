@@ -208,18 +208,18 @@ int main() {
     std::cout << "========================================\n\n";
 
     // 1. --- Hyperparameters ---
-    const int B = 32;            // batch size
+    const int B = 4;            // batch size
     // const int vocab_size = 5000; // number of classes (logits dim)
     const int num_layers = 2;    // (Attn + SWIGLU) block pairs
     const float lr = 0.001f;
-    const int epochs = 2100;
+    const int epochs = 1000;
     int vocab_size = 5000;       // integer tokens 0..19
-    int Heads = 4;
+    int Heads = 8;
 
-    const int S = 256; // Sequence length (needs to be defined)
-    const int d_model = 512; // Embedding dimension
-    auto dev = Device::CPU;
-    int K = 10;
+    const int S = 128; // Sequence length (needs to be defined)
+    const int d_model = 256; // Embedding dimension
+    auto dev = Device::CUDA;
+    int K = 5;
 
     // -------------------------------------------
     // Load corpus + tokenize
@@ -271,17 +271,18 @@ int main() {
     for (int i = 0; i < num_layers; ++i) {
         layers.push_back(new ag::layer::ResidualBlock({
             new ag::layer::RMSNorm(),
-            new ag::layer::AlibiAttention(Heads, B, S, d_model, dev)
+            new ag::layer::AlibiAttention(B, S, d_model, Heads, dev)
         }));
 
         layers.push_back(new ag::layer::ResidualBlock({
             new ag::layer::RMSNorm(),
             new ag::layer::SWIGLU(B, S, d_model, K, dev)
+            // new ag::layer::Mish()
         }));
     }
 
     layers.push_back(new ag::layer::RMSNorm());
-    layers.push_back(new ag::layer::Linear(B, S, d_model, dev));
+    layers.push_back(new ag::layer::Linear(B, vocab_size, d_model, dev));
 
     ag::layer::Traverse model(layers);
 
@@ -291,25 +292,28 @@ int main() {
 
 
 
-Tensor X_cpu = Tensor(Shape{{B, S, d_model}}, OwnTensor::TensorOptions().with_device(Device::CPU));
+
+Tensor X_cpu = Tensor(Shape{{B, S, d_model}}, OwnTensor::TensorOptions().with_device(dev));
     Tensor X_gpu = X_cpu.to(dev);
     Value X = make_tensor(X_gpu, "tokens");
+
+    ag::debug::print_tensor("xwesee", X.val().to_cpu());
 
 
     // ---- Create integer class labels Y (targets) ----
     // The target tensor must be the same shape as your logits output before cross_entropy.
     // If your final linear layer is [B, S, D] -> [B, S, vocab_size]
-    Tensor Yt(Shape{{B, S, vocab_size}}, TensorOptions()); // Correct 3D target shape
+    Tensor Yt(Shape{{B, S, vocab_size}}, OwnTensor::TensorOptions().with_device(dev).with_req_grad(true)); // Correct 3D target shape
     // Note: Yt should generally be integer/long type if using typical cross_entropy implementations
     // but your original code used float*, implying one-hot encoding or a specific loss function.
     // We will stick to your float* format for now, assuming your `cross_entropy_with_logits` handles this format.
     
-    float* yp = Yt.data<float>(); // Pointer to the flat memory of Yt
+    // float* yp = Yt.data<float>(); // Pointer to the flat memory of Yt
 
     // We don't populate Yt here statically, it gets populated dynamically in the loop.
 
     Value Y = make_tensor(Yt, "Y_target");
-    ag::disten(Y, dev); // Distribute Y placeholder to device
+    // ag::disten(Y, dev); // Distribute Y placeholder to device
 
     // Placeholder run (might crash if model weights aren't initialized/sized correctly yet)
     // Value logits = model(X); 
@@ -358,7 +362,7 @@ Tensor X_cpu = Tensor(Shape{{B, S, d_model}}, OwnTensor::TensorOptions().with_de
 
         // Prepare the Target Tensor Ytn (Y-target-now)
         // It must be [B, S, vocab_size] shape (one-hot encoded)
-        Tensor Ytn(Shape{{B, S, vocab_size}}, OwnTensor::TensorOptions().with_device(Device::CPU));
+        Tensor Ytn(Shape{{B, S, vocab_size}}, OwnTensor::TensorOptions().with_device(Device::CPU).with_req_grad(true));
         float* ypA = Ytn.data<float>();
         
         // One-hot encode the target_sequences into the flat Ytn tensor memory
@@ -376,7 +380,6 @@ Tensor X_cpu = Tensor(Shape{{B, S, d_model}}, OwnTensor::TensorOptions().with_de
         
         // Update the Value object Y with the new data and push to GPU
         Y.node->value = Ytn.to(dev);
-    ag::disten(Y, dev);
 
         // Forward pass
         Value logits = model(X);
@@ -394,7 +397,7 @@ Tensor X_cpu = Tensor(Shape{{B, S, d_model}}, OwnTensor::TensorOptions().with_de
         ag::disten(loss, dev);
 
         // Backward pass and optimization
-        zero_grad(logits);
+        zero_grad(loss);
         backward(loss);
         ag::opti.SGD(loss, lr);
         opti.epoch();
@@ -417,7 +420,18 @@ Tensor X_cpu = Tensor(Shape{{B, S, d_model}}, OwnTensor::TensorOptions().with_de
 
     for (int step = 0; step < GEN_STEPS; ++step) {
         std::vector<int> one = { token };
-        Tensor x_cpu = embed_tokens(one, embedding_table); // [1, d_model]
+        Tensor x_cpu_flat = embed_tokens(one, embedding_table); // [1, d_model]
+
+        Tensor x_cpu(
+            Shape{{1, 1, d_model}},   
+            OwnTensor::TensorOptions().with_device(Device::CPU)
+        );
+
+        std::memcpy(
+            x_cpu.data<float>(),
+            x_cpu_flat.data<float>(),
+            d_model * sizeof(float)
+        );
         Tensor x_dev = x_cpu.to(dev);
         Value X_in = make_tensor(x_dev, "infer_tok");
 
