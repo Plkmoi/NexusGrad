@@ -80,7 +80,7 @@
 //     // Binding the SGD function (Stochastic Gradient Descent) with an optional grad_seed
 // m_optim.def("SGD",
 //     [](const Value& root, float learning_rate) {
-//         ag::SGD(root, nullptr, learning_rate);
+//         ag::opti.SGD(root, learning_rate);
 //     },
 //     py::arg("root"),
 //     py::arg("learning_rate") = 0.1,

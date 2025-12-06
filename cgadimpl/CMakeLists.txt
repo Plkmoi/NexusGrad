@@ -55,14 +55,50 @@ endif()
 # ---- Core C++ library ----
 file(GLOB_RECURSE CGADIMPL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 list(REMOVE_ITEM CGADIMPL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/src/tools/binder.cpp")
+# Prevent Rust files from being built as C++
+list(FILTER CGADIMPL_SRC EXCLUDE REGEX ".*/tokenize/.*")
+list(FILTER CGADIMPL_SRC EXCLUDE REGEX ".*\\.rs$")
+
+# message(STATUS "CGADIMPL_SRC FILES:")
+# foreach(f ${CGADIMPL_SRC})
+#     message(STATUS " - ${f}")
+# endforeach()
+
+
 
 add_library(cgadimpl_core STATIC ${CGADIMPL_SRC})
 add_library(cgadimpl::cgadimpl ALIAS cgadimpl_core)
 
+# ---- Build Rust tokenizer ----
+set(RUST_CRATE_DIR "${CMAKE_SOURCE_DIR}/include/layer/tokenize")
+set(RUST_LIB "${RUST_CRATE_DIR}/target/release/libtokenus.so")
+
+add_custom_command(
+    OUTPUT ${RUST_LIB}
+    COMMAND cargo build --release
+    WORKING_DIRECTORY ${RUST_CRATE_DIR}
+    COMMENT "Building Rust tokenizer crate"
+)
+
+add_custom_target(rusttok_build ALL DEPENDS ${RUST_LIB})
+
+add_library(tokenus SHARED IMPORTED)  # <--- FIXED
+set_target_properties(tokenus PROPERTIES
+    IMPORTED_LOCATION "${RUST_LIB}"
+)
+
+add_dependencies(tokenus rusttok_build)
+
+
+# ---- Link into cgadimpl_core ----
 target_compile_definitions(cgadimpl_core PUBLIC WITH_CUDA)
 target_include_directories(cgadimpl_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(cgadimpl_core PUBLIC OwnTensor::tensor dl)
 
+target_link_libraries(cgadimpl_core PUBLIC
+    OwnTensor::tensor
+    dl
+    tokenus
+)
 
 # ---- Pybind11 module ----
 pybind11_add_module(cgadimpl src/tools/binder.cpp)  # 👈 this creates cgadimpl.so for Python

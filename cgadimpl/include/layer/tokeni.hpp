@@ -1,42 +1,45 @@
+#ifndef TOKENI_HPP
+#define TOKENI_HPP
+
 #include <fstream>
 #include <vector>
 #include <string>
 #include <iostream>
+
+// This is the ONLY FFI header we use.
+#include "tokenize/exptok.hpp"
+
 namespace ag::layer {
+
 // ----------------------------------------------------
 // Read entire file into std::string
 // ----------------------------------------------------
-std::string load_text_file(const std::string& path) ;
+std::string load_text_file(const std::string& path);
 
 // ----------------------------------------------------
 // Byte-level tokenize: each char → unsigned value 0..255
 // ----------------------------------------------------
-std::vector<int> tokenize_bytes(const std::string& text) ;
+std::vector<int> tokenize_bytes(const std::string& text);
 
 // ----------------------------------------------------
-// Example usage
+// C++ Wrapper Class for the Rust Tokenizer
 // ----------------------------------------------------
-// int main() {
-//     try {
-//         std::string path = "corpus.txt";     // change to your file
-//         std::string text = load_text_file(path);
+class TokeniTokenizer {
+public:
+    TokeniTokenizer(const std::string& model_path);
 
-//         std::vector<int> tokens = tokenize_bytes(text);
+    ~TokeniTokenizer();
 
-//         std::cout << "Loaded " << text.size() << " bytes.\n";
-//         std::cout << "Tokenized into " << tokens.size() << " tokens.\n";
+    void train(const std::vector<std::string>& texts,
+               uint32_t vocab_size);
 
-//         std::cout << "First 20 tokens: ";
-//         for (int i = 0; i < 20 && i < (int)tokens.size(); i++)
-//             std::cout << tokens[i] << " ";
-//         std::cout << "\n";
+    std::vector<int> encode(const std::string& input);
 
-//     } catch (const std::exception& e) {
-//         std::cerr << e.what() << "\n";
-//     }
-
-//     return 0;
-// }
+private:
+    TokenusModel model = nullptr;
+};
 
 
-}
+} // namespace ag::layer
+
+#endif // TOKENI_HPP

@@ -14,6 +14,8 @@
 #include "layer/norm.hpp"
 #include "layer/optim.hpp"
 #include "layer/loss.hpp"
+#include "layer/tokeni.hpp"
+#include "layer/embed.hpp"
 #include "optim.hpp"
 
 

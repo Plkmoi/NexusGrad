@@ -1,0 +1,12 @@
+[package]
+name = "tokenus"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+rayon = "1"
+fancy-regex = "0.16"
+rustc-hash = "1.1"
