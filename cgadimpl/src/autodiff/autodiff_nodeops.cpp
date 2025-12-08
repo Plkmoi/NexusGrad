@@ -155,9 +155,10 @@ void node_RealRMSNorm( std::shared_ptr<Node> n) {
      Tensor& X = n->inputs[0]->value;
      Tensor& G = n->inputs[1]->value;
      float inv_cols = 1.0f / static_cast<float>(X.shape().dims.back());
-    Tensor var   = OwnTensor::reduce_sum(X * X, {-1}, true) * inv_cols;
-    Tensor rsqrt = 1.0f / OwnTensor::sqrt(var + 1e-5f, ag::current_stream());
-    n->value     = (X * rsqrt) * G;
+    Tensor variance = OwnTensor::reduce_mean(X * X, {2}, true);
+    Tensor rsqrt_var = OwnTensor::sqrt(variance + 1e-5f, ag::current_stream());
+    Tensor y_normalized = (X) / (rsqrt_var+1e-5);
+    n->value     = y_normalized * G;
 }
 
 

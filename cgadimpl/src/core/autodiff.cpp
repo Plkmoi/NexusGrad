@@ -42,9 +42,9 @@ void check_tensors_nangrad(const Node* a) {
             q=1;
             std::string  cpp_str(a->debug_name);
             // w=w+std::abs(a_data[i] - b_data[i]);
-
-                // debug::print_tensor("Tensor A val", a_cpu);
-            // debug::print_tensor("Tensor A grad", b_cpu);
+            debug::print_tensor("Tensor A PREV", a->inputs[0]->value);
+                debug::print_tensor("Tensor A val", a_cpu);
+            debug::print_tensor("Tensor A grad", b_cpu);
             std::cout << "FAIL: " << a->debug_name << " mismatch at index " << i << "\n";
 
             throw std::runtime_error("Tensor check failed for NANGRAD  mismatch value " + cpp_str);
@@ -64,6 +64,7 @@ void check_tensors_nangrad(const Node* a) {
             // debug::print_tensor("Tensor A grad", b_cpu);
 
     std::cout << "PASS: " << a->debug_name << "\n";
+    
 }
 
 
@@ -87,9 +88,10 @@ void check_tensors_nangrad(const std::shared_ptr<Node> a) {
             q=1;
             std::string  cpp_str(a->debug_name);
             // w=w+std::abs(a_data[i] - b_data[i]);
+            debug::print_tensor("Tensor A PREV", a->inputs[0]->value);
 
-                // debug::print_tensor("Tensor A val", a_cpu);
-            // debug::print_tensor("Tensor A grad", b_cpu);
+                debug::print_tensor("Tensor A val", a_cpu);
+            debug::print_tensor("Tensor A grad", b_cpu);
 
             throw std::runtime_error("Tensor check failed for NANVALLLFOR  mismatch value " + cpp_str);
         }

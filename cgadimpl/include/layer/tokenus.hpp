@@ -11,7 +11,7 @@
 #include "layer/affine.hpp"
 
 namespace ag::layer {
-
+int safe_sample_from_logits_tensor(const Tensor& logits_tensor_cpu, float temp = 1.0f);
 // -------------------------------------------------
 //               BASIC TYPES
 // -------------------------------------------------
@@ -53,6 +53,8 @@ public:
 
     // encoding
     std::vector<uint32_t> encode(const std::string& text) const;
+    std::string decode(const std::vector<uint32_t>& ids) const;
+
 
 private:
     using CountMap = std::unordered_map<Pair,int32_t,PairHash>;

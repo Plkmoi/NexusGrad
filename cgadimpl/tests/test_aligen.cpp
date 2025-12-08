@@ -6,6 +6,7 @@
 #include <optim.hpp>
 #include "layer/tokeni.hpp"
 #include "layer/embed.hpp"
+#include "layer/tokenus.hpp"
 
 
 
@@ -21,9 +22,9 @@ int main() {
     const int B = 4;            // batch size
     // const int vocab_size = 5000; // number of classes (logits dim)
     const int num_layers = 2;    // (Attn + SWIGLU) block pairs
-    const float lr = 0.001f;
-    const int epochs = 2100;
-    int vocab_size = 5000;       // integer tokens 0..19
+    const float lr = 0.00001f;
+    const int epochs = 50;
+    int vocab_size = 20;       // integer tokens 0..19
     int Heads = 8;
 
     const int S = 128; // Sequence length (needs to be defined)
@@ -35,7 +36,6 @@ int main() {
     // Load corpus + tokenize
     // -------------------------------------------
 
-    ag::layer::Tokenizer tok;
 
 // -------------------------------------------
 // Load corpus + train tokenizer
@@ -94,37 +94,6 @@ vocab_size += 1;
 };
 
 
-
-    // Tensor W = ag::layer::make_embedding_table(/*vocab*/ vocab_size, /*dim*/ 128);
-    // Tensor E = ag::layer::embed_tokens(W, all_tokens);
-
-    // // -------------------------------------------
-    // // Create one batch from corpus tokens
-    // // -------------------------------------------
-
-    // // You need enough tokens for BATCH * SEQUENCE LENGTH
-    // int required_tokens = B * S;
-    // if ((int)all_tokens.size() < required_tokens) {
-    //     std::cerr << "Corpus size (" << all_tokens.size() << ") is too small for batch size B * S (" << required_tokens << ")\n";
-    //     return -1;
-    // }
-
-    // // Prepare a 2D input structure: std::vector<std::vector<int>>
-    // std::vector<std::vector<int>> batch_sequences;
-    
-    // // Extract the required block of tokens from the large corpus vector
-    // // This example just takes the first B * S tokens and reshapes them
-    
-    // for (int i = 0; i < B; ++i) {
-    //     std::vector<int> current_sequence(
-    //         all_tokens.begin() + i * S, 
-    //         all_tokens.begin() + (i + 1) * S
-    //     );
-    //     batch_sequences.push_back(current_sequence);
-    // }
-
-
-
     std::vector<ag::layer::Layer*> layers;
     layers.reserve(num_layers * 2 + 2);
 
@@ -151,42 +120,6 @@ vocab_size += 1;
               << " parameter tensors.\n\n";
 
 
-
-
-
-// Tensor X_cpu = Tensor(Shape{{B, S, d_model}}, OwnTensor::TensorOptions().with_device(dev));
-//     Tensor X_gpu = X_cpu.to(dev);
-//     Value X = make_tensor(X_gpu, "tokens");
-
-//     ag::debug::print_tensor("xwesee", X.val().to_cpu());
-
-
-    // ---- Create integer class labels Y (targets) ----
-    // The target tensor must be the same shape as your logits output before cross_entropy.
-    // If your final linear layer is [B, S, D] -> [B, S, vocab_size]
-    // Tensor Yt(Shape{{B, S, vocab_size}}, OwnTensor::TensorOptions().with_device(dev).with_req_grad(true)); // Correct 3D target shape
-    // Note: Yt should generally be integer/long type if using typical cross_entropy implementations
-    // but your original code used float*, implying one-hot encoding or a specific loss function.
-    // We will stick to your float* format for now, assuming your `cross_entropy_with_logits` handles this format.
-    
-    // float* yp = Yt.data<float>(); // Pointer to the flat memory of Yt
-
-    // We don't populate Yt here statically, it gets populated dynamically in the loop.
-
-    // Value Y = make_tensor(Yt, "Y_target");
-    // ag::disten(Y, dev); // Distribute Y placeholder to device
-
-    // Placeholder run (might crash if model weights aren't initialized/sized correctly yet)
-    // Value logits = model(X); 
-    // Value loss = cross_entropy_with_logits(logits, Y);
-    // zero_val(loss);
-
-
-    // -------------------------------------------
-    // Autoregressive Training Loop
-    // -------------------------------------------
-// Allocate X and Y ONCE with correct shapes
-
 Tensor embedding_table =
     ag::layer::make_embedding_table(vocab_size, d_model);
 
@@ -209,20 +142,21 @@ std::vector<std::vector<int>> target_sequences;
 
 
 
-    for (int epoch = 0; epoch < epochs; ++epoch) {
+for (int epoch = 0; epoch < epochs; ++epoch) {
 
-    // Prepare batch_sequences & targets here...
+    // --- FIX: MAKE THE BATCH ---
+    int offset = (epoch * B * S) % (all_tokens.size() - (B*S + 2));
+    make_batch(batch_sequences, target_sequences, offset);
 
-    // ─────────────────────────────────────────────
-    // Overwrite X directly (NO new tensors!)
-    // ─────────────────────────────────────────────
+    if (batch_sequences.empty()) {
+        throw std::runtime_error("make_batch returned empty batch");
+    }
+
+    // --- EMBEDDING ---
     Tensor X_cpu_new = ag::layer::embed_tokens_3d(embedding_table, batch_sequences);
     X.node->value = (X_cpu_new.to(dev));
 
-
-    // ─────────────────────────────────────────────
-    // Overwrite Y (one-hot)
-    // ─────────────────────────────────────────────
+    // --- BUILD ONE-HOT TARGET ---
     Tensor Y_cpu_new(Shape{{B, S, vocab_size}}, OwnTensor::TensorOptions().with_device(Device::CPU));
     float* yp = Y_cpu_new.data<float>();
     std::fill(yp, yp + B*S*vocab_size, 0.0f);
@@ -233,70 +167,89 @@ std::vector<std::vector<int>> target_sequences;
 
     Y.node->value = (Y_cpu_new.to(dev));
 
-    // ─────────────────────────────────────────────
-    // TRAIN ONE ITERATION (GRAPH REPLAY)
-    // ─────────────────────────────────────────────
-    zero_val(loss);
+    // --- TRAIN ---
     forward(loss);
+    zero_grad(loss);
     backward(loss);
     opti.SGD(loss, lr);
     opti.epoch();
 
-    // Read loss
     ag::disten(loss, Device::CPU);
     float l = loss.val().data<float>()[0];
     std::cout << "Epoch " << epoch << " Loss: " << l << "\n";
 }
 
-    
-    // // -----------------------------
-    // // Autoregressive Generation
-    // // -----------------------------
-    // std::cout << "\n========================================\n";
-    // std::cout << "--- GENERATING TEXT ---\n";
-    // std::cout << "========================================\n\n";
 
-    // int start_token = 32;  // Start token (e.g., space)
-    // int token = start_token;
-    // std::string generated;
-    // bool printed_debug = false;
-    // const int GEN_STEPS = 200;
 
-    // for (int step = 0; step < GEN_STEPS; ++step) {
-    //     std::vector<int> one = { token };
-    //     Tensor x_cpu_flat = embed_tokens(one, embedding_table); // [1, d_model]
+// ---------------------------------------------------------
+// Autoregressive Text Generation (BPE-correct)
+// ---------------------------------------------------------
+std::cout << "\n========================================\n";
+std::cout << "--- GENERATING TEXT (BPE) ---\n";
+std::cout << "========================================\n\n";
 
-    //     Tensor x_cpu(
-    //         Shape{{1, 1, d_model}},   
-    //         OwnTensor::TensorOptions().with_device(Device::CPU)
-    //     );
+const int GEN_STEPS = 200;
 
-    //     std::memcpy(
-    //         x_cpu.data<float>(),
-    //         x_cpu_flat.data<float>(),
-    //         d_model * sizeof(float)
-    //     );
-    //     Tensor x_dev = x_cpu.to(dev);
-    //     Value X_in = make_tensor(x_dev, "infer_tok");
+// Start from BOS or an empty prompt
+int token = tok.encode(" ")[0];   // or any char, must not be empty
+      // or tok.encode("")[0]
+std::vector<uint32_t> gen_tokens;    // store token IDs
+gen_tokens.push_back(token);
 
-    //     // Forward pass to get logits
-    //     Value out_val = model(X_in);
-    //     ag::disten(out_val, Device::CPU);
-    //     Tensor logits_cpu = out_val.val(); // now on CPU
+// Pre-allocate CPU input tensor [1,1,d_model]
+Tensor x_cpu(
+    Shape{{1, 1, d_model}},
+    OwnTensor::TensorOptions().with_device(Device::CPU)
+);
 
-    //     // Sample the next token from the logits
-    //     int next_tok = safe_sample_from_logits_tensor(logits_cpu, 1.0f);
+for (int step = 0; step < GEN_STEPS; ++step)
+{
+    // -------------------------
+    // 1. Embed current token
+    // -------------------------
+    std::vector<int> single_tok = { token };
 
-    //     // Add the next token to the generated string
-    //     token = next_tok;
-    //     if (token >= 32 && token < 127) {
-    //         generated.push_back(static_cast<char>(token));
-    //     } else {
-    //         generated.push_back('?');
-    //     }
-    // }
+    Tensor emb_row = ag::layer::embed_tokens(embedding_table, single_tok);
+    // emb_row: [1, d_model]
 
-    // std::cout << "---- GENERATED TEXT ----\n" << generated << "\n\n";
+    // reshape into [1,1,d_model]
+    std::memcpy(
+        x_cpu.data<float>(),
+        emb_row.data<float>(),
+        d_model * sizeof(float)
+    );
+
+    // Move to device
+    Tensor x_dev = x_cpu.to(dev);
+    Value X_in = make_tensor(x_dev, "infer_tok");
+
+    // -------------------------
+    // 2. Forward pass → logits
+    // -------------------------
+    Value out_val = model(X_in);
+
+    // bring logits back to CPU
+    ag::disten(out_val, Device::CPU);
+    Tensor logits_cpu = out_val.val();   // [1,1,V]
+
+    // -------------------------
+    // 3. Sample next token
+    // -------------------------
+    int next_tok = ag::layer::safe_sample_from_logits_tensor(logits_cpu, 1.0f);
+
+    // save
+    gen_tokens.push_back(next_tok);
+
+    token = next_tok;
+}
+
+// ---------------------------------------------------------
+// Decode full sequence using tokenizer
+// ---------------------------------------------------------
+std::string decoded = tok.decode(gen_tokens);
+
+std::cout << "Generated:\n" << decoded << "\n\n";
+
 
     // Cleanup for heap-allocated Layers
     for (auto* layer : model.get_layers()) {

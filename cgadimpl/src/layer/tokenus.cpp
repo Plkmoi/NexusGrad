@@ -1,6 +1,79 @@
 #include "layer/tokenus.hpp"
+#include <random>
 
 namespace ag::layer {
+
+
+
+
+int safe_sample_from_logits_tensor(const Tensor& logits_tensor_cpu, float temp)
+{
+    // -------------------------------
+    // 1. Validate & extract shape
+    // -------------------------------
+    const auto& dims = logits_tensor_cpu.shape().dims;
+    if (dims.empty()) return 0;
+
+    int V = dims.back();             // vocab size
+    if (V <= 0) return 0;
+
+    const float* ptr = logits_tensor_cpu.data<float>();
+    if (!ptr) return 0;
+
+    // If shape is [B,1,V], or [1,1,V] → flatten automatically
+    const float* logits = ptr;
+
+    // -------------------------------
+    // 2. Compute max for stability
+    // -------------------------------
+    float maxlog = -INFINITY;
+    for (int i = 0; i < V; ++i)
+        if (std::isfinite(ptr[i]) && ptr[i] > maxlog)
+            maxlog = ptr[i];
+
+    if (!std::isfinite(maxlog)) {
+        // every logit was NaN/inf → fallback uniform
+        static thread_local std::mt19937 rng(42);
+        std::uniform_int_distribution<int> uni(0, V - 1);
+        return uni(rng);
+    }
+
+    // -------------------------------
+    // 3. Softmax with temperature
+    // -------------------------------
+    std::vector<double> probs(V);
+    double sum = 0.0;
+
+    for (int i = 0; i < V; ++i) {
+        float l = ptr[i];
+        if (!std::isfinite(l)) {
+            probs[i] = 0.0;
+        } else {
+            double ex = std::exp(double(l - maxlog) / double(temp));
+            probs[i] = ex;
+            sum += ex;
+        }
+    }
+
+    // all logits zeroed? fallback
+    if (sum == 0.0 || std::isnan(sum)) {
+        std::fill(probs.begin(), probs.end(), 1.0 / double(V));
+    } else {
+        for (int i = 0; i < V; ++i)
+            probs[i] /= sum;
+    }
+
+    // -------------------------------
+    // 4. Sample
+    // -------------------------------
+    static thread_local std::mt19937 rng(42);
+    std::discrete_distribution<int> dist(probs.begin(), probs.end());
+    int t = dist(rng);
+
+    return std::clamp(t, 0, V - 1);
+}
+
+
 
 // -------------------------------------------------
 // WORD::pairs
@@ -69,7 +142,7 @@ Word::merge_pair(const Pair& p, uint32_t new_id)
 Tokenizer::Tokenizer()
 {
     pattern =
-        R"('(?i:[sdmt]|ll|ve|re)|[^\r\nA-Za-z0-9]?+[A-Za-z]+|[0-9]{1,3}| ?[^\sA-Za-z0-9]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+)";
+       R"([A-Za-z]+|\d+|[^\sA-Za-z0-9]+|\s+)";
     compiled = std::regex(pattern, std::regex::optimize);
 }
 
@@ -308,5 +381,46 @@ std::vector<uint32_t> Tokenizer::encode(const std::string& text) const
 
     return out;
 }
+
+std::string ag::layer::Tokenizer::decode(const std::vector<uint32_t>& ids) const {
+    // Reverse mapping: new_id -> (left,right)
+    std::unordered_map<uint32_t, Pair> rev;
+    rev.reserve(merges.size());
+    for (const auto& kv : merges) {
+        rev[kv.second] = kv.first;  // new_id -> (id1,id2)
+    }
+
+    // Convert each token ID into its byte sequence
+    std::vector<uint8_t> bytes;
+
+    std::function<void(uint32_t)> decode_id = [&](uint32_t id) {
+        // If id < 256: it's a byte
+        if (id < 256) {
+            bytes.push_back((uint8_t)id);
+            return;
+        }
+
+        // Otherwise a merged token → split recursively
+        auto it = rev.find(id);
+        if (it == rev.end()) {
+            // Unknown merge, fallback: treat as byte '?'
+            bytes.push_back((uint8_t)'?');
+            return;
+        }
+
+        const Pair& p = it->second;
+        decode_id(p.first);
+        decode_id(p.second);
+    };
+
+    // Process all IDs
+    for (uint32_t id : ids) {
+        decode_id(id);
+    }
+
+    // Convert bytes to string
+    return std::string(bytes.begin(), bytes.end());
+}
+
 
 } // namespace ag::layer
