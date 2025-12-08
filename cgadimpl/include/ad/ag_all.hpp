@@ -15,6 +15,8 @@
 #include "layer/optim.hpp"
 #include "layer/loss.hpp"
 #include "optim.hpp"
+#include "layer/embed.hpp"
+#include "layer/tokenus.hpp"
 
 
 static void init_cuda_plugin() {
