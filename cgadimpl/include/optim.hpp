@@ -19,7 +19,7 @@ namespace ag {
 
         private:
         static constexpr float _lr = 0.1f;
-        static constexpr float _m = 0.01f;
+        static constexpr float _m = 0.9f;
 
         
 
@@ -36,10 +36,15 @@ std::shared_ptr<Tensor> velocia;
 ))
       // Initialize the 'velocia' member
     {
-        std::cout<<"I was called\n";
+        // std::cout<<"I was called\n";
     }
 
+// void desBag(){
+// noda->value = noda->value.to(Device::CPU);
+// noda->grad = noda->grad.to(Device::CPU);
+// *velocia = velocia->to(Device::CPU);
 
+// }
 
 };
 
@@ -47,23 +52,26 @@ std::shared_ptr<Tensor> velocia;
 std::vector<std::shared_ptr<Bag>> bagstore;
 
 
-        void topovel_from(std::shared_ptr<Node> root) {
-    std::unordered_set<std::shared_ptr<Node>> vis; vis.reserve(256);
-    std::function<void(std::shared_ptr<Node>)> dfs = [&](std::shared_ptr<Node> n) {
-        if (!n || vis.count(n)) return;
-        vis.insert(n);
-        for (auto& p : n->inputs)
-        if(n->op==Op::Leaf && n->requires_grad()){
-            dfs(p); 
-        bagstore.push_back(std::make_shared<Bag>(n));
-        // storestuf.veloci.push_back(std::make_shared<Tensor>(Tensor(n->value.shape(), TensorOptions().with_device(n->value.device()))));
-        // storestuf.nod.push_back(n);
+        void topovel_from(Node* root){
+    std::vector<Node*> order; order.reserve(256);
+    std::unordered_set<Node*> vis; vis.reserve(256);
+    std::function<void(Node*)> dfs = [&](Node* n){ 
+        
+        
+        if(!n || vis.count(n)) 
+        return; vis.insert(n); 
+        for(auto& p : n->inputs) 
+        dfs(p.get()); 
+        if(n->op==Op::Leaf && n->requires_grad())
+        {
+        bagstore.push_back(std::make_shared<Bag>(n->shared_from_this())); 
         }
     };
     dfs(root);
-
 }
-        
+
+
+    
 
         public:
                 void SGD(const Value& root, float learning_rate=_lr);
@@ -71,14 +79,12 @@ std::vector<std::shared_ptr<Bag>> bagstore;
         using EpochFn = std::function<void()>;
 
         EpochFn epoch;
-    //     ~Optimizer()
+    //     void desOptimizer()
     //     {
 
     //  for (auto ww : bagstore) 
     // {
-    //     auto n = ww->noda;
-    //     n->value = n->value.to(Device::CPU);
-    //     n->grad = n->grad.to(Device::CPU);
+    //     ww->desBag();
         
 
     // }

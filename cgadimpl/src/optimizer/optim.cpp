@@ -44,18 +44,19 @@ void Optimizer::SGD(const Value& root, float learning_rate) { // Changed to floa
 
 
 void Optimizer::SGDm(const Value& root, float learning_rate, float momen) { // Changed to float for consistency
-    bagstore.clear();
-    topovel_from(root.node);
-
+    topovel_from(root.node.get());
     this->epoch = [this, learning_rate, momen]()  {
-    for (auto ww : bagstore) 
+    
+        for (auto ww : bagstore) 
     {
+        //  std::cout<<"I am here";
+
         auto n = ww->noda;
         if (n->op == Op::Leaf && n->requires_grad()) {
             
             *(ww->velocia) = momen*(*(ww->velocia)) +learning_rate * n->grad;
             n->value = n->value-*(ww->velocia);
-            std::cout<<"I am here";
+            // std::cout<<"I am here";
             
         }
     }

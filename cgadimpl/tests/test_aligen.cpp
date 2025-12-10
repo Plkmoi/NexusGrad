@@ -21,14 +21,14 @@ int main() {
     // 1. --- Hyperparameters ---
     const int B = 4;            // batch size
     // const int vocab_size = 5000; // number of classes (logits dim)
-    const int num_layers = 2;    // (Attn + SWIGLU) block pairs
-    const float lr = 0.00001f;
-    const int epochs = 50;
-    int vocab_size = 20;       // integer tokens 0..19
-    int Heads = 8;
+    const int num_layers = 12;    // (Attn + SWIGLU) block pairs
+    const float lr = 0.00000001f;
+    const int epochs = 1000;
+    int vocab_size = 50000;       // integer tokens 0..19
+    int Heads = 12;
 
-    const int S = 128; // Sequence length (needs to be defined)
-    const int d_model = 256; // Embedding dimension
+    const int S = 512; // Sequence length (needs to be defined)
+    const int d_model = 768; // Embedding dimension
     auto dev = Device::CUDA;
     int K = 5;
 
@@ -134,6 +134,7 @@ Value Y = make_tensor(Y_gpu_init, "Y_target");
 // ---- Build the graph one time ----
 Value logits = model(X);
 Value loss = cross_entropy_with_logits(logits, Y);
+opti.SGDm(loss, lr);
 
 // ---- Capture the complete graph ----
 zero_val(loss);  // clears activations AFTER graph construction
@@ -171,7 +172,6 @@ for (int epoch = 0; epoch < epochs; ++epoch) {
     forward(loss);
     zero_grad(loss);
     backward(loss);
-    opti.SGD(loss, lr);
     opti.epoch();
 
     ag::disten(loss, Device::CPU);
@@ -209,15 +209,11 @@ for (int step = 0; step < GEN_STEPS; ++step)
     // -------------------------
     std::vector<int> single_tok = { token };
 
-    Tensor emb_row = ag::layer::embed_tokens(embedding_table, single_tok);
+    Tensor emb_row = ag::layer::embed_tokens(embedding_table, single_tok).unflatten(1, Shape({1, d_model}));
     // emb_row: [1, d_model]
 
     // reshape into [1,1,d_model]
-    std::memcpy(
-        x_cpu.data<float>(),
-        emb_row.data<float>(),
-        d_model * sizeof(float)
-    );
+
 
     // Move to device
     Tensor x_dev = x_cpu.to(dev);

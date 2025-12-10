@@ -65,7 +65,15 @@ std::pair<int, int> Value::shape_2d() const {
 std::vector<Node*> topo_from(Node* root){
     std::vector<Node*> order; order.reserve(256);
     std::unordered_set<Node*> vis; vis.reserve(256);
-    std::function<void(Node*)> dfs = [&](Node* n){ if(!n || vis.count(n)) return; vis.insert(n); for(auto& p : n->inputs) dfs(p.get()); order.push_back(n); };
+    std::function<void(Node*)> dfs = [&](Node* n){ 
+        
+        
+        if(!n || vis.count(n)) 
+        return; vis.insert(n); 
+        for(auto& p : n->inputs) 
+        dfs(p.get()); 
+        order.push_back(n); 
+    };
     dfs(root);
     return order; // parents before child
 }
