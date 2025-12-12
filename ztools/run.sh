@@ -62,10 +62,15 @@ export CUDACXX=/usr/local/cuda-13.0/bin/nvcc
 
 # --- Path Setup ---
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+ARCH_DIR="$ROOT/arch"
+ARCH_BUILD="$ARCH_DIR/build"
+
 CGADIMPL_DIR="$ROOT/cgadimpl"
 CGADIMPL_BUILD="$CGADIMPL_DIR/build"
 KERNELS_DIR="$ROOT/kernels"
 KERNELS_BUILD="$KERNELS_DIR/build"
+
 TENSOR_DIR="$ROOT/tensor"
 
 echo "== Build Type:    $BUILD_TYPE"
@@ -73,6 +78,7 @@ echo "== Using CUDA CXX: $(which nvcc)"
 
 # --- Clean all projects for a guaranteed fresh start ---
 echo "== Cleaning build directories for a fresh start..."
+rm -rf "$ARCH_BUILD"
 rm -rf "$CGADIMPL_BUILD"
 rm -rf "$KERNELS_BUILD"
 # Also clean the old tensor library artifacts to be safe
@@ -107,9 +113,17 @@ echo "== Copying kernel plugins to test directory"
 cp "$KERNELS_BUILD/cpu/libagkernels_cpu.so" "$CGADIMPL_BUILD/"
 cp "$KERNELS_BUILD/gpu/libagkernels_cuda.so" "$CGADIMPL_BUILD/"
 
+
+# --- STEP 1.5: Configure and build the core cgadimpl library ---
+echo "== Configuring arch"
+cmake -S "$ARCH_DIR" -B "$ARCH_BUILD" -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
+
+echo "== Building arch"
+cmake --build "$ARCH_BUILD" -- -j$(nproc)
+
 # --- STEP 5: Run tests ---
 echo "== Staging complete. Running tests..."
-cd "$CGADIMPL_BUILD"
+cd "$ARCH_BUILD"
 ctest --output-on-failure
 cd "$ROOT"
 

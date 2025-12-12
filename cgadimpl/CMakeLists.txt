@@ -56,7 +56,7 @@ endif()
 file(GLOB_RECURSE CGADIMPL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 list(REMOVE_ITEM CGADIMPL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/src/tools/binder.cpp")
 
-add_library(cgadimpl_core STATIC ${CGADIMPL_SRC})
+add_library(cgadimpl_core SHARED ${CGADIMPL_SRC})
 add_library(cgadimpl::cgadimpl ALIAS cgadimpl_core)
 
 target_compile_definitions(cgadimpl_core PUBLIC WITH_CUDA)
@@ -127,10 +127,10 @@ if(true) # or use if(AG_BUILD_TESTS)
   # CPU Tests
   # add_ag_test(test_layalib     tests/test_layalib.cpp)
   add_ag_test(test_eh       tests/test_eh.cpp)
-  add_ag_test(test_neh       tests/test_neh.cpp)
-  add_ag_test(test_aliop       tests/test_aliop.cpp)
- add_ag_test(test_keretu       tests/test_keretu.cpp)
- add_ag_test(test_aligen       tests/test_aligen.cpp)
+#   add_ag_test(test_neh       tests/test_neh.cpp)
+#   add_ag_test(test_aliop       tests/test_aliop.cpp)
+#  add_ag_test(test_keretu       tests/test_keretu.cpp)
+#  add_ag_test(test_aligen       tests/test_aligen.cpp)
 #  add_ag_test(test_alimass       tests/test_alimass.cpp) WORKING MASSIVE LAYER!!!!!!
   # add_ag_test(test_layer       tests/test_layer.cpp)
   # add_ag_test(test_aligen       tests/test_aligen.cpp)

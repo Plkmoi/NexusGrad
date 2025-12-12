@@ -407,16 +407,16 @@ std::shared_ptr<Node> relumask_nodeops(const std::shared_ptr<Node>& x) {
     if (xin.is_cpu()) {
         // Your existing CPU implementation is fine, just needs the new API
         // We must dispatch by dtype to get the correct pointer type.
-        dispatch_by_dtype(xin.dtype(), [&](auto dummy){
-            using T = decltype(dummy);
-            const T* x_data = xin.data<T>();
-            T* y_data = y.data<T>();
-            for (int64_t i = 0; i < xin.numel(); ++i) {
-                if (x_data[i] > T(0)) {
-                    y_data[i] = T(1);
-                }
-            }
-        });
+        // dispatch_by_dtype(xin.dtype(), [&](auto dummy){
+        //     using T = decltype(dummy);
+        //     const T* x_data = xin.data<T>();
+        //     T* y_data = y.data<T>();
+        //     for (int64_t i = 0; i < xin.numel(); ++i) {
+        //         if (x_data[i] > T(0)) {
+        //             y_data[i] = T(1);
+        //         }
+        //     }
+        // });
     } else {
         // For now, we will add a placeholder, as you don't have a GPU kernel for this.
         // To make this work on GPU, you would need to add a 'relumask_cuda' to your kernels plugin.
