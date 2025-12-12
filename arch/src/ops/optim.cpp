@@ -47,15 +47,15 @@ void Optimizer::SGDm(const Value& root, float learning_rate, float momen) { // C
     topovel_from(root.node.get());
     this->epoch = [this, learning_rate, momen]()  {
     
-        for (auto ww : bagstore) 
+        for (auto ww = velsto.begin(); ww
+         != velsto.end(); ww++) 
     {
         //  std::cout<<"I am here";
 
-        auto n = ww->noda;
-        if (n->op == Op::Leaf && n->requires_grad()) {
+        if (ww->first->op == Op::Leaf && ww->first->requires_grad()) {
             
-            *(ww->velocia) = momen*(*(ww->velocia)) +learning_rate * n->grad;
-            n->value = n->value-*(ww->velocia);
+            *(ww->second) = momen*(*(ww->second)) +learning_rate * ww->first->grad;
+            ww->first->value = ww->first->value-*(ww->second);
             // std::cout<<"I am here";
             
         }

@@ -1,17 +1,15 @@
-#include "ad/ag_all.hpp"   // Main umbrella header for the framework
+#include "layer/archlist.hpp"
 #include <iostream>
 #include <vector>
 #include <iomanip>
 #include <random>
 #include <optim.hpp>
-#include "layer/tokeni.hpp"
-#include "layer/embed.hpp"
-#include "layer/tokenus.hpp"
+
 
 
 
 int main() {
-    using namespace ag;
+    using namespace flow;
     using namespace OwnTensor;
 
     std::cout << "========================================\n";
@@ -40,10 +38,10 @@ int main() {
 // -------------------------------------------
 // Load corpus + train tokenizer
 // -------------------------------------------
-ag::layer::Tokenizer tok;
+flow::Tokenizer tok;
 
 std::string text =
-    ag::layer::load_text_file("/home/blubridge-034/Downloads/Newf/cgadimpl/cgadimpl/src/layer/corpus.txt");
+    flow::load_text_file("/home/blubridge-034/Downloads/Newf/cgadimpl/cgadimpl/src/layer/corpus.txt");
 
 std::vector<std::string> train_samples = { text };
 
@@ -94,34 +92,34 @@ vocab_size += 1;
 };
 
 
-    std::vector<ag::layer::Layer*> layers;
+    std::vector<flow::Layer*> layers;
     layers.reserve(num_layers * 2 + 2);
 
     // Build model layers
     for (int i = 0; i < num_layers; ++i) {
-        layers.push_back(new ag::layer::ResidualBlock({
-            new ag::layer::RMSNorm(),
-            new ag::layer::AlibiAttention(B, S, d_model, Heads, dev)
+        layers.push_back(new flow::ResidualBlock({
+            new flow::RMSNorm(),
+            new flow::AlibiAttention(B, S, d_model, Heads, dev)
         }));
 
-        layers.push_back(new ag::layer::ResidualBlock({
-            new ag::layer::RMSNorm(),
-            new ag::layer::SWIGLU(B, S, d_model, K, dev)
-            // new ag::layer::Mish()
+        layers.push_back(new flow::ResidualBlock({
+            new flow::RMSNorm(),
+            new flow::SWIGLU(B, S, d_model, K, dev)
+            // new flow::Mish()
         }));
     }
 
-    layers.push_back(new ag::layer::RMSNorm());
-    layers.push_back(new ag::layer::Linear(B, vocab_size, d_model, dev));
+    layers.push_back(new flow::RMSNorm());
+    layers.push_back(new flow::Linear(B, vocab_size, d_model, dev));
 
-    ag::layer::Traverse model(layers);
+    flow::Traverse model(layers);
 
     std::cout << "Model created with " << model.parameters().size()
               << " parameter tensors.\n\n";
 
 
 Tensor embedding_table =
-    ag::layer::make_embedding_table(vocab_size, d_model);
+    flow::make_embedding_table(vocab_size, d_model);
 
 Tensor X_cpu_init(Shape{{B, S, d_model}}, OwnTensor::TensorOptions().with_device(Device::CPU));
 Tensor X_gpu_init = X_cpu_init.to(dev);
@@ -134,7 +132,7 @@ Value Y = make_tensor(Y_gpu_init, "Y_target");
 // ---- Build the graph one time ----
 Value logits = model(X);
 Value loss = cross_entropy_with_logits(logits, Y);
-opti.SGDm(loss, lr);
+flow::opti.SGDm(loss, lr);
 
 // ---- Capture the complete graph ----
 zero_val(loss);  // clears activations AFTER graph construction
@@ -154,7 +152,7 @@ for (int epoch = 0; epoch < epochs; ++epoch) {
     }
 
     // --- EMBEDDING ---
-    Tensor X_cpu_new = ag::layer::embed_tokens_3d(embedding_table, batch_sequences);
+    Tensor X_cpu_new = flow::embed_tokens_3d(embedding_table, batch_sequences);
     X.node->value = (X_cpu_new.to(dev));
 
     // --- BUILD ONE-HOT TARGET ---
@@ -172,13 +170,13 @@ for (int epoch = 0; epoch < epochs; ++epoch) {
     forward(loss);
     zero_grad(loss);
     backward(loss);
-    opti.epoch();
+    flow::opti.epoch();
 
     ag::disten(loss, Device::CPU);
     float l = loss.val().data<float>()[0];
     std::cout << "Epoch " << epoch << " Loss: " << l << "\n";
 }
-
+flow::opti.velcle();
 
 
 // ---------------------------------------------------------
@@ -209,7 +207,7 @@ for (int step = 0; step < GEN_STEPS; ++step)
     // -------------------------
     std::vector<int> single_tok = { token };
 
-    Tensor emb_row = ag::layer::embed_tokens(embedding_table, single_tok).unflatten(1, Shape({1, d_model}));
+    Tensor emb_row = flow::embed_tokens(embedding_table, single_tok).unflatten(1, Shape({1, d_model}));
     // emb_row: [1, d_model]
 
     // reshape into [1,1,d_model]
@@ -231,7 +229,7 @@ for (int step = 0; step < GEN_STEPS; ++step)
     // -------------------------
     // 3. Sample next token
     // -------------------------
-    int next_tok = ag::layer::safe_sample_from_logits_tensor(logits_cpu, 1.0f);
+    int next_tok = flow::safe_sample_from_logits_tensor(logits_cpu, 1.0f);
 
     // save
     gen_tokens.push_back(next_tok);

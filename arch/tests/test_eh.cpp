@@ -1,8 +1,8 @@
 #include <iostream>
 
 #include "layer/archlist.hpp"
-#include <optim.hpp>
-using namespace ag;
+#include <ops/optim.hpp>
+using namespace flow;
 // void test_expand( int H, int B, int S, int D)
 // {
 //     Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
@@ -13,12 +13,12 @@ using namespace ag;
 //     ag::debug::print_tensor("Result Value", r.val());
 //     backward(w);
 //     ag::debug::print_tensor("Result Gradient", m.grad());
-// ag::opti.SGD(w, 0.01);
+// flow::opti.SGD(w, 0.01);
 //     for(int i=0;i<10;i++){
 //         forward(w);
 //         backward(w);
 //                 
-//         opti.epoch();
+//         flow::opti.epoch();
 //     }
 
 
@@ -418,13 +418,13 @@ void test_parcon( int H, int B, int S, int D)
     ag::debug::print_tensor("Result Value Parametric Cone", w.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient Parametric Cone", m.grad());
-              ag::opti.SGD(w, 0.01);
+              flow::opti.SGD(w, 0.01);
       
 
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        opti.epoch();
+        flow::opti.epoch();
     }
 }
 
@@ -445,12 +445,12 @@ void test_mish( int H, int B, int S, int D)
     ag::debug::print_tensor("Result Value Mish", w.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient Mish", m.grad());
-ag::opti.SGD(w, 0.01);
+flow::opti.SGD(w, 0.01);
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
                 
-        opti.epoch();
+        flow::opti.epoch();
     }
 }
 
@@ -471,12 +471,12 @@ void test_gaus( int H, int B, int S, int D)
     ag::debug::print_tensor("Result Value Gauss", w.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient Gauss", m.grad());
-ag::opti.SGD(w, 0.01);
+flow::opti.SGD(w, 0.01);
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
                 
-        opti.epoch();
+        flow::opti.epoch();
     }
 }
 
@@ -497,12 +497,13 @@ void test_silu( int H, int B, int S, int D)
     ag::debug::print_tensor("Result Value Silu", w.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient Silu", m.grad());
-                ag::opti.SGDm(w, 0.001, 0.1);
+                flow::opti.SGDm(w, 0.001);
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
-        opti.epoch();
+        flow::opti.epoch();
     }
+    flow::opti.velcle();
 }
 
 
@@ -522,12 +523,12 @@ void test_gcu( int H, int B, int S, int D)
     ag::debug::print_tensor("Result Value GCU", w.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient GCU", m.grad());
-ag::opti.SGD(w, 0.01);
+flow::opti.SGD(w, 0.01);
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
                 
-        opti.epoch();
+        flow::opti.epoch();
     }
 }
 
@@ -547,12 +548,12 @@ void test_gelu( int H, int B, int S, int D)
     ag::debug::print_tensor("Result Value GELU", w.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient GELU", m.grad());
-ag::opti.SGD(w, 0.01);
+flow::opti.SGD(w, 0.01);
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
                 
-        opti.epoch();
+        flow::opti.epoch();
     }
 }
 
@@ -572,12 +573,12 @@ void test_sigmoid( int H, int B, int S, int D)
     ag::debug::print_tensor("Result Value Sigmoid", w.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient Sigmoid", m.grad());
-ag::opti.SGD(w, 0.01);
+flow::opti.SGD(w, 0.01);
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
                 
-        opti.epoch();
+        flow::opti.epoch();
     }
 }
 
@@ -598,12 +599,12 @@ void test_lisht( int H, int B, int S, int D)
     ag::debug::print_tensor("Result Value Lisht", w.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient Lisht", m.grad());
-ag::opti.SGD(w, 0.01);
+flow::opti.SGD(w, 0.01);
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
                 
-        opti.epoch();
+        flow::opti.epoch();
     }
 }
 
@@ -624,12 +625,12 @@ void test_relu( int H, int B, int S, int D)
     ag::debug::print_tensor("Result Value RELU", w.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient RELU", m.grad());
-ag::opti.SGD(w, 0.01);
+flow::opti.SGD(w, 0.01);
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
                 
-        opti.epoch();
+        flow::opti.epoch();
     }
 }
 
@@ -651,12 +652,12 @@ void test_tanh( int H, int B, int S, int D)
     ag::debug::print_tensor("Result Value Tanh", w.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient Tanh", m.grad());
-ag::opti.SGD(w, 0.01);
+flow::opti.SGD(w, 0.01);
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
                 
-        opti.epoch();
+        flow::opti.epoch();
     }
 }
 
@@ -677,12 +678,12 @@ void test_softplus( int H, int B, int S, int D)
     ag::debug::print_tensor("Result Value Softplus", w.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient Softplus", m.grad());
-ag::opti.SGD(w, 0.01);
+flow::opti.SGD(w, 0.01);
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
                 
-        opti.epoch();
+        flow::opti.epoch();
     }
 }
 
@@ -704,12 +705,12 @@ void test_leakyrelu( int H, int B, int S, int D)
     ag::debug::print_tensor("Result Value LeakyRelu", w.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient LeakyRelu", m.grad());
-ag::opti.SGD(w, 0.01);
+flow::opti.SGD(w, 0.01);
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
                 
-        opti.epoch();
+        flow::opti.epoch();
     }
 }
 
@@ -757,12 +758,12 @@ void test_swiglu( int H, int B, int S, int D, int K)
     ag::debug::print_tensor("Result Value SWIGLU", r.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient SWIGLU", m.grad());
-ag::opti.SGD(w, 0.01);
+flow::opti.SGD(w, 0.01);
     for(int i=0;i<10;i++){
         forward(w);
         backward(w);
                 
-        opti.epoch();
+        flow::opti.epoch();
     }
 
 
@@ -784,12 +785,12 @@ void test_rmsnorm( int H, int B, int S, int D)
     backward(w);
     ag::debug::print_tensor("Result Gradient RMSNorm", m.grad());
 ag::debug::print_tensor("Result Gradient1 RMSNorm", w.node->inputs[1]->grad.to_cpu().to_cpu());
-ag::opti.SGD(w, 0.01);
+flow::opti.SGD(w, 0.01);
     for(int i=0;i<2;i++){
         forward(w);
         backward(w);
                 
-        opti.epoch();
+        flow::opti.epoch();
     }
 }
 
@@ -807,12 +808,12 @@ void test_laynorm( int H, int B, int S, int D)
     ag::debug::print_tensor("Result Value Layer Norm", w.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient Layer Norm", m.grad());
-ag::opti.SGD(w, 0.01);
+flow::opti.SGD(w, 0.01);
     // for(int i=0;i<10;i++){
     //     forward(w);
     //     backward(w);
     //             
-       opti.epoch();
+       flow::opti.epoch();
     // }
 ag::debug::print_tensor("Result Gradient Gamma Layer Norm", w.node->inputs[1]->grad.to_cpu());
 ag::debug::print_tensor("Result Gradient Beta Layer Norm", w.node->inputs[2]->grad.to_cpu());
@@ -833,12 +834,12 @@ void test_dyntanh( int H, int B, int S, int D)
     ag::debug::print_tensor("Result Value DynTanh", w.val());
     backward(w);
     ag::debug::print_tensor("Result Gradient DynTanh", m.grad());
-ag::opti.SGD(w, 0.01);
+flow::opti.SGD(w, 0.01);
     // for(int i=0;i<10;i++){
     //     forward(w);
     //     backward(w);
     //             
-      opti.epoch();
+      flow::opti.epoch();
     // }
 ag::debug::print_tensor("Result Gradient Alpha DynTanh", w.node->inputs[1]->grad.to_cpu());
 ag::debug::print_tensor("Result Gradient Gamma DynTanh", w.node->inputs[3]->grad.to_cpu());
@@ -864,12 +865,12 @@ void test_cewithlogits( int H, int B, int S, int D)
     backward(w);
     ag::debug::print_tensor("Result Input Gradient CE With Logits", m.grad());
     ag::debug::print_tensor("Result Target Gradient CE With Logits", target.grad());
-ag::opti.SGD(w, 0.01);
+flow::opti.SGD(w, 0.01);
     // for(int i=0;i<10;i++){
     //     forward(w);
     //     backward(w);
     //             
-       opti.epoch();
+       flow::opti.epoch();
     // }
 // ag::debug::print_tensor("Result Gradient Gamma Layer Norm", w.node->inputs[1]->grad.to_cpu());
 // ag::debug::print_tensor("Result Gradient Beta Layer Norm", w.node->inputs[2]->grad.to_cpu());
