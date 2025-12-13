@@ -147,10 +147,11 @@ if(true) # or use if(AG_BUILD_TESTS)
   
   # CPU Tests
   # add_arch_test(test_layalib     tests/test_layalib.cpp)
+ add_arch_test(test_opin       tests/test_opin.cpp)
   add_arch_test(test_aliop       tests/test_aliop.cpp)
   add_arch_test(test_eh       tests/test_eh.cpp)
   add_arch_test(test_neh       tests/test_neh.cpp)
-#  add_arch_test(test_keretu       tests/test_keretu.cpp)
+ add_arch_test(test_keretu       tests/test_keretu.cpp)
  add_arch_test(test_aligen       tests/test_aligen.cpp)
 #  add_arch_test(test_alimass       tests/test_alimass.cpp) WORKING MASSIVE LAYER!!!!!!
   # add_arch_test(test_layer       tests/test_layer.cpp)

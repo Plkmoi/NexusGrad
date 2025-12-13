@@ -132,7 +132,7 @@ Value Y = make_tensor(Y_gpu_init, "Y_target");
 // ---- Build the graph one time ----
 Value logits = model(X);
 Value loss = cross_entropy_with_logits(logits, Y);
-flow::opti.SGDm(loss, lr);
+flow::opti.SGD(loss, lr);
 
 // ---- Capture the complete graph ----
 zero_val(loss);  // clears activations AFTER graph construction

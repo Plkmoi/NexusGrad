@@ -4,6 +4,7 @@
 
 #pragma once
 #include "ad/ag_all.hpp"  
+#include "ad/detail/autodiff_ops.hpp" 
 
 using namespace ag;
 

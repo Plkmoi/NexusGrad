@@ -8,6 +8,7 @@
 #include "norm.hpp"
 #include "loss.hpp"
 #include "embed.hpp"
+#include "opinse.hpp"
 #include "tokenus.hpp"
 #include "ops/optim.hpp"
 #include "tokeni.hpp"
