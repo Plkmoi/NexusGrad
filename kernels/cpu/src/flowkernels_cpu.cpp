@@ -2,7 +2,7 @@
 // kernels/cpu/src/agkernels_cpu.cpp
 // =============================================
 
-#include "ad/kernels_api.hpp"
+#include "kernels/kernels.hpp"
 #include <cstdint>
 #include <cmath>
 // Headers for CPU intrinsics (AVX/FMA) and OpenMP
@@ -1094,9 +1094,9 @@ void linear_db_impl_optimized(const float* dY, float* db, int B, int Out) {
 }
 // ---------------- required export ----------------
 // This part exports the new optimized functions.
-AG_EXPORT int ag_get_cpu_kernels_v1(struct ag_cpu_v1* out){
+FLOW_EXPORT int flow_get_cpu_kernels_v1(struct flow_cpu_v1* out){
   if (!out) return -1;
-    out->abi_version = AG_KERNELS_ABI_V1;
+    out->abi_version = FLOW_KERNELS_ABI_V1;
     out->relu   = &relu_impl_optimized;
     out->matmul = &matmul_impl_optimized;
     // out->fmab = &gemm_impl_optimized;

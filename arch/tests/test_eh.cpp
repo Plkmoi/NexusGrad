@@ -63,7 +63,7 @@ void check_tensors_close(const Tensor& a, const Tensor& b, const std::string& la
 
 void test_att( int Ha, int Ba, int Sa, int Da)
 {
-        auto& K = kernels::cuda();
+        auto& K = kernel::cuda();
     auto cpu_opts = TensorOptions().with_device(Device::CPU);
     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
 
@@ -890,15 +890,15 @@ int main(){
 // test_aliatt(8, 16, 2048, 1024);
 // try {
 //         #if defined(_WIN32)
-//             const char* plugin_path = "./agkernels_cuda.dll";
+//             const char* plugin_path = "./agkernel_cuda.dll";
 //         #elif defined(__APPLE__)
-//             const char* plugin_path = "./libagkernels_cuda.dylib";
+//             const char* plugin_path = "./libagkernel_cuda.dylib";
 //         #else
-//             const char* plugin_path = "/home/blubridge-034/Downloads/Newf/cgadimpl/cgadimpl/build/libagkernels_cuda.so";
+//             const char* plugin_path = "/home/blubridge-034/Downloads/Newf/cgadimpl/cgadimpl/build/libagkernel_cuda.so";
 //         #endif
 
 //         std::cout << "Loading GPU plugin from: " << plugin_path << "\n";
-//         kernels::load_cuda_plugin(plugin_path);
+//         kernel::load_cuda_plugin(plugin_path);
 
 
 test_parcon(2, 4, 2, 4);

@@ -2,11 +2,11 @@
 # kernels/CMakeLists.txt
 # ================================
 cmake_minimum_required(VERSION 3.20)
-project(agkernels LANGUAGES CXX)
+project(flowkernels LANGUAGES CXX)
 
-set(CGADIMPL_INCLUDE_DIR "/home/blubridge-034/Downloads/Newf/cgadimpl/cgadimpl/include" CACHE PATH "Path to cgadimpl/include (contains ad/kernels_api.hpp)")
-if(NOT CGADIMPL_INCLUDE_DIR)
-  message(FATAL_ERROR "Set -DCGADIMPL_INCLUDE_DIR=/abs/path/to/cgadimpl/include")
+set(ARCH_INCLUDE_DIR "/home/blubridge-034/Downloads/Newf/cgadimpl/arch/include" CACHE PATH "Path to arch/include (contains kernels/kernels.hpp)")
+if(NOT ARCH_INCLUDE_DIR)
+  message(FATAL_ERROR "Set -DARCH_INCLUDE_DIR=/abs/path/to/arch/include")
 endif()
 
 add_subdirectory(cpu)

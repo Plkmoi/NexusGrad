@@ -3,7 +3,7 @@
 // ====================================================================
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
-#include "ad/kernels_api.hpp"
+#include "kernels/kernels.hpp"
 #include <cstdio>
 #include <assert.h>
 #include <iostream>

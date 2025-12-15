@@ -1,0 +1,253 @@
+// ============================================
+// cgadimpl/src/kernel_stuff/kernels_loader.cpp
+// ============================================
+#include "kernels/kernels.hpp"
+#include <stdexcept>
+#include <string>
+#include <cstdlib>   // <<< add this for std::getenv
+
+#if defined(_WIN32)
+  #include <windows.h>
+  static void* flow_dlopen(const char* p){ return (void*)LoadLibraryA(p); }
+  static void* flow_dlsym(void* h, const char* s){ return (void*)GetProcAddress((HMODULE)h, s); }
+  static const char* flow_dlerr(){ return "LoadLibrary/GetProcAddress failed"; }
+#else
+  #include <dlfcn.h>
+  static void* flow_dlopen(const char* p){ return dlopen(p, RTLD_NOW); }
+  static void* flow_dlsym(void* h, const char* s){ return dlsym(h, s); }
+  static const char* flow_dlerr(){ return dlerror(); }
+#endif
+
+namespace flow::kernel {
+
+static Cpu g_cpu;
+Cpu& cpu(){ return g_cpu; }
+
+static Cuda g_cuda;
+Cuda& cuda(){ return g_cuda; }
+
+void load_cpu_plugin(const char* path) {
+  if (!path) throw std::runtime_error("load_cpu_plugin: null path");
+
+  void* handle = flow_dlopen(path);
+  if (!handle) throw std::runtime_error(std::string("dlopen failed: ") + flow_dlerr());
+
+  using getter_t = int(*)(flow_cpu_v1*);
+  auto sym = (getter_t)flow_dlsym(handle, "flow_get_cpu_kernels_v1");
+  if (!sym) throw std::runtime_error("symbol flow_get_cpu_kernels_v1 not found");
+
+  flow_cpu_v1 table{};
+  if (sym(&table) != 0 || table.abi_version != FLOW_KERNELS_ABI_V1) {
+    throw std::runtime_error("CPU kernels ABI mismatch or plugin init failed");
+  }
+
+  g_cpu.relu   = table.relu;
+  g_cpu.matmul = table.matmul;
+  g_cpu.gelu   = table.gelu;  
+  g_cpu.leakyrelu = table.leakyrelu;
+  g_cpu.sigmoid   = table.sigmoid;
+  g_cpu.tanh      = table.tanh;
+  g_cpu.softplus   = table.softplus;
+  g_cpu.exp       = table.exp;
+  g_cpu.log       = table.log;
+  g_cpu.sqrt      = table.sqrt;
+  g_cpu.pow       = table.pow;
+  g_cpu.linear    = table.linear;
+
+  g_cpu.relu_bwd          = table.relu_bwd;
+  g_cpu.leakyrelu_bwd    = table.leakyrelu_bwd;
+  g_cpu.sigmoid_bwd_from_s = table.sigmoid_bwd_from_s;
+  g_cpu.tanh_bwd_from_t    = table.tanh_bwd_from_t;
+  g_cpu.gelu_bwd          = table.gelu_bwd;
+  g_cpu.softplus_bwd      = table.softplus_bwd;
+  g_cpu.exp_bwd_from_y    = table.exp_bwd_from_y;
+  g_cpu.log_bwd          = table.log_bwd;
+  g_cpu.sqrt_bwd_from_y   = table.sqrt_bwd_from_y;
+
+  g_cpu.matmul_bwd_dA = table.matmul_bwd_dA;
+ g_cpu.matmul_bwd_dB = table.matmul_bwd_dB;
+  g_cpu.linear_dW     = table.linear_dW;
+  g_cpu.linear_dX     = table.linear_dX;
+  g_cpu.linear_db     = table.linear_db;
+
+}
+
+void load_cuda_plugin(const char* path) {
+  if (!path) throw std::runtime_error("load_cuda_plugin: null path");
+  void* handle = flow_dlopen(path);
+  if (!handle) throw std::runtime_error(std::string("dlopen failed: ") + flow_dlerr());
+
+  using getter_t = int(*)(flow_cuda_v1*);
+  auto sym = (getter_t)flow_dlsym(handle, "flow_get_cuda_kernels_v1");
+  if (!sym) throw std::runtime_error("symbol flow_get_cuda_kernels_v1 not found");
+
+  flow_cuda_v1 table{};
+  if (sym(&table) != 0 || table.abi_version != FLOW_KERNELS_ABI_V1) {
+    throw std::runtime_error("CUDA kernels ABI mismatch or plugin init failed");
+  }
+  // ========================================================
+  // Forward kernel assignments
+  // ========================================================
+  g_cuda.add          = table.add;
+  g_cuda.sub          = table.sub;
+  g_cuda.hadmul          = table.hadmul;
+  g_cuda.div          = table.div;
+  g_cuda.pow          = table.pow;
+  g_cuda.square       = table.square;
+  g_cuda.neg          = table.neg;
+  g_cuda.clip         = table.clip;
+
+  g_cuda.relu         = table.relu;
+  g_cuda.leaky_relu   = table.leaky_relu;
+  g_cuda.gelu         = table.gelu;
+  g_cuda.silu         = table.silu;
+  g_cuda.mish         = table.mish;
+  g_cuda.tanh         = table.tanh;
+  g_cuda.sigmoid      = table.sigmoid;
+  g_cuda.optim = table.optim;
+  g_cuda.hard_sigmoid = table.hard_sigmoid;
+  g_cuda.hard_swish   = table.hard_swish;
+  g_cuda.exp          = table.exp;
+  g_cuda.relumask = table.relumask;
+  g_cuda.log       = table.log;
+  g_cuda.softplus      = table.softplus;
+  g_cuda.dyntanh = table.dyntanh;
+
+  g_cuda.zero         = table.zero;
+  g_cuda.matmul       = table.matmul;
+  g_cuda.gemm       = table.gemm;
+  g_cuda.linear       = table.linear;
+  g_cuda.flash = table.flash;
+  g_cuda.flashali = table.flashali;
+  g_cuda.reluflash      = table.reluflash;
+  g_cuda.sigflash       = table.sigflash;
+  g_cuda.flexflash       = table.flexflash;
+  g_cuda.sum = table.sum;
+  g_cuda.mseloss       = table.mseloss;
+  g_cuda.maeloss       = table.maeloss;
+  g_cuda.rowsum = table.rowsum;
+  g_cuda.rowmax = table.rowmax;
+  g_cuda.sin           = table.sin;
+  g_cuda.cos           = table.cos;
+  g_cuda.sinh           = table.sinh;
+  g_cuda.cosh          = table.cosh;
+  g_cuda.sign           = table.sign;
+  g_cuda.softmax           = table.softmax;
+  g_cuda.logsumexp           = table.logsumexp;
+  g_cuda.cewithlogits           = table.cewithlogits;
+  g_cuda.kldivergence           = table.kldivergence;
+  // Custom elementwise ops (forward)
+  g_cuda.gcu = table.gcu;
+  g_cuda.gauss = table.gauss;
+  g_cuda.parcon = table.parcon;
+  g_cuda.lisht = table.lisht;
+  g_cuda.reci = table.reci;
+  g_cuda.swiglu = table.swiglu;
+  g_cuda.sqrt = table.sqrt;
+
+  // Basic ops VJPs
+  g_cuda.vjp_add    = table.vjp_add;
+  g_cuda.vjp_sub    = table.vjp_sub;
+  g_cuda.vjp_hadmul    = table.vjp_hadmul;    // Hadamard multiplication VJP
+  g_cuda.vjp_div    = table.vjp_div;    // Element-wise division VJP
+  g_cuda.vjp_matmul = table.vjp_matmul;
+  g_cuda.vjp_relu   = table.vjp_relu;
+  g_cuda.vjp_tanh   = table.vjp_tanh;
+  g_cuda.vjp_gemm   = table.vjp_gemm;
+  g_cuda.vjp_linear = table.vjp_linear;
+
+  // Arithmetic ops VJPs
+  g_cuda.vjp_pow    = table.vjp_pow;
+  g_cuda.vjp_square = table.vjp_square;
+  g_cuda.vjp_neg    = table.vjp_neg;
+  g_cuda.vjp_clip   = table.vjp_clip;
+
+  // Activation functions VJPs
+  g_cuda.vjp_leaky_relu   = table.vjp_leaky_relu;
+  g_cuda.vjp_sigmoid      = table.vjp_sigmoid;
+  g_cuda.vjp_silu        = table.vjp_silu;
+  g_cuda.vjp_gelu        = table.vjp_gelu;
+  g_cuda.vjp_mish        = table.vjp_mish;
+  g_cuda.vjp_exp         = table.vjp_exp;
+  g_cuda.vjp_hard_sigmoid = table.vjp_hard_sigmoid;
+  g_cuda.vjp_hard_swish  = table.vjp_hard_swish;
+  g_cuda.vjp_sofba       = table.vjp_sofba;
+  g_cuda.vjp_log        = table.vjp_log;
+  g_cuda.vjp_mseloss        = table.vjp_mseloss;
+  g_cuda.vjp_sum = table.vjp_sum;
+  g_cuda.vjp_maeloss        = table.vjp_maeloss;
+  g_cuda.vjp_rowmax        = table.vjp_rowmax;
+  g_cuda.vjp_rowsum        = table.vjp_rowsum;
+  g_cuda.vjp_sin           = table.vjp_sin;
+  g_cuda.vjp_cos           = table.vjp_cos;
+  g_cuda.vjp_sinh           = table.vjp_sinh;
+  g_cuda.vjp_cosh          = table.vjp_cosh;
+  g_cuda.vjp_softmax           = table.vjp_softmax;
+  // Custom elementwise VJPs
+  g_cuda.vjp_gcu = table.vjp_gcu;
+  g_cuda.vjp_gauss = table.vjp_gauss;
+  g_cuda.vjp_parcon = table.vjp_parcon;
+  g_cuda.vjp_lisht = table.vjp_lisht;
+  g_cuda.vjp_reci = table.vjp_reci;
+  g_cuda.vjp_sqrt = table.vjp_sqrt;
+
+}
+
+#ifndef FLOW_NO_AUTOLOAD_KERNELS
+static bool try_default_autoload_cpu() {
+  // Try a few common names in the current working dir
+  const char* cands[] = {
+#if defined(_WIN32)
+    "./flowkernels_cpu.dll"
+#elif defined(__APPLE__)
+    "./flowkernels_cpu.dylib"
+#else
+    "./libflowkernels_cpu.so"
+#endif
+  };
+  for (const char* p : cands) {
+    try { load_cpu_plugin(p); return true; } catch (...) {}
+  }
+  return false;
+}
+
+static bool try_default_autoload_cuda() {
+  const char* cands[] = {
+#if defined(_WIN32)
+    "./flowkernels_cuda.dll"
+#elif defined(__APPLE__)
+    "./flowkernels_cuda.dylib"
+#else
+    "./cgadimpl/build/libflowkernels_cuda.so"
+#endif
+  };
+  for (const char* p : cands) {
+    try { load_cuda_plugin(p); return true; } catch (...) {}
+  }
+  return false;
+}
+
+
+struct AutoLoader {
+  AutoLoader() {
+    // CPU: env var first, else default
+    if (!g_cpu.matmul && !g_cpu.relu) {
+      if (const char* p = std::getenv("FLOW_KERNELS_CPU_PATH")) {
+        try { load_cpu_plugin(p); } catch (...) {}
+      } else {
+        (void)try_default_autoload_cpu();
+      }
+    }
+    // CUDA: env var first, else default
+    if (!g_cuda.matmul && !g_cuda.relu) {
+      if (const char* p = std::getenv("FLOW_KERNELS_CUDA_PATH")) {
+        try { load_cuda_plugin(p); } catch (...) {}
+      } else {
+        (void)try_default_autoload_cuda();
+      }
+    }
+  }
+} _auto_loader;
+#endif
+
+} // namespace flow::kernels

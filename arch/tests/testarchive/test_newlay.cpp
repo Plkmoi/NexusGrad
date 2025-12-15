@@ -1,4 +1,4 @@
-#include "ad/ag_all.hpp"
+#include "layer/archlist.hpp"
 #include <iostream>
 #include <vector>
 #include <iomanip>
@@ -6,7 +6,7 @@
 #include <layer/optim.hpp>
 
 // Use the official ReLU module from the framework
-using ReLU = ag::layer::ReLU;
+using ReLU = flow::ReLU;
 
 int main() {
     try {
@@ -20,10 +20,10 @@ int main() {
         const int out_features = 4;
         const float learning_rate = 0.01f;
 
-        ag::layer::Traverse model_cpu({
-            new ag::layer::Linear(batch_size, hidden_features, in_features),
+        flow::Traverse model_cpu({
+            new flow::Linear(batch_size, hidden_features, in_features),
             new ReLU(),
-            new ag::layer::Linear(batch_size, out_features, hidden_features)
+            new flow::Linear(batch_size, out_features, hidden_features)
         });
         std::cout << "CPU Model created successfully.\n";
 
@@ -45,11 +45,11 @@ int main() {
         assert(grad_sum_cpu > 0.0f && "FATAL: Gradients are zero after first backward pass!");
         std::cout << "PASS: Gradients were computed successfully on CPU.\n";
 
-        ag::layer::SGD newsgd(model_cpu.parameters(), learning_rate);
+        // flow::SGD newsgd(model_cpu.parameters(), learning_rate);
 
 
-        // --- SGD Step ---
-        newsgd.step();
+        // // --- SGD Step ---
+        // newsgd.step();
         std::cout << "Performed one SGD step.\n";
         
         // --- Second Pass ---

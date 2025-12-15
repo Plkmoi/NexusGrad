@@ -1,10 +1,10 @@
 
 #include <iostream>
 
-#include "ad/ag_all.hpp"
+#include "layer/archlist.hpp"
 #include <optim.hpp>
 #include <iomanip>
-using namespace ag;
+using namespace flow;
 
 
 void test_aliatt( int Heads, int B, int S, int d_model, int K, int num_layers)
@@ -14,27 +14,27 @@ void test_aliatt( int Heads, int B, int S, int d_model, int K, int num_layers)
     // Tensor X = Tensor::randn(Shape({B, S, d_model}), TensorOptions().with_device(dev));
     // ag::debug::print_tensor("Input Alibi Attention", X);
     // auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));  
-    // std::vector<ag::layer::Layer*> layers;
+    // std::vector<flow::Layer*> layers;
     // layers.reserve(num_layers * 2 + 2);
 
     // // Build model layers
     // for (int i = 0; i < num_layers; ++i) {
-    //     layers.push_back(new ag::layer::ResidualBlock({
-    //         new ag::layer::RMSNorm(),
-    //         new ag::layer::AlibiAttention(B, S, d_model, Heads, dev)
+    //     layers.push_back(new flow::ResidualBlock({
+    //         new flow::RMSNorm(),
+    //         new flow::AlibiAttention(B, S, d_model, Heads, dev)
     //     }));
 
-    //     layers.push_back(new ag::layer::ResidualBlock({
-    //         new ag::layer::RMSNorm(),
-    //         new ag::layer::SWIGLU(B, S, d_model, K, dev)
-    //         // new ag::layer::Mish()
+    //     layers.push_back(new flow::ResidualBlock({
+    //         new flow::RMSNorm(),
+    //         new flow::SWIGLU(B, S, d_model, K, dev)
+    //         // new flow::Mish()
     //     }));
     // }
 
-    // layers.push_back(new ag::layer::RMSNorm());
-    // layers.push_back(new ag::layer::Linear(B, S, d_model, dev));
+    // layers.push_back(new flow::RMSNorm());
+    // layers.push_back(new flow::Linear(B, S, d_model, dev));
 
-    // ag::layer::Traverse modela(layers);
+    // flow::Traverse modela(layers);
 
     // std::cout << "Model created with " << modela.parameters().size()
     //           << " parameter tensors.\n\n";
@@ -92,7 +92,7 @@ Tensor d_cpu = Tensor::randn(Shape{{D, D}}, cpu_opts) * (0.002f / sqrtf(D));
 
     ag::debug::print_tensor("Input SWIGLU", noutam.val().to_cpu());
     // auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
-    // auto atten = ag::layer::Attention(B, S, D, H);
+    // auto atten = flow::Attention(B, S, D, H);
     // auto r = atten(m);
     auto in_features = S;
     auto batch = B;
@@ -196,7 +196,7 @@ zero_val(w);
 
         // e. Optimizer step: update all parameters using their gradients.
         // ag::SGD(w);
-        opti.epoch();
+        flow::opti.epoch();
 
         double current_loss = w.val().to_cpu().data<float>()[0];
         if (epoch == 0) initial_loss = current_loss;
@@ -221,27 +221,27 @@ void test_atte( int Heads, int B, int S, int d_model, int K, int num_layers)
     Tensor X = Tensor::randn(Shape({B, S, d_model}), TensorOptions().with_device(dev));
     ag::debug::print_tensor("Input Attention", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));  
-    std::vector<ag::layer::Layer*> layers;
+    std::vector<flow::Layer*> layers;
     layers.reserve(num_layers * 2 + 2);
 
     // Build model layers
     for (int i = 0; i < num_layers; ++i) {
-        layers.push_back(new ag::layer::ResidualBlock({
-            new ag::layer::DynTanh(),
-            new ag::layer::Attention(B, S, d_model, Heads, dev)
+        layers.push_back(new flow::ResidualBlock({
+            new flow::DynTanh(),
+            new flow::Attention(B, S, d_model, Heads, dev)
         }));
 
-        layers.push_back(new ag::layer::ResidualBlock({
-            new ag::layer::DynTanh(),
-            new ag::layer::SWIGLU(B, S, d_model, K, dev)
-            // new ag::layer::Mish()
+        layers.push_back(new flow::ResidualBlock({
+            new flow::DynTanh(),
+            new flow::SWIGLU(B, S, d_model, K, dev)
+            // new flow::Mish()
         }));
     }
 
-    layers.push_back(new ag::layer::DynTanh());
-    layers.push_back(new ag::layer::Linear(B, S, d_model, dev));
+    layers.push_back(new flow::DynTanh());
+    layers.push_back(new flow::Linear(B, S, d_model, dev));
 
-    ag::layer::Traverse modela(layers);
+    flow::Traverse modela(layers);
 
     std::cout << "Model created with " << modela.parameters().size()
               << " parameter tensors.\n\n";
@@ -312,7 +312,7 @@ zero_val(w);
 
         // e. Optimizer step: update all parameters using their gradients.
         // ag::SGD(w);
-        opti.epoch();
+        flow::opti.epoch();
 
         double current_loss = w.val().to_cpu().data<float>()[0];
         if (epoch == 0) initial_loss = current_loss;
@@ -333,7 +333,7 @@ void test_att( int H, int B, int S, int D)
     Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
     ag::debug::print_tensor("Input Attention", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
-    // auto atten = ag::layer::Attention(B, S, D, H);
+    // auto atten = flow::Attention(B, S, D, H);
     // auto r = atten(m);
     auto in_features = S;
     auto batch = B;
@@ -362,7 +362,7 @@ void test_att( int H, int B, int S, int D)
         forward(w);
         backward(w);
         
-        opti.epoch();
+        flow::opti.epoch();
     }
 
 

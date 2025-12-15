@@ -3,7 +3,7 @@
 // ====================================================================
 #include <cuda_runtime.h>
 #include <cstdint>
-#include "ad/kernels_api.hpp"
+#include "kernels/kernels.hpp"
 #include <cfloat>
 #include <cstdio>
 

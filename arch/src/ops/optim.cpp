@@ -64,6 +64,33 @@ void Optimizer::SGDm(const Value& root, float learning_rate, float momen) { // C
 
 
 }
+
+
+
+void Optimizer::SGDn(const Value& root, float learning_rate, float momen) { // Changed to float for consistency
+    topovel_from(root.node.get());
+    this->epoch = [this, learning_rate, momen]()  {
+    
+        for (auto ww = velsto.begin(); ww
+         != velsto.end(); ww++) 
+    {
+        //  std::cout<<"I am here";
+
+        if (ww->first->op == Op::Leaf && ww->first->requires_grad()) {
+            
+            // *(ww->second) = momen*(*(ww->second)) +learning_rate * ww->first->grad;
+            ww->first->value = ww->first->value - (momen*(*(ww->second))) + ((1.0f+momen) *(   (momen*(*(ww->second))) -(learning_rate * ww->first->grad)) );
+           *(ww->second) =   (   (momen*(*(ww->second))) -(learning_rate * ww->first->grad)) ;
+            // std::cout<<"I am here";
+            
+        }
+    }
+    };
+
+
+}
+
+
 Optimizer opti; 
 
 } // namespace ag

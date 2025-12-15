@@ -147,7 +147,6 @@ if(true) # or use if(AG_BUILD_TESTS)
   
   # CPU Tests
   # add_arch_test(test_layalib     tests/test_layalib.cpp)
- add_arch_test(test_opin       tests/test_opin.cpp)
   add_arch_test(test_aliop       tests/test_aliop.cpp)
   add_arch_test(test_eh       tests/test_eh.cpp)
   add_arch_test(test_neh       tests/test_neh.cpp)

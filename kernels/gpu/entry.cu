@@ -1,7 +1,7 @@
 // ==================================
 // FILE: kernels/gpu/entry.cu
 // ==================================
-#include "ad/kernels_api.hpp"
+#include "kernels/kernels.hpp"
 #include <cstdint>
 
 
@@ -130,10 +130,10 @@ extern void optim_cuda(float* , const float* , const float , int64_t , ag_cuda_s
 // ============================================================
 // Registration
 // ============================================================
-extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
+extern "C" FLOW_EXPORT int flow_get_cuda_kernels_v1(flow_cuda_v1* out) {
   if (!out) return -1;
 
-  out->abi_version = AG_KERNELS_ABI_V1;
+  out->abi_version = FLOW_KERNELS_ABI_V1;
 
   // ========================================================
   // Forward

@@ -1,7 +1,7 @@
 // kernels/gpu/eltwise.cu
 #include <cuda_runtime.h>
 #include <cstdint>
-#include "ad/kernels_api.hpp"
+#include "kernels/kernels.hpp"
 #include <math_constants.h>
 #include <cstdio>
 #include <cfloat>

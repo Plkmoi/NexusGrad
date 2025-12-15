@@ -157,7 +157,7 @@ std::shared_ptr<Node> matmul_nodeops(const std::shared_ptr<Node>& a, const std::
 std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d, int H){
 // Move ALL computation to target device upfront
 
-auto& K = kernels::cuda();
+auto& K = kernel::cuda();
     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
 
 
