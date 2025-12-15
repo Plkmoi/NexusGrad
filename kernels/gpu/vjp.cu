@@ -374,7 +374,7 @@ void vjp_gauss_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cu
 __global__ void k_vjp_parcon_accum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) {
-    atomicAdd(&gX[i], gy[i] * 2.f* (1-X[i]));
+    atomicAdd(&gX[i], gy[i] * (2.f-2.f*X[i]));
   }
 }
 void vjp_parcon_cuda(float* gX, const float* X, const float* gy, int64_t n, ag_cuda_stream_t s) {

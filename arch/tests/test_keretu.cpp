@@ -6,6 +6,8 @@
 #include <stdexcept>
 #include <string>
 #include <cuda_runtime.h>
+#include <chrono>
+
 
 // Use the correct namespaces as defined in your project
 using namespace OwnTensor;
@@ -26,7 +28,7 @@ void check_tensors_close(const Tensor& a, const Tensor& b, const std::string& la
 
     for (size_t i = 0; i < a.numel(); ++i) {
         if (std::abs(a_data[i] - b_data[i]) > epsilon || std::isnan(a_data[i]) || std::isnan(b_data[i])) {
-            std::cout << "FAIL: " << label << " mismatch at index " << i << "\n";
+       //     std::cout << "FAIL: " << label << " mismatch at index " << i << "\n";
 
             q=1;
             w=w+std::abs(a_data[i] - b_data[i]);
@@ -49,7 +51,7 @@ void check_tensors_close(const Tensor& a, const Tensor& b, const std::string& la
 }
 
 // --- Test Functions ---
-void test_gpu_unified_add() {
+void test_gpu_unified_add(auto m) {
     auto& K = kernels::cuda();
     auto cpu_opts = TensorOptions().with_device(Device::CPU);
     auto gpu_opts = TensorOptions().with_device(DeviceIndex(Device::CUDA));
@@ -106,7 +108,7 @@ void test_gpu_unified_add() {
 
 
 
-void test_gpu_unified_linear() {
+void test_gpu_unified_linear(auto m) {
     auto& K = kernels::cuda();
     auto cpu_opts = TensorOptions().with_device(Device::CPU);
     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
@@ -181,7 +183,7 @@ void test_gpu_unified_linear() {
     check_tensors_close(gc_ref, gc_out, "test_gpu_vjp_linear (gC)");
 }
 
-void test_gpu_unified_matmul() {
+void test_gpu_unified_matmul(auto m) {
     auto& K = kernels::cuda();
     auto cpu_opts = TensorOptions().with_device(Device::CPU);
     auto gpu_opts = TensorOptions().with_device(DeviceIndex(Device::CUDA));
@@ -243,7 +245,7 @@ void test_gpu_unified_matmul() {
 // Assumes the following symbols/types exist in your codebase: Tensor, TensorOptions, Device, Shape,
 // OwnTensor (or Tensor::matmul equivalent), kernels::cuda(), options(), check_tensors_close(), cudaDeviceSynchronize().
 
-void test_gpu_unified_fmab() {
+void test_gpu_unified_fmab(auto m) {
     auto& K = kernels::cuda();
     auto cpu_opts = TensorOptions().with_device(Device::CPU);
     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
@@ -354,8 +356,12 @@ void test_gpu_unified_attention() {
     auto Ka = ag::Value(std::make_shared<ag::Node>(c_cpu.to(gpu_opts.device), ag::Op::Leaf, true, "X"));
     auto V = ag::Value(std::make_shared<ag::Node>(d_cpu.to(gpu_opts.device), ag::Op::Leaf, true, "X"));
 
-     
+    auto start = std::chrono::steady_clock::now();
+
         auto outam = attention(z, Q, Ka, V, H);
+        auto end = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_double = end - start;
+    std::cout << "Time taken (double seconds): " << duration_sec_double.count() << " s\n";
     // Tensor out_gpu(ref.shape(), options(ref).with_device(gpu_opts.device));
 
     // // flash attention call (standard softmax)
@@ -538,8 +544,12 @@ Tensor bias_cpu(
     auto Q = ag::Value(std::make_shared<ag::Node>(b_cpu.to(gpu_opts.device), ag::Op::Leaf, true, "X"));
     auto Ka = ag::Value(std::make_shared<ag::Node>(c_cpu.to(gpu_opts.device), ag::Op::Leaf, true, "X"));
     auto V = ag::Value(std::make_shared<ag::Node>(d_cpu.to(gpu_opts.device), ag::Op::Leaf, true, "X"));
+            auto start = std::chrono::steady_clock::now();
 
         auto outam = alibiatt(z, Q, Ka, V, H);
+            auto end = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_double = end - start;
+    std::cout << "Time taken (double seconds): " << duration_sec_double.count() << " s\n";
     // Tensor out_gpu(ref.shape(), options(ref).with_device(gpu_opts.device));
 
     // // flash attention call (standard softmax)
@@ -624,7 +634,7 @@ Tensor bias_cpu(
 
 }
 
-// void test_gpu_unified_reluattention() {
+// void test_gpu_unified_reluattention(auto m) {
 //     auto& K = kernels::cuda();
 //     auto cpu_opts = TensorOptions().with_device(Device::CPU);
 //     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
@@ -659,7 +669,7 @@ Tensor bias_cpu(
 //     check_tensors_close(ref, out_gpu.to_cpu(), "test_gpu_reluattention");
 // }
 
-// void test_gpu_unified_flexattention() {
+// void test_gpu_unified_flexattention(auto m) {
 //     auto& K = kernels::cuda();
 //     auto cpu_opts = TensorOptions().with_device(Device::CPU);
 //     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
@@ -698,7 +708,7 @@ Tensor bias_cpu(
 //     check_tensors_close(ref, out_gpu.to_cpu(), "test_gpu_flexattention", 3.0);
 // }
 
-// void test_gpu_unified_sigattention() {
+// void test_gpu_unified_sigattention(auto m) {
 //     auto& K = kernels::cuda();
 //     auto cpu_opts = TensorOptions().with_device(Device::CPU);
 //     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
@@ -733,13 +743,13 @@ Tensor bias_cpu(
 //     check_tensors_close(ref, out_gpu.to_cpu(), "test_gpu_sigattention", 4.0);
 // }
 
-void test_gpu_unified_sub() {
+void test_gpu_unified_sub(auto m) {
     auto& K = kernels::cuda();
     auto cpu_opts = TensorOptions().with_device(Device::CPU);
     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
 
-    Tensor a_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
-    Tensor b_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
+    Tensor a_cpu = Tensor::randn(m, cpu_opts);
+    Tensor b_cpu = Tensor::randn(m, cpu_opts);
     Tensor ref = a_cpu - b_cpu;
 
     // Move to GPU (reshape to match op expectations)
@@ -754,7 +764,7 @@ void test_gpu_unified_sub() {
     check_tensors_close(ref, c_gpu.to_cpu(), "test_gpu_sub");
 
     // Backward (vjp_sub)
-    Tensor gy_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
+    Tensor gy_cpu = Tensor::randn(m, cpu_opts);
     Tensor ga_ref = gy_cpu;
     Tensor gb_ref = -1.0f*gy_cpu;
 
@@ -769,13 +779,13 @@ void test_gpu_unified_sub() {
     check_tensors_close(gb_ref, gb_gpu.to_cpu(), "test_gpu_vjp_sub (gB)");
 }
 
-void test_gpu_unified_hadmul() {
+void test_gpu_unified_hadmul(auto m) {
     auto& K = kernels::cuda();
     auto cpu_opts = TensorOptions().with_device(Device::CPU);
     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
 
-    Tensor a_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
-    Tensor b_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
+    Tensor a_cpu = Tensor::randn(m, cpu_opts);
+    Tensor b_cpu = Tensor::randn(m, cpu_opts);
     Tensor ref = a_cpu * b_cpu;
 
     Tensor a_gpu = a_cpu.to(gpu_opts.device);
@@ -788,7 +798,7 @@ void test_gpu_unified_hadmul() {
     check_tensors_close(ref, c_gpu.to_cpu(), "test_gpu_hadmul");
 
     // Backward
-    Tensor gy_cpu = Tensor::ones(Shape{{11,11}}, cpu_opts);
+    Tensor gy_cpu = Tensor::ones(m, cpu_opts);
     Tensor ga_ref = b_cpu;
     Tensor gb_ref = a_cpu;
 
@@ -804,13 +814,13 @@ void test_gpu_unified_hadmul() {
     check_tensors_close(gb_ref, gb_gpu.to_cpu(), "test_gpu_vjp_hadmul (gB)");
 }
 
-void test_gpu_unified_div() {
+void test_gpu_unified_div(auto m) {
     auto& K = kernels::cuda();
     auto cpu_opts = TensorOptions().with_device(Device::CPU);
     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
 
-    Tensor a_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
-    Tensor b_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
+    Tensor a_cpu = Tensor::randn(m, cpu_opts);
+    Tensor b_cpu = Tensor::randn(m, cpu_opts);
     Tensor ref = a_cpu / b_cpu;
 
 
@@ -824,7 +834,7 @@ void test_gpu_unified_div() {
     check_tensors_close(ref, c_gpu.to_cpu(), "test_gpu_div");
 
     // Backward
-    Tensor gy_cpu = Tensor::ones(Shape{{11,11}}, cpu_opts);
+    Tensor gy_cpu = Tensor::ones(m, cpu_opts);
     Tensor ga_ref = (1.0f / b_cpu) * gy_cpu;
     Tensor gb_ref = (a_cpu * (-1.0f / (b_cpu * b_cpu))) * gy_cpu;
 
@@ -840,12 +850,12 @@ void test_gpu_unified_div() {
     check_tensors_close(gb_ref, gb_gpu.to_cpu(), "test_gpu_vjp_div (gB)", 0.1);
 }
 
-void test_gpu_unified_sigmoid() {
+void test_gpu_unified_sigmoid(auto m) {
     auto& K = kernels::cuda();
     auto cpu_opts = TensorOptions().with_device(Device::CPU);
     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
 
-    Tensor x_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
+    Tensor x_cpu = Tensor::randn(m, cpu_opts);
     Tensor ref = 1.0f / (1.0f + OwnTensor::exp(x_cpu * -1.0f));
 
     
@@ -858,7 +868,7 @@ void test_gpu_unified_sigmoid() {
     check_tensors_close(ref, y_gpu.to_cpu(), "test_gpu_sigmoid");
 
     // Backward
-    Tensor gy_cpu = Tensor::ones(Shape{{11,11}}, cpu_opts);
+    Tensor gy_cpu = Tensor::ones(m, cpu_opts);
     Tensor ga_ref = gy_cpu * ref * (Tensor::ones(ref.shape(), TensorOptions()) - ref);
 
     Tensor gy_gpu = gy_cpu.to(gpu_opts.device);
@@ -870,43 +880,51 @@ void test_gpu_unified_sigmoid() {
     check_tensors_close(ga_ref, ga_gpu.to_cpu(), "test_gpu_vjp_sigmoid");
 }
 
-void test_gpu_unified_silu() {
+void test_gpu_unified_silu(auto m) {
     auto& K = kernels::cuda();
     auto cpu_opts = TensorOptions().with_device(Device::CPU);
     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
 
-    Tensor x_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
+    Tensor x_cpu = Tensor::randn(m, cpu_opts);
     
     Tensor s = 1.0f / (1.0f + OwnTensor::exp(x_cpu * -1.0f));
     Tensor ref = x_cpu * s;
 
     Tensor x_gpu = x_cpu.to(gpu_opts.device);
     Tensor y_gpu(ref.shape(), options(ref).with_device(gpu_opts.device));
+    auto start = std::chrono::steady_clock::now();
 
     K.silu(x_gpu.data<float>(), y_gpu.data<float>(), x_cpu.numel(), nullptr);
     cudaDeviceSynchronize();
+    auto end = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_double = end - start;
+    std::cout << "Time taken (double seconds): " << duration_sec_double.count() << " s\n";
 
     check_tensors_close(ref, y_gpu.to_cpu(), "test_gpu_silu");
 
     // Backward
-    Tensor gy_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
+    Tensor gy_cpu = Tensor::randn(m, cpu_opts);
     Tensor ga_ref = gy_cpu * (s + (x_cpu * s * (Tensor::ones(s.shape(), TensorOptions()) - s)));
 
     Tensor gy_gpu = gy_cpu.to(gpu_opts.device);
     Tensor ga_gpu = Tensor::zeros(x_cpu.shape(), TensorOptions()).to(gpu_opts.device);
+    auto starta = std::chrono::steady_clock::now();
 
     K.vjp_silu(ga_gpu.data<float>(), x_gpu.data<float>(), gy_gpu.data<float>(), x_cpu.numel(), nullptr);
     cudaDeviceSynchronize();
+    auto enda = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_doublea = enda - starta;
+    std::cout << "Time taken (double seconds): " << duration_sec_doublea.count() << " s\n";
 
     check_tensors_close(ga_ref, ga_gpu.to_cpu(), "test_gpu_vjp_silu");
 }
 
-void test_gpu_unified_mish() {
+void test_gpu_unified_mish(auto m) {
     auto& K = kernels::cuda();
     auto cpu_opts = TensorOptions().with_device(Device::CPU);
     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
 
-    Tensor x_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
+    Tensor x_cpu = Tensor::randn(m, cpu_opts);
     
     Tensor sp = OwnTensor::log(1.0f + OwnTensor::exp(x_cpu));
     Tensor t = OwnTensor::tanh(sp);
@@ -914,27 +932,35 @@ void test_gpu_unified_mish() {
 
     Tensor x_gpu = x_cpu.to(gpu_opts.device);
     Tensor y_gpu(ref.shape(), options(ref).with_device(gpu_opts.device));
+    auto start = std::chrono::steady_clock::now();
 
     K.mish(x_gpu.data<float>(), y_gpu.data<float>(), x_cpu.numel(), nullptr);
     cudaDeviceSynchronize();
+    auto end = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_double = end - start;
+    std::cout << "Time taken (double seconds): " << duration_sec_double.count() << " s\n";
 
     check_tensors_close(ref, y_gpu.to_cpu(), "test_gpu_mish");
 
     // Backward
-    Tensor gy_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
+    Tensor gy_cpu = Tensor::randn(m, cpu_opts);
     Tensor s = 1.0f / (1.0f + OwnTensor::exp(x_cpu * -1.0f));
     Tensor ga_ref = gy_cpu * (t + x_cpu * s * (Tensor::ones(t.shape(), TensorOptions()) - t * t));
 
     Tensor gy_gpu = gy_cpu.to(gpu_opts.device);
     Tensor ga_gpu = Tensor::zeros(x_cpu.shape(), TensorOptions()).to(gpu_opts.device);
+    auto starta = std::chrono::steady_clock::now();
 
     K.vjp_mish(ga_gpu.data<float>(), x_gpu.data<float>(), gy_gpu.data<float>(), x_cpu.numel(), nullptr);
     cudaDeviceSynchronize();
+    auto enda = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_doublea = enda - starta;
+    std::cout << "Time taken (double seconds): " << duration_sec_doublea.count() << " s\n";
 
     check_tensors_close(ga_ref, ga_gpu.to_cpu(), "test_gpu_vjp_mish");
 }
 
-void test_gpu_unified_sum() {
+void test_gpu_unified_sum(auto m) {
     auto& K = kernels::cuda();
     auto cpu_opts = TensorOptions().with_device(Device::CPU);
     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
@@ -963,13 +989,14 @@ void test_gpu_unified_sum() {
     check_tensors_close(ga_ref, ga_gpu.to_cpu(), "test_gpu_vjp_sum");
 }
 
-void test_gpu_unified_mseloss() {
+
+void test_gpu_unified_mseloss(auto m) {
     auto& K = kernels::cuda();
     auto cpu_opts = TensorOptions().with_device(Device::CPU);
     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
 
-    Tensor a_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
-    Tensor b_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
+    Tensor a_cpu = Tensor::randn(m, cpu_opts);
+    Tensor b_cpu = Tensor::randn(m, cpu_opts);
     Tensor ref = OwnTensor::reduce_mean((a_cpu-b_cpu) * (a_cpu-b_cpu));
 
     
@@ -978,9 +1005,13 @@ void test_gpu_unified_mseloss() {
     Tensor b_gpu = b_cpu.to(gpu_opts.device);
     Tensor out_gpu(ref.shape(), options(ref).with_device(gpu_opts.device));
     // allocate and zero on GPU happens via Tensor ctor
+    auto start = std::chrono::steady_clock::now();
 
     K.mseloss(a_gpu.data<float>(), b_gpu.data<float>(), out_gpu.data<float>(), a_cpu.numel(), nullptr);
     cudaDeviceSynchronize();
+    auto end = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_double = end - start;
+    std::cout << "Time taken (double seconds): " << duration_sec_double.count() << " s\n";
 
     check_tensors_close(ref, out_gpu.to_cpu(), "test_gpu_mseloss");
 
@@ -994,22 +1025,26 @@ void test_gpu_unified_mseloss() {
     Tensor gy_gpu = gy_cpu.to(gpu_opts.device);
     Tensor ga_gpu = Tensor::zeros(ga_ref.shape(), gpu_opts);
     Tensor gb_gpu = Tensor::zeros(gb_ref.shape(), gpu_opts);
+    auto starta = std::chrono::steady_clock::now();
 
     K.vjp_mseloss(ga_gpu.data<float>(), gb_gpu.data<float>(), gy_gpu.data<float>(),
                   a_gpu.data<float>(), b_gpu.data<float>(), a_cpu.numel(), nullptr);
     cudaDeviceSynchronize();
+    auto enda = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_doublea = enda - starta;
+    std::cout << "Time taken (double seconds): " << duration_sec_doublea.count() << " s\n";
 
     check_tensors_close(ga_ref, ga_gpu.to_cpu(), "test_gpu_vjp_mseloss (pred dA)");
     check_tensors_close(gb_ref, gb_gpu.to_cpu(), "test_gpu_vjp_mseloss (target gB)");
 }
 
-void test_gpu_unified_maeloss() {
+void test_gpu_unified_maeloss(auto m) {
     auto& K = kernels::cuda();
     auto cpu_opts = TensorOptions().with_device(Device::CPU);
     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
 
-    Tensor a_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
-    Tensor b_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
+    Tensor a_cpu = Tensor::randn(m, cpu_opts);
+    Tensor b_cpu = Tensor::randn(m, cpu_opts);
     Tensor ref = OwnTensor::reduce_mean(OwnTensor::abs(a_cpu - b_cpu, ag::current_stream()));
 
     
@@ -1017,9 +1052,13 @@ void test_gpu_unified_maeloss() {
     Tensor a_gpu = a_cpu.to(gpu_opts.device);
     Tensor b_gpu = b_cpu.to(gpu_opts.device);
     Tensor out_gpu(ref.shape(), options(ref).with_device(gpu_opts.device));
+    auto start = std::chrono::steady_clock::now();
 
     K.maeloss(a_gpu.data<float>(), b_gpu.data<float>(), out_gpu.data<float>(), a_cpu.numel(), nullptr);
     cudaDeviceSynchronize();
+    auto end = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_double = end - start;
+    std::cout << "Time taken (double seconds): " << duration_sec_double.count() << " s\n";
 
     check_tensors_close(ref, out_gpu.to_cpu(), "test_gpu_maeloss");
 
@@ -1033,16 +1072,20 @@ void test_gpu_unified_maeloss() {
     Tensor gy_gpu = gy_cpu.to(gpu_opts.device);
     Tensor ga_gpu = Tensor::zeros(ga_ref.shape(), gpu_opts);
     Tensor gb_gpu = Tensor::zeros(gb_ref.shape(), gpu_opts);
+    auto starta = std::chrono::steady_clock::now();
 
     K.vjp_maeloss(ga_gpu.data<float>(), gb_gpu.data<float>(), gy_gpu.data<float>(),
                   a_gpu.data<float>(), b_gpu.data<float>(), a_cpu.numel(), nullptr);
     cudaDeviceSynchronize();
+    auto enda = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_doublea = enda - starta;
+    std::cout << "Time taken (double seconds): " << duration_sec_doublea.count() << " s\n";
 
     check_tensors_close(ga_ref, ga_gpu.to_cpu(), "test_gpu_vjp_maeloss (pred dA)");
     check_tensors_close(gb_ref, gb_gpu.to_cpu(), "test_gpu_vjp_maeloss (target gB)");
 }
 
-// void test_gpu_unified_rowsum() {
+// void test_gpu_unified_rowsum(auto m) {
 //     auto& K = kernels::cuda();
 //     auto cpu_opts = TensorOptions().with_device(Device::CPU);
 //     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
@@ -1072,7 +1115,7 @@ void test_gpu_unified_maeloss() {
 //     check_tensors_close(ga_ref, ga_gpu.to_cpu(), "test_gpu_vjp_rowsum");
 // }
 
-// void test_gpu_unified_rowmax() {
+// void test_gpu_unified_rowmax(auto m) {
 //     auto& K = kernels::cuda();
 //     auto cpu_opts = TensorOptions().with_device(Device::CPU);
 //     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
@@ -1112,103 +1155,132 @@ void test_gpu_unified_maeloss() {
 //     check_tensors_close(ga_ref, ga_gpu.to_cpu(), "test_gpu_vjp_rowmax");
 // }
 
-void test_gpu_unified_gcu() {
+void test_gpu_unified_gcu(auto m) {
     auto& K = kernels::cuda();
     auto cpu_opts = TensorOptions().with_device(Device::CPU);
     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
 
-    Tensor a_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
+    Tensor a_cpu = Tensor::randn(m, cpu_opts);
     
     Tensor ref = a_cpu * OwnTensor::cos(a_cpu);
 
     Tensor a_gpu = a_cpu.to(gpu_opts.device);
     Tensor out_gpu(ref.shape(), options(ref).with_device(gpu_opts.device));
+    auto start = std::chrono::steady_clock::now();
 
     K.gcu(a_gpu.data<float>(), out_gpu.data<float>(), a_cpu.numel(), nullptr);
     cudaDeviceSynchronize();
+    auto end = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_double = end - start;
+    std::cout << "Time taken (double seconds): " << duration_sec_double.count() << " s\n";
 
     check_tensors_close(ref, out_gpu.to_cpu(), "test_gpu_gcu");
 
     // Backward
-    Tensor gy_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
+    Tensor gy_cpu = Tensor::randn(m, cpu_opts);
     Tensor ga_ref = gy_cpu * (OwnTensor::cos(a_cpu) - (a_cpu * OwnTensor::sin(a_cpu)));
 
     Tensor gy_gpu = gy_cpu.to(gpu_opts.device);
     Tensor ga_gpu = Tensor::zeros(a_cpu.shape(), TensorOptions()).to(gpu_opts.device);
 
+    auto starta = std::chrono::steady_clock::now();
+
     K.vjp_gcu(ga_gpu.data<float>(), a_gpu.data<float>(), gy_gpu.data<float>(), gy_cpu.numel(), nullptr);
     cudaDeviceSynchronize();
+    auto enda = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_doublea = enda - starta;
+    std::cout << "Time taken (double seconds): " << duration_sec_doublea.count() << " s\n";
 
     check_tensors_close(ga_ref, ga_gpu.to_cpu(), "test_gpu_vjp_gcu");
 }
 
-void test_gpu_unified_gauss() {
+void test_gpu_unified_gauss(auto m) {
     auto& K = kernels::cuda();
     auto cpu_opts = TensorOptions().with_device(Device::CPU);
     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
 
-    Tensor a_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
+    Tensor a_cpu = Tensor::randn(m, cpu_opts);
     
     Tensor ref = OwnTensor::exp(-1.0f*(a_cpu * a_cpu));
 
     Tensor a_gpu = a_cpu.to(gpu_opts.device);
     Tensor out_gpu(ref.shape(), options(ref).with_device(gpu_opts.device));
+    auto start = std::chrono::steady_clock::now();
 
     K.gauss(a_gpu.data<float>(), out_gpu.data<float>(), a_cpu.numel(), nullptr);
     cudaDeviceSynchronize();
 
+    auto end = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_double = end - start;
+    std::cout << "Time taken (double seconds): " << duration_sec_double.count() << " s\n";
+
     check_tensors_close(ref, out_gpu.to_cpu(), "test_gpu_gauss");
 
     // Backward
-    Tensor gy_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
+    Tensor gy_cpu = Tensor::randn(m, cpu_opts);
     Tensor ga_ref = gy_cpu * (-2.0f * a_cpu * OwnTensor::exp(-1.0f*a_cpu * a_cpu));
 
     Tensor gy_gpu = gy_cpu.to(gpu_opts.device);
     Tensor ga_gpu = Tensor::zeros(a_cpu.shape(), TensorOptions()).to(gpu_opts.device);
 
+    auto starta = std::chrono::steady_clock::now();
+
     K.vjp_gauss(ga_gpu.data<float>(), a_gpu.data<float>(), gy_gpu.data<float>(), gy_cpu.numel(), nullptr);
     cudaDeviceSynchronize();
+    auto enda = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_doublea = enda - starta;
+    std::cout << "Time taken (double seconds): " << duration_sec_doublea.count() << " s\n";
 
     check_tensors_close(ga_ref, ga_gpu.to_cpu(), "test_gpu_vjp_gauss");
 }
 
-void test_gpu_unified_parcon() {
+void test_gpu_unified_parcon(auto m) {
     auto& K = kernels::cuda();
     auto cpu_opts = TensorOptions().with_device(Device::CPU);
     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
 
-    Tensor a_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
+    Tensor a_cpu = Tensor::randn(m, cpu_opts);
     
     Tensor ref = a_cpu * (2.f * Tensor::ones(a_cpu.shape(), TensorOptions()) - a_cpu);
 
     Tensor a_gpu = a_cpu.to(gpu_opts.device);
     Tensor out_gpu(ref.shape(), options(ref).with_device(gpu_opts.device));
 
+    auto start = std::chrono::steady_clock::now();
+
     K.parcon(a_gpu.data<float>(), out_gpu.data<float>(), a_cpu.numel(), nullptr);
     cudaDeviceSynchronize();
+
+    auto end = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_double = end - start;
+    std::cout << "Time taken (double seconds): " << duration_sec_double.count() << " s\n";
 
     check_tensors_close(ref, out_gpu.to_cpu(), "test_gpu_parcon");
 
     // Backward
-    Tensor gy_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
+    Tensor gy_cpu = Tensor::randn(m, cpu_opts);
     Tensor ga_ref = gy_cpu * (2.0f * (Tensor::ones(a_cpu.shape(), TensorOptions()) - a_cpu));
 
     Tensor gy_gpu = gy_cpu.to(gpu_opts.device);
     Tensor ga_gpu = Tensor::zeros(a_cpu.shape(), TensorOptions()).to(gpu_opts.device);
+    auto starta = std::chrono::steady_clock::now();
 
     K.vjp_parcon(ga_gpu.data<float>(), a_gpu.data<float>(), gy_gpu.data<float>(), gy_cpu.numel(), nullptr);
     cudaDeviceSynchronize();
+        auto enda = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_doublea = enda - starta;
+    std::cout << "Time taken (double seconds): " << duration_sec_doublea.count() << " s\n";
 
     check_tensors_close(ga_ref, ga_gpu.to_cpu(), "test_gpu_vjp_parcon");
 }
 
 
-void test_gpu_unified_gelu() {
+void test_gpu_unified_gelu(auto m) {
     auto& K = kernels::cuda();
     auto cpu_opts = TensorOptions().with_device(Device::CPU);
     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
 
-    Tensor a_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
+    Tensor a_cpu = Tensor::randn(m, cpu_opts);
     
      float c1 = 0.7978845608f; // sqrt(2/pi)
      float c2 = 0.044715f;
@@ -1218,14 +1290,18 @@ void test_gpu_unified_gelu() {
 
     Tensor a_gpu = a_cpu.to(gpu_opts.device);
     Tensor out_gpu(ref.shape(), options(ref).with_device(gpu_opts.device));
+    auto start = std::chrono::steady_clock::now();
 
     K.gelu(a_gpu.data<float>(), out_gpu.data<float>(), a_cpu.numel(), nullptr);
     cudaDeviceSynchronize();
+    auto end = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_double = end - start;
+    std::cout << "Time taken (double seconds): " << duration_sec_double.count() << " s\n";
 
     check_tensors_close(ref, out_gpu.to_cpu(), "test_gpu_gelu");
 
     // Backward
-    Tensor gy_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
+    Tensor gy_cpu = Tensor::randn(m, cpu_opts);
         // Constants for the GELU approximation's derivative
 
 
@@ -1242,38 +1318,54 @@ void test_gpu_unified_gelu() {
         Tensor gy_gpu = gy_cpu.to(gpu_opts.device);
     Tensor ga_gpu = Tensor::zeros(a_cpu.shape(), TensorOptions()).to(gpu_opts.device);
 
+    auto starta = std::chrono::steady_clock::now();
+
     K.vjp_gelu(ga_gpu.data<float>(), a_gpu.data<float>(), gy_gpu.data<float>(), gy_cpu.numel(), nullptr);
     cudaDeviceSynchronize();
+    auto enda = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_doublea = enda - starta;
+    std::cout << "Time taken (double seconds): " << duration_sec_doublea.count() << " s\n";
 
     check_tensors_close(ga_ref, ga_gpu.to_cpu(), "test_gpu_vjp_gelu");
 }
 
-void test_gpu_unified_lisht() {
+void test_gpu_unified_lisht(auto m) {
     auto& K = kernels::cuda();
     auto cpu_opts = TensorOptions().with_device(Device::CPU);
     auto gpu_opts = TensorOptions().with_device(Device::CUDA);
 
-    Tensor a_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
+    Tensor a_cpu = Tensor::randn(m, cpu_opts);
     
     Tensor ref = a_cpu * OwnTensor::tanh(a_cpu);
 
     Tensor a_gpu = a_cpu.to(gpu_opts.device);
     Tensor out_gpu(ref.shape(), options(ref).with_device(gpu_opts.device));
 
+    auto start = std::chrono::steady_clock::now();
+
     K.lisht(a_gpu.data<float>(), out_gpu.data<float>(), a_cpu.numel(), nullptr);
     cudaDeviceSynchronize();
+    auto end = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_double = end - start;
+    std::cout << "Time taken (double seconds): " << duration_sec_double.count() << " s\n";
 
     check_tensors_close(ref, out_gpu.to_cpu(), "test_gpu_lisht");
 
     // Backward
-    Tensor gy_cpu = Tensor::randn(Shape{{11,11}}, cpu_opts);
+    Tensor gy_cpu = Tensor::randn(m, cpu_opts);
     Tensor ga_ref = gy_cpu * ( -1.0f* (a_cpu * (Tensor::ones(a_cpu.shape(), TensorOptions()) - OwnTensor::tanh(a_cpu) * OwnTensor::tanh(a_cpu)) + OwnTensor::tanh(a_cpu)) );
 
     Tensor gy_gpu = gy_cpu.to(gpu_opts.device);
     Tensor ga_gpu = Tensor::zeros(a_cpu.shape(), TensorOptions()).to(gpu_opts.device);
 
+    auto starta = std::chrono::steady_clock::now();
+
     K.vjp_lisht(ga_gpu.data<float>(), a_gpu.data<float>(), gy_gpu.data<float>(), gy_cpu.numel(), nullptr);
     cudaDeviceSynchronize();
+    cudaDeviceSynchronize();
+    auto enda = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_doublea = enda - starta;
+    std::cout << "Time taken (double seconds): " << duration_sec_doublea.count() << " s\n";
 
     check_tensors_close(ga_ref, ga_gpu.to_cpu(), "test_gpu_vjp_lisht");
 }
@@ -1294,23 +1386,23 @@ int main() {
     //     std::cout << "Loading GPU plugin from: " << plugin_path << "\n";
     //     kernels::load_cuda_plugin(plugin_path);
 
-        test_gpu_unified_add();
-        test_gpu_unified_matmul();
-        test_gpu_unified_linear();
-        test_gpu_unified_fmab();
-        test_gpu_unified_div();
-        test_gpu_unified_sub();
-        test_gpu_unified_hadmul();
-        test_gpu_unified_silu();
-        test_gpu_unified_mish();
-        test_gpu_unified_maeloss();
-        test_gpu_unified_mseloss();
-        test_gpu_unified_gcu();
-        test_gpu_unified_gauss();
-        test_gpu_unified_lisht();
-        test_gpu_unified_gelu();
-        test_gpu_unified_parcon();
-        test_gpu_unified_alibattention();
+        // test_gpu_unified_add();
+        // test_gpu_unified_matmul();
+        // test_gpu_unified_linear();
+        // test_gpu_unified_fmab();
+        // test_gpu_unified_div();
+        // test_gpu_unified_sub();
+        // test_gpu_unified_hadmul();
+        test_gpu_unified_silu(Shape{{256, 256, 256}});
+        test_gpu_unified_mish(Shape{{256, 256, 256}});
+        test_gpu_unified_maeloss(Shape{{256, 256, 256}});
+        test_gpu_unified_mseloss(Shape{{256, 256, 256}});
+        test_gpu_unified_gcu(Shape{{256, 256, 256}});
+        test_gpu_unified_gauss(Shape{{256, 256, 256}});
+        test_gpu_unified_lisht(Shape{{256, 256, 256}});
+        test_gpu_unified_gelu(Shape{{256, 256, 256}});
+        test_gpu_unified_parcon(Shape{{256, 256, 256}});
+        // test_gpu_unified_alibattention();
         // test_gpu_unified_attention();
         
 
