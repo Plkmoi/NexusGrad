@@ -1,4 +1,4 @@
-#include "ad/ag_all.hpp"
+#include "layer/archlist.hpp"
 #include <iostream>
 #include <vector>
 #include <cmath>
@@ -37,7 +37,7 @@ void check_tensors_close(const Tensor& a, const Tensor& b, const std::string& la
     {
                     debug::print_tensor("Tensor A (ref)", a);
             debug::print_tensor("Tensor B (out)", b);
-                    throw std::runtime_error("Tensor check failed for " + label +" mismatch value " + std::to_string(f));
+                    throw std::runtime_error("Tensor check failed for " + label +" mismatch precision " + std::to_string(f));
 
     }
 
@@ -305,10 +305,10 @@ void test_gpu_unified_attention() {
     int D = 12;
 
     // A: (11,9,3) B: (9,14,4) C: (9,14,5) D: (9,14,6) -> output (11,14)
-    Tensor a_cpu = Tensor::randn(Shape{{B,S,D}}, cpu_opts)*sqrtf(0.2f / D)+0.01*(Tensor::ones(Shape{{B,S,D}}, cpu_opts));
-    Tensor b_cpu = Tensor::randn(Shape{{B,D,D}}, cpu_opts)*sqrtf(0.2f / D)+0.01*(Tensor::ones(Shape{{B,D,D}}, cpu_opts));
-    Tensor c_cpu = Tensor::randn(Shape{{B,D,D}}, cpu_opts)*sqrtf(0.2f / D)+0.01*(Tensor::ones(Shape{{B,D,D}}, cpu_opts));
-    Tensor d_cpu = Tensor::randn(Shape{{B,D,D}}, cpu_opts)*sqrtf(0.2f / D)+0.01*(Tensor::ones(Shape{{B,D,D}}, cpu_opts));
+    Tensor a_cpu = Tensor::randn(Shape{{B,S,D}}, cpu_opts);
+    Tensor b_cpu = Tensor::randn(Shape{{D,D}}, cpu_opts)*sqrtf(20.f / D)+0.1*(Tensor::ones(Shape{{D,D}}, cpu_opts));
+    Tensor c_cpu = Tensor::randn(Shape{{D,D}}, cpu_opts)*sqrtf(20.f / D)+0.1*(Tensor::ones(Shape{{D,D}}, cpu_opts));
+    Tensor d_cpu = Tensor::randn(Shape{{D,D}}, cpu_opts)*sqrtf(20.f / D)+0.1*(Tensor::ones(Shape{{D,D}}, cpu_opts));
 
     // Build Q,K,V via matmul as original code
 
@@ -342,15 +342,20 @@ void test_gpu_unified_attention() {
 
     auto refa = ref.transpose(1,2).flatten(2,3).clone();
 
-    Tensor q_gpu = b_cpu.to(gpu_opts.device);
-    Tensor k_gpu = c_cpu.to(gpu_opts.device);
-    Tensor v_gpu = d_cpu.to(gpu_opts.device);
+    // Tensor q_gpu = b_cpu.to(gpu_opts.device);
+    // Tensor k_gpu = c_cpu.to(gpu_opts.device);
+    // Tensor v_gpu = d_cpu.to(gpu_opts.device);
+
 
     auto zz = a_cpu.to_cuda();
 
     auto z = ag::Value(std::make_shared<ag::Node>(zz, ag::Op::Leaf, true, "X"));
+    auto Q = ag::Value(std::make_shared<ag::Node>(b_cpu.to(gpu_opts.device), ag::Op::Leaf, true, "X"));
+    auto Ka = ag::Value(std::make_shared<ag::Node>(c_cpu.to(gpu_opts.device), ag::Op::Leaf, true, "X"));
+    auto V = ag::Value(std::make_shared<ag::Node>(d_cpu.to(gpu_opts.device), ag::Op::Leaf, true, "X"));
 
-        auto outam = attention(z, make_tensor(q_gpu), make_tensor(k_gpu), make_tensor(v_gpu), H);
+     
+        auto outam = attention(z, Q, Ka, V, H);
     // Tensor out_gpu(ref.shape(), options(ref).with_device(gpu_opts.device));
 
     // // flash attention call (standard softmax)
@@ -361,6 +366,9 @@ void test_gpu_unified_attention() {
 
     check_tensors_close(refa.to_cpu(), outam.val().to_cpu(), "test_gpu_attention", 0.01);
 
+//     Tensor gy_cpu = Tensor::randn(Shape{{11,7,12}}, cpu_opts);
+
+ 
 //     Tensor gy_cpu = Tensor::randn(Shape{{11,7,12}}, cpu_opts);
 
 
