@@ -36,9 +36,9 @@ SWIGLU::SWIGLU(int batch, int in_features, int out_features, int hidden_features
 
 
 
-Value SWIGLU::operator()(Value input) {   
-    return linear(swiglu(input, W, b, Wa, ba), Wc, bc);
-}
+// Value SWIGLU::operator()(Value input) {   
+//     return linear(swiglu(input, W, b, Wa, ba), Wc, bc);
+// }
 
 
 LeakyReLU::LeakyReLU(float alpha, Device dev)
@@ -47,62 +47,62 @@ _alpha = alpha;
 
 }
 
-Value LeakyReLU::operator()(Value input) {
-    return ag::leaky_relu(input, _alpha);
-}
+// Value LeakyReLU::operator()(Value input) {
+//     return ag::leaky_relu(input, _alpha);
+// }
 
 
 Softmax::Softmax(Device dev) {
 
 }
 
-Value Softmax::operator()(Value input) {   
-    return softmax_row(input);
-}
+// Value Softmax::operator()(Value input) {   
+//     return softmax_row(input);
+// }
 
 
-Value ReLU::operator()(Value input) {
-    return ag::relu(input);
-}
+// Value ReLU::operator()(Value input) {
+//     return ag::relu(input);
+// }
 
-Value Swish::operator()(Value input) {
-    return ag::silu(input);
-}
+// Value Swish::operator()(Value input) {
+//     return ag::silu(input);
+// }
 
-Value GELU::operator()(Value input) {
-    return ag::gelu(input);
-}
+// Value GELU::operator()(Value input) {
+//     return ag::gelu(input);
+// }
 
-Value ParCon::operator()(Value input) {
-    return ag::parcon(input);
-}
+// Value ParCon::operator()(Value input) {
+//     return ag::parcon(input);
+// }
 
-Value Gauss::operator()(Value input) {
-    return ag::gaus(input);
-}
+// Value Gauss::operator()(Value input) {
+//     return ag::gaus(input);
+// }
 
-Value Mish::operator()(Value input) {
-    return ag::mish(input);
-}
+// Value Mish::operator()(Value input) {
+//     return ag::mish(input);
+// }
 
 Value Tanh::operator()(Value input) {
     return ag::tanh(input);
 }
 
-Value GCU::operator()(Value input) {
-    return ag::gcu(input);
-}
+// Value GCU::operator()(Value input) {
+//     return ag::gcu(input);
+// }
 
-Value Softplus::operator()(Value input) {
-    return ag::softplus(input);
-}
+// Value Softplus::operator()(Value input) {
+//     return ag::softplus(input);
+// }
 
-Value LiSHT::operator()(Value input) {
-    return ag::lisht(input);
-}
+// Value LiSHT::operator()(Value input) {
+//     return ag::lisht(input);
+// }
 
-Value Sigmoid::operator()(Value input) {
-    return ag::sigmoid(input);
-}
+// Value Sigmoid::operator()(Value input) {
+//     return ag::sigmoid(input);
+// }
 
 } // namespace ag::nn

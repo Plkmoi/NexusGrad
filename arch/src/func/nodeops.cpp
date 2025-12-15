@@ -1,15 +1,14 @@
 // =====================
 // file: cgadimpl/src/nodeops.cpp
 // =====================
-#include "ad/nodeops.hpp"
+#include "func/nodeops.hpp"
 #include "ad/runtime.hpp"
-#include "ad/kernels_api.hpp"
 #include <cuda_runtime.h>
 #include "TensorLib.h" 
 #include <unordered_map>
 #include <cmath> 
 
-
+#include "func/schema.hpp"
 
 
 namespace ag {

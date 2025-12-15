@@ -1,7 +1,7 @@
 // ============================================
 // cgadimpl/src/kernel_stuff/kernels_loader.cpp
 // ============================================
-#include "kernels/kernels.hpp"
+#include "kern/kernels.hpp"
 #include <stdexcept>
 #include <string>
 #include <cstdlib>   // <<< add this for std::getenv

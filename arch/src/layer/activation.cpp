@@ -47,7 +47,7 @@ _alpha = alpha;
 }
 
 Value LeakyReLU::operator()(Value input) {
-    return ag::leaky_relu(input, _alpha);
+    return flow::leaky_relu(input, _alpha);
 }
 
 
@@ -61,27 +61,27 @@ Value Softmax::operator()(Value input) {
 
 
 Value ReLU::operator()(Value input) {
-    return ag::relu(input);
+    return flow::relu(input);
 }
 
 Value Swish::operator()(Value input) {
-    return ag::silu(input);
+    return flow::silu(input);
 }
 
 Value GELU::operator()(Value input) {
-    return ag::gelu(input);
+    return flow::gelu(input);
 }
 
 Value ParCon::operator()(Value input) {
-    return ag::parcon(input);
+    return flow::parcon(input);
 }
 
 Value Gauss::operator()(Value input) {
-    return ag::gaus(input);
+    return flow::gaus(input);
 }
 
 Value Mish::operator()(Value input) {
-    return ag::mish(input);
+    return flow::mish(input);
 }
 
 Value Tanh::operator()(Value input) {
@@ -89,19 +89,19 @@ Value Tanh::operator()(Value input) {
 }
 
 Value GCU::operator()(Value input) {
-    return ag::gcu(input);
+    return flow::gcu(input);
 }
 
 Value Softplus::operator()(Value input) {
-    return ag::softplus(input);
+    return flow::softplus(input);
 }
 
 Value LiSHT::operator()(Value input) {
-    return ag::lisht(input);
+    return flow::lisht(input);
 }
 
 Value Sigmoid::operator()(Value input) {
-    return ag::sigmoid(input);
+    return flow::sigmoid(input);
 }
 
-} // namespace ag::nn
+} // namespace flow::nn

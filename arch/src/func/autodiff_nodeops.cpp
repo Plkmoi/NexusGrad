@@ -1,14 +1,14 @@
 // =====================
 // FILE: cgadimpl/src/autodiff/autodiff_nodeops.cpp
 // =====================
-#include "ad/nodeops.hpp"
+#include "func/nodeops.hpp"
 #include "ad/runtime.hpp"
-#include "ad/kernels_api.hpp"
+#include "kern/kernels.hpp"
 #include <cuda_runtime.h>
 #include "TensorLib.h" 
 #include <unordered_map>
 #include <cmath> 
-#include "ad/detail/autodiff_ops.hpp"
+#include "func/autodiff_ops.hpp"
 
 
         
@@ -562,12 +562,22 @@ void node_Relumask( std::shared_ptr<Node> n) {
 
     } // namespace detail
 
+
+    } // namespace ag
+
+
+namespace flow
+{
+
+
+
     FwdFn fwd_lookup(Op op){
     switch(op){
     #define OP(name, arity, str) case Op::name: return &detail::node_##name;
     #include "ad/detail/ops.def"
+    #include "func/newops.def"
     #undef OP
     default: return nullptr;
     }
 }
-    } // namespace ag
+}

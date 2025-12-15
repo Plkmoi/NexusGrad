@@ -8,11 +8,12 @@
 #include "norm.hpp"
 #include "loss.hpp"
 #include "tokenize/embed.hpp"
-#include "ops/opinse.hpp"
+#include "opt/opinse.hpp"
 #include "tokenize/tokenus.hpp"
-#include "ops/optim.hpp"
+#include "opt/optim.hpp"
 #include "tokenize/tokeni.hpp"
-#include "kernels/kernels.hpp"
+#include "kern/kernels.hpp"
+#include "func/ops.hpp"
 
 
 

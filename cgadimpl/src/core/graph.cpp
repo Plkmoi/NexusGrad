@@ -203,7 +203,7 @@ struct Compiled::Impl {
 
             // Unary operators now use the free functions from the OwnTensor namespace.
             case Op::Transpose:  return a[0]->transpose(-2, -1);
-            case Op::Relu:     { cudaStream_t stream = (cudaStream_t)ag::current_stream(); return (*a[0] + OwnTensor::abs(*a[0], stream)) * 0.5f;}
+            // case Op::Relu:     { cudaStream_t stream = (cudaStream_t)ag::current_stream(); return (*a[0] + OwnTensor::abs(*a[0], stream)) * 0.5f;}
             case Op::Exp:        return OwnTensor::exp(*a[0]);
             case Op::Log:        return OwnTensor::log(*a[0]);
             case Op::Tanh:       return OwnTensor::tanh(*a[0]);

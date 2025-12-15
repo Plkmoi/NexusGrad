@@ -25,9 +25,9 @@ Attention::Attention(int batch, int in_features, int out_features, int H, Device
     params_.push_back(V);
 }
 
-Value Attention::operator()(Value input) {   
-    return attention(input, Q, K, V, heads);
-}
+// Value Attention::operator()(Value input) {   
+//     return attention(input, Q, K, V, heads);
+// }
 
 
 
@@ -55,8 +55,8 @@ AlibiAttention::AlibiAttention(int batch, int in_features, int out_features, int
 }
 
 
-Value AlibiAttention::operator()(Value input) {
-    return alibiatt(input, Wq_, Wk_, Wv_, heads);
-}
+// Value AlibiAttention::operator()(Value input) {
+//     return alibiatt(input, Wq_, Wk_, Wv_, heads);
+// }
 
 } // namespace ag::nn

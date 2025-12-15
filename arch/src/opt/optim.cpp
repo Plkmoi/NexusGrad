@@ -1,7 +1,7 @@
 // ===================================================================
 // file: cgadimpl/src/optim.cpp (Corrected for OwnTensor)
 // ===================================================================
-#include "ops/optim.hpp"
+#include "opt/optim.hpp"
 #include <math.h>
 
 // No new includes are needed because tensor.hpp brings in everything.

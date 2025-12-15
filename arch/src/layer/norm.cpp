@@ -5,7 +5,6 @@
 namespace flow {
 
 
-
 RMSNorm::RMSNorm(float gamma, Device dev) {
 _gamma = gamma;
 }

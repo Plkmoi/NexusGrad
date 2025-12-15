@@ -35,9 +35,9 @@ Linear::Linear(int in_features, int out_features, Device dev) {
 
 
 
-Value Linear::operator()(Value input) {   
-    return linear(input, W, b);
-}
+// Value Linear::operator()(Value input) {   
+//     return linear(input, W, b);
+// }
 
 Sequential::Sequential(const std::vector<Module*>& modules) : layers_(modules) {
     for (auto* mod : layers_) {
@@ -54,8 +54,8 @@ Value Sequential::operator()(Value x) {
     return x;
 }
 
-Value ReLU::operator()(Value input) {
-    return ag::relu(input);
-}
+// Value ReLU::operator()(Value input) {
+//     return ag::relu(input);
+// }
 
 } // namespace ag::nn

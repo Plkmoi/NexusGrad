@@ -1,9 +1,11 @@
 // ====================================================================
 // FILE: cgadimpl/src/autodiff/autodiff_jvp_ops.cpp (GPU-Aware Version)
 // ====================================================================
-#include "ad/detail/autodiff_ops.hpp"
+#include "func/autodiff_ops.hpp"
 #include <stdexcept> // Required for std::runtime_error
 #include "ad/runtime.hpp"
+
+
 
 namespace ag {
 namespace detail{
@@ -579,14 +581,25 @@ Tensor jvp_Leaf(Node*, const std::function<const Tensor&(Node*)>&){
 } // namespace detail
 
 
+} // namespace ag
+
+namespace flow
+{
+
+
+
 // -------- dispatch table --------
 JvpFn jvp_lookup(Op op){
     switch(op){
 #define OP(name, arity, str) case Op::name: return &detail::jvp_##name;
 #include "ad/detail/ops.def"
+#include "func/newops.def"
 #undef OP
         default: return nullptr;
     }
 }
 
-} // namespace ag
+
+}
+
+

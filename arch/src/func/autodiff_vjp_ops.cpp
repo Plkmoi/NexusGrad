@@ -2,14 +2,18 @@
 // FILE: cgadimpl/src/autodiff/autodiff_vjp_ops.cpp (GPU-Aware Version)
 // ====================================================================
 
-#include "ad/detail/autodiff_ops.hpp"
+#include "func/autodiff_ops.hpp"
 #include "ad/runtime.hpp"
 #include <cmath>
 #include <stdexcept> // Required for std::runtime_error
 #include "ad/debug.hpp"
-#include "ad/kernels_api.hpp"
+#include "kern/kernels.hpp"
+
+
 namespace ag {
 namespace detail{
+
+    
 
 static Tensor reduce_for_broadcast(const Tensor& grad_in, const Tensor& target_val) {
     // If shapes already match, no reduction is needed.
@@ -1182,14 +1186,23 @@ void vjp_Leaf(Node*, const Tensor&){ /* no-op */ }
 } // namespace detail
 
 
+
+} // namespace ag
+
+namespace flow
+{
+
+
+
+
 // -------- dispatch table --------
 VjpFn vjp_lookup(Op op){
     switch(op){
-#define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+#define OP(name, arity, str) case Op::name: return &ag::detail::vjp_##name;
 #include "ad/detail/ops.def"
+#include "func/newops.def"
 #undef OP
         default: return nullptr;
     }
 }
-
-} // namespace ag
+}
