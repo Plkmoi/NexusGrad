@@ -559,31 +559,6 @@ __inline__ __device__ float kaan_nlogsumexp(const float* input,const  float* one
   //  return wei;
 }
 
-__inline__ __device__ float kaan_klhelp(const float* input,const  float* onehot,  float* output, int rows, int cols) {
-    int row = blockIdx.x * blockDim.x + threadIdx.x;
-    if (row >= rows) return;
-
-    float max_val = kaa_rowmax(input, row, cols);
-
-    // Temporary storage for the exponentiated values, can be the output array
-    // if it's okay to be overwritten.
-    float exval = kaan_rowexp(input, row, cols, max_val);
-    
-
-    // float sum_val = kaa_rowsum(exval, row, cols);
-    float re = 0.f;
-
-    // Only the first thread in the block for this row should write the final result.
-    re = logf(exval) + max_val;
-
-    gelpe(input, onehot, re,   output, row, cols);
-    
-
-
-  //  return wei;
-}
-
-
 
 __inline__ __device__ void ke_sumall(float g_idata,
                          float* __restrict__ g_odata,
@@ -603,6 +578,72 @@ __inline__ __device__ void ke_sumall(float g_idata,
         atomicAdd(g_odata, sum);
 }
 
+
+
+
+
+
+
+
+
+
+
+__inline__ __device__ float kaa_trowmax(const float* input, int row, int cols) {
+    float max_val = -FLT_MAX;
+    for (int col = 0; col < cols; ++col)
+        max_val = fmaxf(max_val, input[row * cols + col]);
+    return max_val;
+}
+
+__inline__ __device__ float kaa_trowsum(const float* input, int row, int cols) {
+    float sum_val = 0.0f;
+    for (int col = 0; col < cols; ++col)
+        sum_val += input[row * cols + col];
+    return sum_val;
+}
+
+
+
+
+__inline__ __device__ float kaan_trowexp(const float* input, int row, int cols, float row_max) {
+    float sum_val = 0.0f;
+    for (int col = 0; col < cols; ++col)
+        sum_val += __expf(input[row * cols + col] - row_max);
+    return sum_val;
+}
+
+
+__inline__ __device__ float thelpe(const float * ninput, const  float* onehot, const float exval, const float maxval, float* output, int row, int cols) {
+    float sum_val = 0.0f;
+    for (int col = 0; col < cols; ++col)
+        sum_val += (onehot[row * cols + col]*( ninput[row * cols + col] - maxval -logf(exval))) ;
+   return sum_val;
+
+  
+}
+
+
+__inline__ __device__ float kaan_tnlogsumexp(const float* input,const  float* onehot,  float* output, int rows, int cols) {
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= rows) return;
+
+    float max_val = kaa_trowmax(input, row, cols);
+
+    // Temporary storage for the exponentiated values, can be the output array
+    // if it's okay to be overwritten.
+    float exval = kaan_trowexp(input, row, cols, max_val);
+    
+
+
+
+    float wei = thelpe(input, onehot, exval,  max_val, output, row, cols);
+    
+
+
+   return wei;
+}
+
+
 __global__ void k_cewithlogits(const float* logits, const float* onehot, float* output, int rows, int cols) {
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     if (row >= rows) return;
@@ -611,9 +652,10 @@ __global__ void k_cewithlogits(const float* logits, const float* onehot, float* 
     // int class_idx = onehot;  // onehot[row] gives the index of the correct class for the current example
 
     // Now we can compute the logsumexp across logits for each row
-   kaan_nlogsumexp(logits, onehot, output, rows, cols);
+   float getwe = kaan_tnlogsumexp(logits, onehot, output, rows, cols);
 
-   atomicAdd(&output[0], -output[row] / rows);
+    // Accumulate the mean loss: each row contributes row_loss / rows
+    atomicAdd(output, -getwe / static_cast<float>(rows));
 
     // Get the logit for the correct class
     // float log_sm = onehot[row]*( logits[blockIdx.x * blockDim.x + threadIdx.x] - logsumexp_val); // logits[row][class_idx]
@@ -628,6 +670,40 @@ __global__ void k_cewithlogits(const float* logits, const float* onehot, float* 
     // ke_sumall(losum, output, rows);
 }
 
+
+
+__inline__ __device__ float tgelpe(const float * ninput, const  float* onehot, const float exval, const float maxval, float* output, int row, int cols) {
+    float sum_val = 0.0f;
+    for (int col = 0; col < cols; ++col)
+        sum_val += (onehot[row * cols + col]*(logf(onehot[row * cols + col])-( ninput[row * cols + col] - maxval -logf(exval)))) ;
+   return sum_val;
+
+  
+}
+
+
+
+__inline__ __device__ float kaan_klhelp(const float* input,const  float* onehot,  float* output, int rows, int cols) {
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= rows) return;
+
+    float max_val = kaa_rowmax(input, row, cols);
+
+    // Temporary storage for the exponentiated values, can be the output array
+    // if it's okay to be overwritten.
+    float exval = kaan_rowexp(input, row, cols, max_val);
+    
+
+    // float sum_val = kaa_rowsum(exval, row, cols);
+    float wei = tgelpe(input, onehot, exval,  max_val, output, row, cols);
+    
+
+
+   return wei;
+}
+
+
+
 __global__ void k_kldivergence(const float* logits, const float* onehot, float* output, int rows, int cols) {
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     if (row >= rows) return;
@@ -636,10 +712,9 @@ __global__ void k_kldivergence(const float* logits, const float* onehot, float* 
     // int class_idx = onehot;  // onehot[row] gives the index of the correct class for the current example
 
     // Now we can compute the logsumexp across logits for each row
-   kaan_klhelp(logits, onehot, output, rows, cols);
+   float getwe = kaan_klhelp(logits, onehot, output, rows, cols);
 
-   atomicAdd(&output[0], -output[row] / rows);
-
+    atomicAdd(output, getwe / static_cast<float>(rows));
     // Get the logit for the correct class
     // float log_sm = onehot[row]*( logits[blockIdx.x * blockDim.x + threadIdx.x] - logsumexp_val); // logits[row][class_idx]
 

@@ -799,7 +799,7 @@ void vjp_CeWithLogits(Node* n, const Tensor& gy){
     Tensor z_shifted = Z - max_val;
     Tensor exp_z     = OwnTensor::exp(z_shifted);
     Tensor sum_exp_z = OwnTensor::reduce_sum(exp_z, {-1}, true);
-    Tensor softmax_z = exp_z / sum_exp_z;
+    Tensor softmax_z = exp_z / (sum_exp_z+1e-3);
     Tensor log_softmax_z = z_shifted - OwnTensor::log(sum_exp_z);
 
     // gy must be scalar → broadcast to [B,S,V] needed
@@ -810,8 +810,13 @@ void vjp_CeWithLogits(Node* n, const Tensor& gy){
 
     // dZ = gy * (softmax - Y) * inv_factor
     if (Z_node->requires_grad()) {
-        Tensor gZ = (softmax_z - Y) * inv_factor;
-        Z_node->grad += gy_broadcast * gZ;
+Tensor sum_y = OwnTensor::reduce_sum(Y, {-1}, true);
+
+// Explicitly compute the weighted softmax first
+Tensor weighted_softmax = softmax_z * sum_y; 
+
+// Then subtract targets and scale
+        Z_node->grad += (weighted_softmax - Y) * (inv_factor );
     }
 
     // dY = gy * (-log_softmax) * inv_factor
@@ -840,16 +845,22 @@ void vjp_KLDivergence(Node* n, const Tensor& gy){
     Tensor softmax_z = exp_z / sum_exp_z;
     Tensor log_softmax_z = z_shifted - OwnTensor::log(sum_exp_z);
 
+        Tensor gy_broadcast = gy;
+    if (gy.numel() == 1) {
+        gy_broadcast = Tensor::ones(Z.shape(), TensorOptions().with_device(Z.device())) * gy;
+    }
+
     if (Z_node->requires_grad()) {
         // gZ = softmax(Z) - Y, scaled by batch size
-        Tensor gZ = (softmax_z - Y) * inv_batch_size;
-        Z_node->grad += gy * gZ;
+    Tensor sum_y = OwnTensor::reduce_sum(Y, {-1}, true);
+    Tensor gZ = (sum_y * softmax_z - Y) * inv_batch_size;
+        Z_node->grad += gy_broadcast * gZ;
     }
     if (Y_node->requires_grad()) {
         // gY = log(Y) + 1 - log_softmax(Z), scaled by batch size
         Tensor log_Y = OwnTensor::log(Y + 1e-9f); // Add epsilon for stability
         Tensor gY = (log_Y + 1.0f - log_softmax_z) * inv_batch_size;
-        Y_node->grad += gy * gY;
+        Y_node->grad += gy_broadcast * gY;
     }
 }
 

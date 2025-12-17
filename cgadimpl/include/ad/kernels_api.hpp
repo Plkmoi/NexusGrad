@@ -192,6 +192,12 @@ typedef void (*ag_vjp_mseloss_cuda_fn)(float* gA, float* gB, const float* gy,
 typedef void (*ag_vjp_maeloss_cuda_fn)(float* gA, float* gB, const float* gy,
                                    const float* A, const float* B,
                                    int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_vjp_cewithlogits_cuda_fn)(float* gA, float* gB, const float* gy,
+                                   const float* A, const float* B, 
+                                   int64_t n, float invfac, ag_cuda_stream_t s);
+typedef void (*ag_vjp_kldivergence_cuda_fn)(float* gA, float* gB, const float* gy,
+                                   const float* A, const float* B, 
+                                   int64_t n, float invfac, ag_cuda_stream_t s);                                   
 
 // Additional VJP function types for arithmetic ops
 typedef void (*ag_vjp_pow_cuda_fn)(float* gA, float* gB, const float* gy,
@@ -370,6 +376,8 @@ struct ag_cuda_v1 {
   ag_vjp_sinh_cuda_fn        vjp_sinh; 
   ag_vjp_cosh_cuda_fn        vjp_cosh;
   ag_vjp_softmax_cuda_fn        vjp_softmax; 
+  ag_vjp_cewithlogits_cuda_fn        vjp_cewithlogits; 
+  ag_vjp_kldivergence_cuda_fn        vjp_kldivergence; 
 
     ag_vjp_gcu_cuda_fn vjp_gcu ;
   ag_vjp_gauss_cuda_fn vjp_gauss ;
@@ -517,6 +525,8 @@ struct Cuda {
   ag_vjp_mish_cuda_fn         vjp_mish = nullptr;
   ag_vjp_exp_cuda_fn          vjp_exp = nullptr;
   ag_vjp_sqrt_cuda_fn    vjp_sqrt   = nullptr;
+  ag_vjp_cewithlogits_cuda_fn        vjp_cewithlogits = nullptr;
+  ag_vjp_kldivergence_cuda_fn        vjp_kldivergence = nullptr; 
 
   ag_vjp_hard_sigmoid_cuda_fn vjp_hard_sigmoid = nullptr;
   ag_vjp_hard_swish_cuda_fn   vjp_hard_swish = nullptr;

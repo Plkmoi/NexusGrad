@@ -119,6 +119,10 @@ extern void vjp_parcon_cuda        (float*, const float*, const float*, int64_t,
 extern void vjp_lisht_cuda         (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 extern void vjp_reci_cuda          (float*, const float*, const float*, int64_t, ag_cuda_stream_t);
 
+extern void vjp_cewithlogits_cuda(float* gA, float* gB, const float* gy, const float* A, const float* B, 
+                  int64_t n, float invfac, ag_cuda_stream_t s);
+extern void vjp_kldivergence_cuda(float* gA, float* gB, const float* gy, const float* A, const float* B, 
+                  int64_t n, float invfac, ag_cuda_stream_t s);
 extern void vjp_rowmax_cuda(float* , const float* , const float* , const float* , int64_t , int64_t , ag_cuda_stream_t ); 
 extern void vjp_rowsum_cuda(float* , const float* , const float* , const float* , int64_t , int64_t , ag_cuda_stream_t ); 
 extern void vjp_softmax_cuda(float* , const float* , const float* , int64_t , int64_t , ag_cuda_stream_t ); 
@@ -217,6 +221,8 @@ extern "C" AG_EXPORT int ag_get_cuda_kernels_v1(ag_cuda_v1* out) {
   out->vjp_clip     = &vjp_clip_cuda;
   out->vjp_mseloss     = &vjp_mseloss_cuda;
   out->vjp_maeloss     = &vjp_maeloss_cuda;
+  out->vjp_cewithlogits     = &vjp_cewithlogits_cuda;
+  out->vjp_kldivergence     = &vjp_kldivergence_cuda;
 
   // Link VJP functions for activation functions
   out->vjp_leaky_relu = &vjp_leaky_relu_cuda;

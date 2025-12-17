@@ -1283,7 +1283,7 @@ std::shared_ptr<Node> cross_entropy_with_logits_nodeops(const std::shared_ptr<No
     // The sum is over the class dimension (-1), the mean is over the batch dimension (0).
     Tensor prod = Y * log_sm;
     // // ag::debug::print_tensor("prod", prod);
-    Tensor sum_prod = OwnTensor::reduce_sum(prod, {-1}); // Sum over classes, shape=[B]
+    Tensor sum_prod = OwnTensor::reduce_sum(prod, {-1}); // Sum over classes, shape=[B, S]
     Tensor loss = OwnTensor::reduce_mean(sum_prod * -1.0f); // Mean over batch and negate
     // // ag::debug::print_tensor("loss", loss);
 
@@ -1303,16 +1303,19 @@ std::shared_ptr<Node> kldivergence_nodeops(const std::shared_ptr<Node>& logits, 
     // --- Re-implement with OwnTensor ops ---
 
     // 1. Calculate log(Y). Add a small epsilon for stability to avoid log(0).
-    Tensor log_Y = OwnTensor::log(Y + 1e-9f);
+    Tensor log_Y = OwnTensor::log(Y );
+    ag::debug::print_tensor("Log Y", log_Y);
     
     // 2. Calculate stable log_softmax(Z) (same as in cross-entropy).
     Tensor max_val = OwnTensor::reduce_max(Z, {-1}, true);
     Tensor z_shifted = Z - max_val;
     Tensor log_sum_exp = OwnTensor::log(OwnTensor::reduce_sum(OwnTensor::exp(z_shifted), {-1}, true));
     Tensor log_sm_Z = z_shifted - log_sum_exp;
+    ag::debug::print_tensor("log_sm_Z", log_sm_Z);
 
     // 3. Calculate the KL Divergence: sum(Y * (log(Y) - log_softmax(Z)))
     Tensor kl_div_elementwise = Y * (log_Y - log_sm_Z);
+    ag::debug::print_tensor("kl_div_elementwise", kl_div_elementwise);
 
     // 4. Sum over the class dimension, then take the mean over the batch dimension.
     Tensor sum_kl = OwnTensor::reduce_sum(kl_div_elementwise, {-1});

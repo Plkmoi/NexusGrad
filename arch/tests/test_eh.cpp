@@ -849,7 +849,7 @@ ag::debug::print_tensor("Result Gradient Beta DynTanh", w.node->inputs[2]->grad.
 void test_cewithlogits( int H, int B, int S, int D)
 {
     Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
-    ag::debug::print_tensor("Input Layer Norm", X);
+    ag::debug::print_tensor("Input CE With Logits", X);
     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
 
     Tensor onehot = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
@@ -865,6 +865,96 @@ void test_cewithlogits( int H, int B, int S, int D)
     backward(w);
     ag::debug::print_tensor("Result Input Gradient CE With Logits", m.grad());
     ag::debug::print_tensor("Result Target Gradient CE With Logits", target.grad());
+flow::opti.SGD(w, 0.01);
+    // for(int i=0;i<10;i++){
+    //     forward(w);
+    //     backward(w);
+    //             
+       flow::opti.epoch();
+    // }
+// ag::debug::print_tensor("Result Gradient Gamma Layer Norm", w.node->inputs[1]->grad.to_cpu());
+// ag::debug::print_tensor("Result Gradient Beta Layer Norm", w.node->inputs[2]->grad.to_cpu());
+}
+
+void test_kldivergence( int H, int B, int S, int D)
+{
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
+    ag::debug::print_tensor("Input KL Divergence", X);
+    auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
+
+    Tensor onehot = OwnTensor::abs(Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA)),ag::current_stream());
+    auto target = ag::Value(std::make_shared<ag::Node>(onehot, ag::Op::Leaf, true, "X"));
+
+    // auto swag = ag::layer::RMSNorm();
+    auto w = kldivergence(m, target);
+    
+    // auto w = sum(r);
+    ag::debug::print_tensor("Input Target Value KL Divergence", target.val());
+
+    ag::debug::print_tensor("Result Value KL Divergence", w.val());
+    backward(w);
+    ag::debug::print_tensor("Result Input Gradient KL Divergence", m.grad());
+    ag::debug::print_tensor("Result Target Gradient KL Divergence", target.grad());
+flow::opti.SGD(w, 0.01);
+    // for(int i=0;i<10;i++){
+    //     forward(w);
+    //     backward(w);
+    //             
+       flow::opti.epoch();
+    // }
+// ag::debug::print_tensor("Result Gradient Gamma Layer Norm", w.node->inputs[1]->grad.to_cpu());
+// ag::debug::print_tensor("Result Gradient Beta Layer Norm", w.node->inputs[2]->grad.to_cpu());
+}
+
+void test_mseloss( int H, int B, int S, int D)
+{
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
+    ag::debug::print_tensor("Input MSE Loss", X);
+    auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
+
+    Tensor onehot = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
+    auto target = ag::Value(std::make_shared<ag::Node>(onehot, ag::Op::Leaf, true, "X"));
+
+    // auto swag = ag::layer::RMSNorm();
+    auto w = mse_loss(m, target);
+    
+    // auto w = sum(r);
+    ag::debug::print_tensor("Input Target Value MSE Loss", target.val());
+
+    ag::debug::print_tensor("Result Value MSE Loss", w.val());
+    backward(w);
+    ag::debug::print_tensor("Result Input Gradient MSE Loss", m.grad());
+    ag::debug::print_tensor("Result Target Gradient MSE Loss", target.grad());
+flow::opti.SGD(w, 0.01);
+    // for(int i=0;i<10;i++){
+    //     forward(w);
+    //     backward(w);
+    //             
+       flow::opti.epoch();
+    // }
+// ag::debug::print_tensor("Result Gradient Gamma Layer Norm", w.node->inputs[1]->grad.to_cpu());
+// ag::debug::print_tensor("Result Gradient Beta Layer Norm", w.node->inputs[2]->grad.to_cpu());
+}
+
+void test_maeloss( int H, int B, int S, int D)
+{
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
+    ag::debug::print_tensor("Input MAE Loss", X);
+    auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
+
+    Tensor onehot = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
+    auto target = ag::Value(std::make_shared<ag::Node>(onehot, ag::Op::Leaf, true, "X"));
+
+    // auto swag = ag::layer::RMSNorm();
+    auto w = mae_loss(m, target);
+    
+    // auto w = sum(r);
+    ag::debug::print_tensor("Input Target Value MAE Loss", target.val());
+
+    ag::debug::print_tensor("Result Value MAE Loss", w.val());
+    backward(w);
+    ag::debug::print_tensor("Result Input Gradient MAE Loss", m.grad());
+    ag::debug::print_tensor("Result Target Gradient MAE Loss", target.grad());
 flow::opti.SGD(w, 0.01);
     // for(int i=0;i<10;i++){
     //     forward(w);
@@ -925,7 +1015,9 @@ test_laynorm(2, 4, 2, 4);
 test_dyntanh(2, 4, 2, 4);
 
 test_cewithlogits(2, 4, 2, 4);
-
+test_kldivergence(2, 4, 2, 4);
+test_mseloss(2, 4, 2, 4);
+test_maeloss(2, 4, 2, 4);
 
 // }
 // catch (const std::exception& e) {

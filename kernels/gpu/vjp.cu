@@ -478,6 +478,122 @@ void vjp_mseloss_cuda(float* gA, float* gB, const float* gy, const float* A, con
     k_vjp_mseloss_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gA, gB, A, B, gy, n);
 }
 
+
+
+
+// __inline__ __device__ float kaa_trowsum(const float* input, int row, int cols) {
+//     float sum_val = 0.0f;
+//     for (int col = 0; col < cols; ++col)
+//         sum_val += input[row * cols + col];
+//     return sum_val;
+// }
+
+
+
+
+__inline__ __device__ float kaa_trowmax(const float* input, int row, int cols) {
+    float max_val = -FLT_MAX;
+    for (int col = 0; col < cols; ++col)
+        max_val = fmaxf(max_val, input[row * cols + col]);
+    return max_val;
+}
+
+
+
+__inline__ __device__ float kaan_trowexp(const float* input, int row, int cols, float row_max) {
+    float sum_val = 0.0f;
+    for (int col = 0; col < cols; ++col)
+        sum_val += __expf(input[row * cols + col] - row_max);
+    return sum_val;
+}
+
+
+__inline__ __device__ void thelpe(const float * ninput, const  float* onehot, float* output, const float exval, const float maxval, int row, int cols) {
+    // float sum_val = 0.0f;
+    for (int col = 0; col < cols; ++col)
+        output[row*cols+col] = output[row*cols+col]+( ninput[row * cols + col] - maxval -logf(exval)) ;
+  //  return sum_val;
+
+  
+}
+
+
+__inline__ __device__ void kaan_tnlogsumexp(const float* input,const  float* onehot,  float* output, int rows, int cols) {
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= rows) return;
+
+    float max_val = kaa_trowmax(input, row, cols);
+
+    // Temporary storage for the exponentiated values, can be the output array
+    // if it's okay to be overwritten.
+    float exval = kaan_trowexp(input, row, cols, max_val);
+    
+
+
+
+     thelpe(input, onehot, output, exval, max_val, row, cols);
+    
+
+
+}
+
+__global__ void k_vjp_cewithlogits_accum(float* gA, float* gB, const float* A, const float* B, const float* gy, int64_t n, float invfac) {
+    int64_t row = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row < invfac) {
+            float maxval = kaa_trowmax(A, row, (int)n/invfac);
+
+    // Temporary storage for the exponentiated values, can be the output array
+    // if it's okay to be overwritten.
+    float exval = kaan_trowexp(A, row, (int)n/invfac, maxval);
+            float suy = kaa_trowmax(B, row, (int)n/invfac);
+
+       for (int col = 0; col < (int)(n/invfac); ++col){
+
+            atomicAdd(&gA[row*(int)(n/invfac)+col], gy[0]*((suy*(__expf(A[row*(int)(n/invfac)+col] - maxval)/exval))-B[row*(int)(n/invfac)+col])*1.f/invfac);
+        atomicAdd(&gB[row*(int)(n/invfac)+col], gy[0]*(-(A[row*(int)(n/invfac)+col] - maxval -logf(exval)))*1.f/invfac);
+       }
+    // float wei = thelpe(A, B, exval,  max_val, row, (int)n/invfac);
+    
+
+    }
+}
+
+void vjp_cewithlogits_cuda(float* gA, float* gB, const float* gy, const float* A, const float* B, 
+                  int64_t n, float invfac, ag_cuda_stream_t s) {
+    dim3 blocks( (unsigned int)((n + 255) / 256) );
+    k_vjp_cewithlogits_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gA, gB, A, B, gy,  n, invfac);
+}
+
+
+
+
+__global__ void k_vjp_kldivergence_accum(float* gA, float* gB, const float* A, const float* B, const float* gy, int64_t n, float invfac) {
+    int64_t row = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row < invfac) {
+            float maxval = kaa_trowmax(A, row, (int)n/invfac);
+
+    // Temporary storage for the exponentiated values, can be the output array
+    // if it's okay to be overwritten.
+    float exval = kaan_trowexp(A, row, (int)n/invfac, maxval);
+            float suy = kaa_trowmax(B, row, (int)n/invfac);
+
+       for (int col = 0; col < (int)(n/invfac); ++col){
+
+            atomicAdd(&gA[row*(int)(n/invfac)+col], gy[0]*(suy*expf(A[row*(int)(n/invfac)+col] - maxval -logf(exval))-B[row*(int)(n/invfac)+col])*1.f/invfac);
+        atomicAdd(&gB[row*(int)(n/invfac)+col], gy[0]*(logf(B[row*(int)(n/invfac)+col])+1.0f-(A[row*(int)(n/invfac)+col] - maxval -logf(exval)))*1.f/invfac);
+       }
+    // float wei = thelpe(A, B, exval,  max_val, row, (int)n/invfac);
+    
+
+    }
+}
+
+void vjp_kldivergence_cuda(float* gA, float* gB, const float* gy, const float* A, const float* B, 
+                  int64_t n, float invfac, ag_cuda_stream_t s) {
+    dim3 blocks( (unsigned int)((n + 255) / 256) );
+    k_vjp_kldivergence_accum<<<blocks, 256, 0, (cudaStream_t)s>>>(gA, gB, A, B, gy,  n, invfac);
+}
+
 __global__ void k_vjp_sum(float* gX, const float* __restrict__ X, const float* __restrict__ gy, int64_t n) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) {

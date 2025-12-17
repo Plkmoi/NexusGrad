@@ -260,7 +260,7 @@ void node_CeWithLogits( std::shared_ptr<Node> n) {
 void node_KLDivergence( std::shared_ptr<Node> n) {
      Tensor& Z = n->inputs[0]->value;
      Tensor& Y = n->inputs[1]->value;
-    Tensor logY = OwnTensor::log(Y + 1e-9f);
+    Tensor logY = OwnTensor::log(Y );
     Tensor m    = OwnTensor::reduce_max(Z, {-1}, true);
     Tensor zs   = Z - m;
     Tensor lse  = OwnTensor::log(OwnTensor::reduce_sum(OwnTensor::exp(zs), {-1}, true));

@@ -19,10 +19,10 @@ int main() {
     // 1. --- Hyperparameters ---
     const int B = 4;            // batch size
     // const int vocab_size = 5000; // number of classes (logits dim)
-    const int num_layers = 12;    // (Attn + SWIGLU) block pairs
-    const float lr = 0.00000001f;
-    const int epochs = 1000;
-    int vocab_size = 50000;       // integer tokens 0..19
+    const int num_layers = 3;    // (Attn + SWIGLU) block pairs
+    const float lr = 0.000000005f;
+    const int epochs = 2100;
+    int vocab_size = 5000;      // integer tokens 0..19
     int Heads = 12;
 
     const int S = 512; // Sequence length (needs to be defined)
@@ -132,7 +132,7 @@ Value Y = make_tensor(Y_gpu_init, "Y_target");
 // ---- Build the graph one time ----
 Value logits = model(X);
 Value loss = cross_entropy_with_logits(logits, Y);
-flow::opti.SGDm(loss, lr);
+flow::opti.SGD(loss, lr);
 
 // ---- Capture the complete graph ----
 zero_val(loss);  // clears activations AFTER graph construction
@@ -171,12 +171,12 @@ for (int epoch = 0; epoch < epochs; ++epoch) {
     zero_grad(loss);
     backward(loss);
     flow::opti.epoch();
+    auto ll = loss.val().to(Device::CPU);
 
-    ag::disten(loss, Device::CPU);
-    float l = loss.val().data<float>()[0];
+    // ag::disten(loss, Device::CPU);
+    float l = ll.data<float>()[0];
     std::cout << "Epoch " << epoch << " Loss: " << l << "\n";
 }
-flow::opti.velcle();
 
 
 // ---------------------------------------------------------

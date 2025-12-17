@@ -1085,6 +1085,130 @@ void test_gpu_unified_maeloss(auto m) {
     check_tensors_close(gb_ref, gb_gpu.to_cpu(), "test_gpu_vjp_maeloss (target gB)");
 }
 
+
+
+
+
+void test_gpu_unified_cewithlogits(auto m) {
+    auto& K = kernels::cuda();
+    auto cpu_opts = TensorOptions().with_device(Device::CPU);
+    auto gpu_opts = TensorOptions().with_device(Device::CUDA);
+
+    Tensor a_cpu = Tensor::randn(m, cpu_opts);
+    Tensor b_cpu = Tensor::randn(m, cpu_opts);
+
+    Tensor mm   = OwnTensor::reduce_max(a_cpu, {-1}, true);
+    Tensor zs  = a_cpu - mm;
+    Tensor lse = OwnTensor::log(OwnTensor::reduce_sum(OwnTensor::exp(zs), {-1}, true));
+    Tensor lsm = zs - lse;
+    Tensor prod= b_cpu * lsm;
+    Tensor s   = OwnTensor::reduce_sum(prod, {-1});
+    Tensor ref   = OwnTensor::reduce_mean(s * -1.0f);
+    Tensor su = OwnTensor::exp(zs)/OwnTensor::reduce_sum(OwnTensor::exp(zs), {-1}, true);
+
+    ag::debug::print_tensor("Pred", a_cpu);
+    ag::debug::print_tensor("Target", b_cpu);
+    
+    
+    Tensor a_gpu = a_cpu.to(gpu_opts.device);
+    Tensor b_gpu = b_cpu.to(gpu_opts.device);
+    Tensor out_gpu(ref.shape(), options(ref).with_device(gpu_opts.device));
+    // allocate and zero on GPU happens via Tensor ctor
+    auto start = std::chrono::steady_clock::now();
+
+    K.cewithlogits(a_gpu.data<float>(), b_gpu.data<float>(), out_gpu.data<float>(), a_cpu.shape().dims[0]*a_cpu.shape().dims[1], a_cpu.shape().dims[2], nullptr);
+    cudaDeviceSynchronize();
+    auto end = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_double = end - start;
+    std::cout << "Time taken (double seconds): " << duration_sec_double.count() << " s\n";
+
+    check_tensors_close(ref, out_gpu.to_cpu(), "test_gpu_cewithlogits");
+
+    // Backward
+    Tensor gy_cpu = Tensor::ones(ref.shape(), cpu_opts);
+    int N = a_cpu.shape().dims[0]*a_cpu.shape().dims[1];
+    Tensor diff = ((OwnTensor::reduce_max(b_cpu, {-1}, true)*su) - b_cpu);
+    Tensor ga_ref = diff * (1.0f / float(N)) * gy_cpu;
+    Tensor gb_ref = -1.0f*lsm * (1.0f / float(N)) * gy_cpu;
+
+    Tensor gy_gpu = gy_cpu.to(gpu_opts.device);
+    Tensor ga_gpu = Tensor::zeros(ga_ref.shape(), gpu_opts);
+    Tensor gb_gpu = Tensor::zeros(gb_ref.shape(), gpu_opts);
+    auto starta = std::chrono::steady_clock::now();
+
+    K.vjp_cewithlogits(ga_gpu.data<float>(), gb_gpu.data<float>(), gy_gpu.data<float>(),
+                  a_gpu.data<float>(), b_gpu.data<float>(),  a_cpu.numel(), float(N), nullptr);
+    cudaDeviceSynchronize();
+    auto enda = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_doublea = enda - starta;
+    std::cout << "Time taken (double seconds): " << duration_sec_doublea.count() << " s\n";
+
+    check_tensors_close(ga_ref, ga_gpu.to_cpu(), "test_gpu_vjp_cewithlogits (pred dA)");
+    check_tensors_close(gb_ref, gb_gpu.to_cpu(), "test_gpu_vjp_cewithlogits (target gB)");
+}
+
+
+
+
+void test_gpu_unified_kldivergence(auto m) {
+    auto& K = kernels::cuda();
+    auto cpu_opts = TensorOptions().with_device(Device::CPU);
+    auto gpu_opts = TensorOptions().with_device(Device::CUDA);
+
+    Tensor a_cpu = OwnTensor::abs(Tensor::randn(m, cpu_opts), nullptr)+0.1f;
+    Tensor b_cpu = OwnTensor::abs(Tensor::randn(m, cpu_opts), nullptr)+0.1f;
+
+    Tensor mm   = OwnTensor::reduce_max(a_cpu, {-1}, true);
+    Tensor zs  = a_cpu - mm;
+    Tensor lse = OwnTensor::log(OwnTensor::reduce_sum(OwnTensor::exp(zs), {-1}, true));
+    Tensor lsm = zs - lse;
+    Tensor prod= b_cpu * (OwnTensor::log(b_cpu ) - lsm);
+    Tensor s   = OwnTensor::reduce_sum(prod, {-1});
+    Tensor ref   = OwnTensor::reduce_mean(s );
+    Tensor su = OwnTensor::exp(lsm);
+
+    ag::debug::print_tensor("Pred", a_cpu);
+    ag::debug::print_tensor("Target", b_cpu);
+    
+    
+    Tensor a_gpu = a_cpu.to(gpu_opts.device);
+    Tensor b_gpu = b_cpu.to(gpu_opts.device);
+    Tensor out_gpu(ref.shape(), options(ref).with_device(gpu_opts.device));
+    // allocate and zero on GPU happens via Tensor ctor
+    auto start = std::chrono::steady_clock::now();
+
+    K.kldivergence(a_gpu.data<float>(), b_gpu.data<float>(), out_gpu.data<float>(), a_cpu.shape().dims[0]*a_cpu.shape().dims[1], a_cpu.shape().dims[2], nullptr);
+    cudaDeviceSynchronize();
+    auto end = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_double = end - start;
+    std::cout << "Time taken (double seconds): " << duration_sec_double.count() << " s\n";
+
+    check_tensors_close(ref, out_gpu.to_cpu(), "test_gpu_kldivergence");
+
+    // Backward
+    Tensor gy_cpu = Tensor::ones(ref.shape(), cpu_opts);
+    int N = a_cpu.shape().dims[0]*a_cpu.shape().dims[1];
+    Tensor diff = ((OwnTensor::reduce_max(b_cpu, {-1}, true)*su) - b_cpu);
+    Tensor ga_ref = diff * (1.0f / float(N)) * gy_cpu;
+    Tensor gb_ref = (OwnTensor::log(b_cpu ) + 1.0f-1.0f*lsm) * (1.0f / float(N)) * gy_cpu;
+
+    Tensor gy_gpu = gy_cpu.to(gpu_opts.device);
+    Tensor ga_gpu = Tensor::zeros(ga_ref.shape(), gpu_opts);
+    Tensor gb_gpu = Tensor::zeros(gb_ref.shape(), gpu_opts);
+    auto starta = std::chrono::steady_clock::now();
+
+    K.vjp_kldivergence(ga_gpu.data<float>(), gb_gpu.data<float>(), gy_gpu.data<float>(),
+                  a_gpu.data<float>(), b_gpu.data<float>(),  a_cpu.numel(), float(N), nullptr);
+    cudaDeviceSynchronize();
+    auto enda = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration_sec_doublea = enda - starta;
+    std::cout << "Time taken (double seconds): " << duration_sec_doublea.count() << " s\n";
+
+    check_tensors_close(ga_ref, ga_gpu.to_cpu(), "test_gpu_vjp_kldivergence (pred dA)");
+    check_tensors_close(gb_ref, gb_gpu.to_cpu(), "test_gpu_vjp_kldivergence (target gB)");
+}
+
+
 // void test_gpu_unified_rowsum(auto m) {
 //     auto& K = kernels::cuda();
 //     auto cpu_opts = TensorOptions().with_device(Device::CPU);
@@ -1402,6 +1526,8 @@ int main() {
         test_gpu_unified_lisht(Shape{{256, 256, 256}});
         test_gpu_unified_gelu(Shape{{256, 256, 256}});
         test_gpu_unified_parcon(Shape{{256, 256, 256}});
+        test_gpu_unified_cewithlogits(Shape{{256, 256, 256}});
+        test_gpu_unified_kldivergence(Shape{{256, 256, 256}});
         // test_gpu_unified_alibattention();
         // test_gpu_unified_attention();
         

@@ -183,6 +183,8 @@ void load_cuda_plugin(const char* path) {
   g_cuda.vjp_sinh           = table.vjp_sinh;
   g_cuda.vjp_cosh          = table.vjp_cosh;
   g_cuda.vjp_softmax           = table.vjp_softmax;
+  g_cuda.vjp_cewithlogits           = table.vjp_cewithlogits;
+  g_cuda.vjp_kldivergence           = table.vjp_kldivergence;
   // Custom elementwise VJPs
   g_cuda.vjp_gcu = table.vjp_gcu;
   g_cuda.vjp_gauss = table.vjp_gauss;
