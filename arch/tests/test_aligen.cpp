@@ -20,7 +20,7 @@ int main() {
     const int B = 4;            // batch size
     // const int vocab_size = 5000; // number of classes (logits dim)
     const int num_layers = 3;    // (Attn + SWIGLU) block pairs
-    const float lr = 0.000000005f;
+    const float lr = 0.000000000001f;
     const int epochs = 2100;
     int vocab_size = 5000;      // integer tokens 0..19
     int Heads = 12;
@@ -41,7 +41,7 @@ int main() {
 flow::Tokenizer tok;
 
 std::string text =
-    flow::load_text_file("/home/blubridge-034/Downloads/Newf/cgadimpl/cgadimpl/src/layer/corpus.txt");
+    flow::load_text_file("/home/blubridge-034/Downloads/Newf/cgadimpl/arch/src/layer/corpus.txt");
 
 std::vector<std::string> train_samples = { text };
 
@@ -188,59 +188,77 @@ std::cout << "========================================\n\n";
 
 const int GEN_STEPS = 200;
 
-// Start from BOS or an empty prompt
-int token = tok.encode(" ")[0];   // or any char, must not be empty
-      // or tok.encode("")[0]
-std::vector<uint32_t> gen_tokens;    // store token IDs
-gen_tokens.push_back(token);
+// 1. We use a vector to keep track of EVERY token generated so far
+std::vector<int> history_tokens; 
+int start_token = tok.encode(" ")[0];
+history_tokens.push_back(start_token);
 
-// Pre-allocate CPU input tensor [1,1,d_model]
-Tensor x_cpu(
-    Shape{{1, 1, d_model}},
-    OwnTensor::TensorOptions().with_device(Device::CPU)
-);
 
 for (int step = 0; step < GEN_STEPS; ++step)
 {
-    // -------------------------
-    // 1. Embed current token
-    // -------------------------
-    std::vector<int> single_tok = { token };
+    // -------------------------------------------------------
+    // 1. Embed the FULL history, not just the last token
+    // -------------------------------------------------------
+    // This produces a tensor of shape [Current_T, d_model]
+    int T = history_tokens.size();
+    // std::cout<<flow::embed_tokens(embedding_table, history_tokens).shape().dims[0]<<"   "<<flow::embed_tokens(embedding_table, history_tokens).shape().dims[1]<<"\n";
+    Tensor emb_seq = flow::embed_tokens(embedding_table, history_tokens).unflatten(0, Shape({1, T}));
 
-    Tensor emb_row = flow::embed_tokens(embedding_table, single_tok).unflatten(1, Shape({1, d_model}));
-    // emb_row: [1, d_model]
+    // 2. Reshape to [Batch=1, SeqLen=T, Dim=D]
+    // int T = history_tokens.size();
+    // Tensor x_dev = emb_seq.unflatten(1, Shape({1, T, d_model})).to(dev);
+    // std::cout<<"Begin";
 
-    // reshape into [1,1,d_model]
+    // Move to device (GPU/NPU)
+    Tensor x_dev = emb_seq.clone().to(dev);
+    Value X_in = make_tensor(x_dev, "infer_seq");
 
+    // -------------------------------------------------------
+    // 3. Forward pass
+    // -------------------------------------------------------
+    Value out_val = model(X_in); // Output shape: [1, T, Vocab_Size]
+    // std::cout<<"End";
 
-    // Move to device
-    Tensor x_dev = x_cpu.to(dev);
-    Value X_in = make_tensor(x_dev, "infer_tok");
+    // Bring back to CPU
+    // ag::disten(out_val, Device::CPU);
+    Tensor logits_all = out_val.val().to(Device::CPU); 
 
-    // -------------------------
-    // 2. Forward pass → logits
-    // -------------------------
-    Value out_val = model(X_in);
+    // -------------------------------------------------------
+    // 4. Slice to get ONLY the last position's logits
+    // -------------------------------------------------------
+    // The model predicts a next token for EVERY position in history.
+    // We only care about what comes after the VERY LAST token.
+    int V = logits_all.shape().dims[2]; // Vocab size
+    
+    // Create a view or copy of just the last vector in the T dimension
+    // Pointer math: Start of tensor + (Last_Index * Vocab_Size)
+    float* last_token_logits_ptr = &logits_all.data<float>()[(T - 1) * V];
+    
+    // Wrap this pointer back into a 1D tensor for your sample function
+    Tensor last_logits(Shape({1, 1, V}), false); 
+    std::memcpy(last_logits.data<float>(), last_token_logits_ptr, V * sizeof(float));
 
-    // bring logits back to CPU
-    ag::disten(out_val, Device::CPU);
-    Tensor logits_cpu = out_val.val();   // [1,1,V]
+    // -------------------------------------------------------
+    // 5. Sample and Append
+    // -------------------------------------------------------
+    int next_tok = flow::safe_sample_from_logits_tensor(last_logits, 1.0f);
 
-    // -------------------------
-    // 3. Sample next token
-    // -------------------------
-    int next_tok = flow::safe_sample_from_logits_tensor(logits_cpu, 1.0f);
-
-    // save
-    gen_tokens.push_back(next_tok);
-
-    token = next_tok;
+    history_tokens.push_back(next_tok); // <--- THIS is the "memory"
+    
+    // Optional: print token immediately to see text forming
+    std::cout << tok.decode({(uint32_t)next_tok}) << std::flush;
 }
+std::vector<uint32_t> histi_tokens;
+
+histi_tokens.reserve(history_tokens.size()); // Optional but recommended for efficiency
+
+std::transform(history_tokens.begin(), history_tokens.end(), std::back_inserter(histi_tokens),
+               [](int value) { return static_cast<uint32_t>(value); });
 
 // ---------------------------------------------------------
 // Decode full sequence using tokenizer
 // ---------------------------------------------------------
-std::string decoded = tok.decode(gen_tokens);
+std::string decoded = tok.decode(histi_tokens);
 
 std::cout << "Generated:\n" << decoded << "\n\n";
 

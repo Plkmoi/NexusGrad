@@ -8,7 +8,16 @@ namespace flow {
 // Create embedding table
 // -------------------------------------------
 Tensor make_embedding_table(int vocab_size, int dim) {
-    return Tensor(Shape({vocab_size, dim}), true);  // requires_grad = true
+        Tensor W = Tensor::randn(Shape({vocab_size, dim}), TensorOptions());
+
+    // 2. Scale it to the industry standard std=0.02 
+    // This is mathematically: 0.02 * randn() + 0.0
+    float* data = W.data<float>();
+    for (size_t i = 0; i < W.numel(); ++i) {
+        data[i] *= 0.02f; 
+    }
+
+    return W;
 }
 
 
