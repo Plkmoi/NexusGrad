@@ -15,6 +15,10 @@ std::string load_text_file(const std::string& path) ;
 // ----------------------------------------------------
 std::vector<int> tokenize_bytes(const std::string& text) ;
 
+std::string shape_to_json(const std::vector<int64_t> dims);
+
+void save_safetensors(const std::string& filename, const std::map<std::string, Tensor>& weights);
+
 // ----------------------------------------------------
 // Example usage
 // ----------------------------------------------------

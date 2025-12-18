@@ -26,6 +26,7 @@ public:
 
     void to(Device dev);
     void zero_grad();
+    void save(const std::string& path);
 
 protected:
     std::vector<Value> params_;

@@ -404,7 +404,7 @@ std::string flow::Tokenizer::decode(const std::vector<uint32_t>& ids) const {
         auto it = rev.find(id);
         if (it == rev.end()) {
             // Unknown merge, fallback: treat as byte '?'
-            bytes.push_back((uint8_t)'?');
+            bytes.push_back((uint8_t)(id % 256)); 
             return;
         }
 

@@ -20,9 +20,9 @@ int main() {
     const int B = 4;            // batch size
     // const int vocab_size = 5000; // number of classes (logits dim)
     const int num_layers = 3;    // (Attn + SWIGLU) block pairs
-    const float lr = 0.000000000001f;
-    const int epochs = 2100;
-    int vocab_size = 5000;      // integer tokens 0..19
+    const float lr = 0.0000007f;
+    const int epochs = 1100;
+    int vocab_size = 15000;      // integer tokens 0..19
     int Heads = 12;
 
     const int S = 512; // Sequence length (needs to be defined)

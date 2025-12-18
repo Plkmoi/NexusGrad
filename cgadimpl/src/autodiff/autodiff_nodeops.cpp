@@ -439,15 +439,12 @@ void node_AlibiAttention( std::shared_ptr<Node> n) {
      auto a = n->inputs[0];
              int H = static_cast<int>(n->tape[4]->to(Device::CPU).data<float>()[0]);
 
-   Tensor q = matmul(A, B.t()).to_cpu().unflatten(2, Shape({H, (B.shape().dims[1]/H)})).transpose(1,2).clone();
-    Tensor k = matmul(A, C.t()).to_cpu().unflatten(2, Shape({H, (C.shape().dims[1]/H)})).transpose(1,2).clone();
-    Tensor v = matmul(A, D.t()).to_cpu().unflatten(2, Shape({H, (D.shape().dims[1]/H)})).transpose(1,2).clone();
+   Tensor q_gpu = matmul(A, B.t()).unflatten(2, Shape({H, (B.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor k_gpu = matmul(A, C.t()).unflatten(2, Shape({H, (C.shape().dims[1]/H)})).transpose(1,2).clone();
+    Tensor v_gpu = matmul(A, D.t()).unflatten(2, Shape({H, (D.shape().dims[1]/H)})).transpose(1,2).clone();
 
 
 
-    Tensor q_gpu = q.to(n->value.device());
-    Tensor k_gpu = k.to(n->value.device());
-    Tensor v_gpu = v.to(n->value.device());
     Tensor out_gpu(Shape({/*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[2]/H}), TensorOptions().with_device(a->value.device()));
 
     // flash attention call (standard softmax)

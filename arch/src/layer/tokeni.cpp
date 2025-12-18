@@ -2,6 +2,10 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <map>
+#include "layer/archlist.hpp"
+
+
 namespace flow {
 // ----------------------------------------------------
 // Read entire file into std::string
@@ -22,6 +26,51 @@ std::string load_text_file(const std::string& path) {
 
     return data;
 }
+
+std::string shape_to_json(const std::vector<int64_t> dims) {
+    std::string s = "[";
+    for (size_t i = 0; i < dims.size(); ++i) {
+        s += std::to_string(dims[i]) + (i == dims.size() - 1 ? "" : ", ");
+    }
+    return s + "]";
+}
+
+
+void save_safetensors(const std::string& filename, const std::map<std::string, Tensor>& weights) {
+    // 1. Build the JSON header string
+    std::string header = "{";
+    size_t current_offset = 0;
+    
+    for (auto const& [name, tensor] : weights) {
+        size_t byte_size = tensor.numel() * sizeof(float);
+        header += "\"" + name + "\": {";
+        header += "\"dtype\": \"F32\", ";
+        header += "\"shape\": " + shape_to_json(tensor.shape().dims) + ", ";
+        header += "\"data_offsets\": [" + std::to_string(current_offset) + ", " 
+               + std::to_string(current_offset + byte_size) + "]},";
+        current_offset += byte_size;
+    }
+    header.pop_back(); // Remove trailing comma
+    header += "}";
+
+    // 2. Write to File
+    std::ofstream file(filename, std::ios::binary);
+    
+    // Write Header Length (8 bytes, Little Endian)
+    u_int64_t header_len = header.length();
+    file.write(reinterpret_cast<const char*>(&header_len), 8);
+    
+    // Write JSON Header
+    file.write(header.c_str(), header_len);
+    
+    // Write Raw Tensor Data
+    for (auto const& [name, tensor] : weights) {
+        file.write(reinterpret_cast<const char*>(tensor.data<float>()), 
+                   tensor.numel() * sizeof(float));
+    }
+    file.close();
+}
+
 
 // ----------------------------------------------------
 // Byte-level tokenize: each char → unsigned value 0..255

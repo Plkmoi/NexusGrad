@@ -21,6 +21,28 @@ void Layer::zero_grad() {
     }
 }
 
+void Layer::save(const std::string& path) {
+    std::map<std::string, OwnTensor::Tensor> weight_map;
+    
+    // 1. Collect all valid tensors from your params
+    for (size_t i = 0; i < params_.size(); ++i) {
+        Value& p = params_[i];
+        if (p.node) {
+            // Use a unique name for each param
+            // If p doesn't have a name string, use the index
+            std::string name = "param_" + std::to_string(i); 
+            
+            // Make sure we bring it to CPU before saving to disk
+            weight_map[name] = p.node->value.to(Device::CPU);
+        }
+    }
+
+    // 2. Call the SafeTensors writer (as discussed)
+    flow::save_safetensors(path, weight_map);
+    
+    std::cout << "[Layer] Saved " << weight_map.size() << " tensors to " << path << "\n";
+}
+
 
 Linear::Linear(int batch, int in_features, int out_features, Device dev) {
     float scale = sqrtf(0.02f / in_features);
