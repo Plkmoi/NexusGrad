@@ -14,7 +14,8 @@ public:
     //     return (*this)(input);
     // }
 
-    virtual void backward(Value grad_output){}
+    virtual void backward(Value grad_output);
+    virtual void forward(Value inp);
 
 
     Value operator()(const Tensor& input) {

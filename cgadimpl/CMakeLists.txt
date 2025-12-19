@@ -61,7 +61,14 @@ add_library(cgadimpl::cgadimpl ALIAS cgadimpl_core)
 
 target_compile_definitions(cgadimpl_core PUBLIC WITH_CUDA)
 target_include_directories(cgadimpl_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(cgadimpl_core PUBLIC OwnTensor::tensor dl)
+target_link_libraries(cgadimpl_core PUBLIC     OwnTensor::tensor
+    pybind11::module
+    Python3::Python
+    OpenMP::OpenMP_CXX
+        CUDA::cuda_driver 
+    
+    
+    dl)
 
 
 # ---- Pybind11 module ----
@@ -93,12 +100,11 @@ if(true) # or use if(AG_BUILD_TESTS)
   # Helper for CPU Tests
   function(add_ag_test name src)
     add_executable(${name} ${src})
-    
     # --- FIX 2: Link against cgadimpl::cgadimpl (the Core static lib), NOT cgadimpl (the Python module)
     # --- FIX 3: Explicitly link dl (needed for CUDA driver) and CUDA::cudart
     target_link_libraries(${name} PRIVATE 
         cgadimpl::cgadimpl 
-        CUDA::cudart 
+        CUDA::cuda_driver 
         OpenMP::OpenMP_CXX 
         dl
     )

@@ -21,6 +21,54 @@ void Layer::zero_grad() {
     }
 }
 
+void Layer::forward(Value inp) {
+
+
+        if(inp.node->op== Op::Leaf)
+    {
+        params_[0] = shallow(inp);
+
+
+    }
+
+
+for (Value& p : params_) {
+
+
+
+        if (p.node && p.node->requires_grad()) {
+        if (p.node->op == Op::Leaf) continue;  // already has a value
+
+        auto fn = fwd_lookup(p.node->op);  // you can reuse your op forward registry
+        // auto r = n->shared_from_this();
+        if (fn) fn(p.node);        }
+    }
+}
+
+void Layer::backward(Value root) {
+
+    if(root.node->op!= Op::Leaf)
+    {
+        ag::backward(root);
+        return;
+    }
+
+
+
+for (auto p = params_.rbegin(); p != params_.rend(); ++p) {
+        if ((*p).node && (*p).node->requires_grad()) {
+        // if ((*p).node->op == Op::Leaf) continue;  // already has a value
+
+                const Tensor& gy = (*p).node->grad;
+
+
+        auto fn = vjp_lookup((*p).node->op);  // you can reuse your op forward registry
+        // auto r = n->shared_from_this();
+        if (fn) fn((*p).node.get(), gy);        }
+    }
+}
+
+
 void Layer::save(const std::string& path) {
     std::map<std::string, OwnTensor::Tensor> weight_map;
     

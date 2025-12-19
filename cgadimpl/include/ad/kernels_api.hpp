@@ -392,6 +392,9 @@ AG_EXPORT int ag_get_cuda_kernels_v1(struct ag_cuda_v1* out);
 
 } // extern "C"
 
+
+
+
 // ---------- C++ runtime registries & loaders ----------
 namespace ag::kernels {
 

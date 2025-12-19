@@ -121,6 +121,7 @@ if(true) # or use if(AG_BUILD_TESTS)
         arch
         CUDA::cudart 
         OpenMP::OpenMP_CXX 
+        CUDA::cuda_driver 
         dl
     )
 
@@ -137,6 +138,7 @@ if(true) # or use if(AG_BUILD_TESTS)
     target_link_libraries(${name} PRIVATE 
         arch
         CUDA::cudart 
+        CUDA::cuda_driver 
         dl
     )
 

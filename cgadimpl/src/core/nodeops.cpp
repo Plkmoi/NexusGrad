@@ -625,68 +625,6 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
     ag::debug::on_node_created(n);
     
 
-//     float scale = 1.f / sqrtf(static_cast<float>(k.shape().dims.back()));
-
-//     // 2) Logits: [H, T, T]
-//     Tensor logits = matmul(q, k.t()) * scale;
-
-//     // 3) Build ALiBi bias [H, T, T] on CPU, then move to logits.device()
-//     Tensor bias_cpu(
-//         logits.shape(),
-//         TensorOptions()
-//             .with_device(Device::CPU)
-//             .with_dtype(logits.dtype())
-//     );
-
-//     {
-//         float slope_start = 1.0f / std::pow(2.0f, 8.0f / H);
-
-//         dispatch_by_dtype(bias_cpu.dtype(), [&](auto dummy) {
-//             using Tval = decltype(dummy);
-//             Tval* data = bias_cpu.data<Tval>();
-
-//             for (int b = 0; b < a->value.shape().dims[0]; ++b) {
-//                 for (int h = 0; h < H; ++h) {
-//                                     float slope = std::pow(slope_start, h + 1);
-
-//                 for (int i = 0; i < a->value.shape().dims[2]; ++i) {
-
-//                     for (int j = 0; j < a->value.shape().dims[2]; ++j) {
-//                         float v;
-//                         if (j > i) {
-//                             v = -std::numeric_limits<float>::infinity(); // causal mask
-//                         } else {
-//                             v = -static_cast<float>(j - i) * slope;  // ALiBi penalty
-//                         }
-
-//                         const int idx = j + a->value.shape().dims[2]*i + (a->value.shape().dims[2]^2)*h + H*(a->value.shape().dims[2]^2)*b;
-//                         data[idx] = static_cast<Tval>(v);
-//                     }
-//                 }
-//             }
-//             }
-//         });
-//     }
-
-//     Tensor m = bias_cpu.to(a->value.device());
-
-//     // Tensor bias = bias_cpu.to(logits.device());
-//     Tensor g    = logits +m;  // [H,T,T]
-
-//     // 4) Softmax over last dim
-//     Tensor max_g = reduce_max(g, {-1}, true);     // [H,T,1]
-//     Tensor exp_g = exp(g - max_g);                // [H,T,T]
-//     Tensor sum_g = reduce_sum(exp_g, {-1}, true); // [H,T,1]
-//     Tensor s     = exp_g / sum_g;                 // [H,T,T]
-// //  //// ag::debug::print_tensor("Who is v", v);
-
-// //  //// ag::debug::print_tensor("S middle", s);
-// // // try{
-//     Tensor ya = matmul(s, v).transpose(1,2).flatten(2,3);
-// //      //// ag::debug::print_tensor("Y middle", y);
-// auto outa = ya.clone();
-
-// check_tensors_close(y.to_cpu(), outa.to_cpu(), "test_gpu_attention", 0.01);
 return n;
 }
 

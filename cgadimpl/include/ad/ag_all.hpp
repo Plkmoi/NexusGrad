@@ -8,7 +8,11 @@
 #include "nn/nn.hpp"
 #include "ad/kernels_api.hpp"
 #include <cuda_runtime.h>
+#include "ad/detail/autodiff_ops.hpp"
 
+  namespace ag::CudaInternal {
+    #include <cuda.h>
+}
 
 
 // static void init_cuda_plugin() {

@@ -9,6 +9,48 @@
 #include <unordered_map>
 #include <cmath> 
 #include "ad/detail/autodiff_ops.hpp"
+#include "ad/ag_all.hpp"
+
+float* append_to_kv_cache(void* new_data, size_t data_bytes, int id) {
+    // 1. Static arrays to hold state for multiple caches (e.g., K and V)
+    static ag::CudaInternal::CUdeviceptr base_ptrs[2] = {0, 0};
+    static size_t offsets[2] = {0, 0};
+    static size_t mapped_sizes[2] = {0, 0};
+
+    // Initialize reservation for this specific ID if not done
+    if (base_ptrs[id] == 0) {
+        size_t max_cache_size = 2ULL * 1024 * 1024 * 1024; // 2GB each
+        ag::CudaInternal::cuMemAddressReserve(&base_ptrs[id], max_cache_size, 0, 0, 0);
+    }
+
+    // 2. Grow physical memory for this ID 🏗️
+    if (offsets[id] + data_bytes > mapped_sizes[id]) {
+        size_t granularity;
+        ag::CudaInternal::CUmemAllocationProp prop = {};
+        prop.type = ag::CudaInternal::CU_MEM_ALLOCATION_TYPE_PINNED;
+        prop.location.type = ag::CudaInternal::CU_MEM_LOCATION_TYPE_DEVICE;
+        prop.location.id = 0; 
+        ag::CudaInternal::cuMemGetAllocationGranularity(&granularity, &prop, ag::CudaInternal::CU_MEM_ALLOC_GRANULARITY_MINIMUM);
+
+        size_t needed = (offsets[id] + data_bytes) - mapped_sizes[id];
+        size_t padded_size = ((needed + granularity - 1) / granularity) * granularity;
+
+        ag::CudaInternal::CUmemGenericAllocationHandle handle;
+        ag::CudaInternal::cuMemCreate(&handle, padded_size, &prop, 0);
+        ag::CudaInternal::cuMemMap(base_ptrs[id] + mapped_sizes[id], padded_size, 0, handle, 0);
+
+        ag::CudaInternal::CUmemAccessDesc access = {{ag::CudaInternal::CU_MEM_LOCATION_TYPE_DEVICE, 0}, ag::CudaInternal::CU_MEM_ACCESS_FLAGS_PROT_READWRITE};
+        ag::CudaInternal::cuMemSetAccess(base_ptrs[id] + mapped_sizes[id], padded_size, &access, 1);
+
+        mapped_sizes[id] += padded_size;
+    }
+
+    // 3. Copy new data to the correct offset for this ID
+    cudaMemcpy((void*)(base_ptrs[id] + offsets[id]), new_data, data_bytes, cudaMemcpyDeviceToDevice);
+    offsets[id] += data_bytes;
+
+    return (float*)base_ptrs[id];
+}
 
 
         
@@ -159,6 +201,7 @@ void node_RealRMSNorm( std::shared_ptr<Node> n) {
     Tensor rsqrt_var = OwnTensor::sqrt(variance + 1e-5f, ag::current_stream());
     Tensor y_normalized = (X) / (rsqrt_var+1e-5);
     n->value     = y_normalized * G;
+    n->debug_name = n->inputs[0]->debug_name;
 }
 
 
@@ -352,88 +395,7 @@ void node_RELUAtt( std::shared_ptr<Node> n) {
     n->value = OwnTensor::matmul(relu, v);
 }
 void node_AlibiAttention( std::shared_ptr<Node> n) {
-    // const Tensor& x = n->inputs[0]->value;   // [H, T, D]
 
-    // const Tensor& Wq = n->inputs[1]->value;  // [D, D]
-    // const Tensor& Wk = n->inputs[2]->value;  // [D, D]
-    // const Tensor& Wv = n->inputs[3]->value;  // [D, D]
-
-
-    // // All tensors follow the device / dtype of x
-    // const auto& dims = x.shape().dims;
-    // if (dims.size() != 3) {
-    //     throw std::runtime_error("alibiatt_nodeops: x must be [H,T,D]");
-    // }
-    // const int B = static_cast<int>(dims[0]);
-
-    // const int T = static_cast<int>(dims[1]);
-    // const int D = static_cast<int>(dims[2]);
-
-    // auto opts   = options(x);
-    // int H = static_cast<int>(n->tape[4]->to(Device::CPU).data<float>()[0]);
-
-
-    // // 1) Projections: [H, T, D]
-    // Tensor q = matmul(x, Wq.t()).unflatten(2, Shape({H, (Wq.shape().dims[1]/H)})).transpose(1,2).clone();
-    // Tensor k = matmul(x, Wk.t()).unflatten(2, Shape({H, (Wk.shape().dims[1]/H)})).transpose(1,2).clone();
-    // Tensor v = matmul(x, Wv.t()).unflatten(2, Shape({H, (Wv.shape().dims[1]/H)})).transpose(1,2).clone();
-
-    // float scale = 1.f / sqrtf(static_cast<float>(k.shape().dims.back()));
-    // // 2) Logits: [H, T, T]
-    // Tensor logits = matmul(q, k.t()) * scale;
-
-    // // 3) Build ALiBi bias [H, T, T] on CPU, then move to logits.device()
-    // Tensor bias_cpu(
-    //     logits.shape(),
-    //     TensorOptions()
-    //         .with_device(Device::CPU)
-    //         .with_dtype(logits.dtype())
-    // );
-
-    // {
-    //     float slope_start = 1.0f / std::pow(2.0f, 8.0f / H);
-
-    //     dispatch_by_dtype(bias_cpu.dtype(), [&](auto dummy) {
-    //         using Tval = decltype(dummy);
-    //         Tval* data = bias_cpu.data<Tval>();
-
-    //         for (int b = 0; b < B; ++b) {
-    //             for (int h = 0; h < H; ++h) {
-    //                                 float slope = std::pow(slope_start, h + 1);
-
-    //             for (int i = 0; i < T; ++i) {
-
-    //                 for (int j = 0; j < T; ++j) {
-    //                     float v;
-    //                     if (j > i) {
-    //                         v = -std::numeric_limits<float>::infinity(); // causal mask
-    //                     } else {
-    //                         v = -static_cast<float>(j - i) * slope;  // ALiBi penalty
-    //                     }
-
-    //                     const int idx = j + T*i + T*T*h + H*T*T*b;
-    //                     data[idx] = static_cast<Tval>(v);
-    //                 }
-    //             }
-    //         }
-    //         }
-    //     });
-    // }
-
-    
-
-    // // Tensor bias = bias_cpu.to(logits.device());
-    // Tensor g    = logits +bias_cpu;  // [H,T,T]
-
-    // // 4) Softmax over last dim
-    // Tensor max_g = reduce_max(g, {-1}, true);     // [H,T,1]
-    // Tensor exp_g = exp(g - max_g);                // [H,T,T]
-    // Tensor sum_g = reduce_sum(exp_g, {-1}, true); // [H,T,1]
-    // Tensor s     = exp_g / sum_g;                 // [H,T,T]
-
-    // // 5) Output: y = s @ v → [H,T,D]
-    // n->value = matmul(s, v).transpose(1,2).flatten(2,3);     
-    
          Tensor& A = n->inputs[0]->value;
      Tensor& B = n->inputs[1]->value;
      Tensor& C = n->inputs[2]->value;
@@ -444,20 +406,32 @@ void node_AlibiAttention( std::shared_ptr<Node> n) {
    Tensor q_gpu = matmul(A, B.t()).unflatten(2, Shape({H, (B.shape().dims[1]/H)})).transpose(1,2).clone();
     Tensor k_gpu = matmul(A, C.t()).unflatten(2, Shape({H, (C.shape().dims[1]/H)})).transpose(1,2).clone();
     Tensor v_gpu = matmul(A, D.t()).unflatten(2, Shape({H, (D.shape().dims[1]/H)})).transpose(1,2).clone();
-
-
-
     Tensor out_gpu(Shape({/*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[2]/H}), TensorOptions().with_device(a->value.device()));
+
+    if(n->inputs[0]->debug_name=="infse")
+    {
+    float* k_cache_ptr = append_to_kv_cache(k_gpu.data(), k_gpu.nbytes(), 0); // index 0 = K
+    float* v_cache_ptr = append_to_kv_cache(v_gpu.data(), v_gpu.nbytes(), 1); // index 1 = V
+    kernels::cuda().flashali(q_gpu.data<float>(), k_cache_ptr, v_cache_ptr, out_gpu.data<float>(),
+            /*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[2]/H, ag::current_stream());
+    cudaDeviceSynchronize();
+    }
+    else{
+
 
     // flash attention call (standard softmax)
     kernels::cuda().flashali(q_gpu.data<float>(), k_gpu.data<float>(), v_gpu.data<float>(), out_gpu.data<float>(),
             /*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[2]/H, ag::current_stream());
     cudaDeviceSynchronize();
+    }
+    
+    
     auto outa = out_gpu.to_cpu().transpose(1,2).flatten(2,3).clone();
         // n->tape.clear();
     n->tape[0]=std::make_shared<Tensor>(q_gpu); // [H,T,D]
     n->tape[1]=std::make_shared<Tensor>(k_gpu); // [H,T,D]
     n->tape[2]=std::make_shared<Tensor>(v_gpu); // [H,T,D]
+    n->value = outa.to(a->value.device());
 
 }
 
