@@ -17,13 +17,13 @@ int main() {
     std::cout << "========================================\n\n";
 
     // 1. --- Hyperparameters ---
-    const int B = 4;            // batch size
+    const int B = 8;            // batch size
     // const int vocab_size = 5000; // number of classes (logits dim)
     const int num_layers = 3;    // (Attn + SWIGLU) block pairs
-    const float lr = 0.0000007f;
-    const int epochs = 1100;
+    const float lr = 0.0000004f;
+    const int epochs = 2100;
     int vocab_size = 15000;      // integer tokens 0..19
-    int Heads = 12;
+    int Heads = 24;
 
     const int S = 512; // Sequence length (needs to be defined)
     const int d_model = 768; // Embedding dimension
@@ -178,6 +178,8 @@ for (int epoch = 0; epoch < epochs; ++epoch) {
     std::cout << "Epoch " << epoch << " Loss: " << l << "\n";
 }
 
+model.save("/home/blubridge-034/Downloads/Newf/cgadimpl/arch/src/layer/newfi.safetensors");
+
 
 // ---------------------------------------------------------
 // Autoregressive Text Generation (BPE-correct)
@@ -186,7 +188,7 @@ std::cout << "\n========================================\n";
 std::cout << "--- GENERATING TEXT (BPE) ---\n";
 std::cout << "========================================\n\n";
 
-const int GEN_STEPS = 200;
+const int GEN_STEPS = 700;
 
 // 1. We use a vector to keep track of EVERY token generated so far
 std::vector<int> history_tokens; 
