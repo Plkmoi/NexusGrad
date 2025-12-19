@@ -313,7 +313,9 @@ void node_Attention( std::shared_ptr<Node> n) {
 // try{
     n->value = outa.to(a->value.device());
 
-
+    n->tape[0]=std::make_shared<Tensor>(q_gpu); // [H,T,D]
+    n->tape[1]=std::make_shared<Tensor>(k_gpu); // [H,T,D]
+    n->tape[2]=std::make_shared<Tensor>(v_gpu); // [H,T,D]
 
 
 }
@@ -452,6 +454,10 @@ void node_AlibiAttention( std::shared_ptr<Node> n) {
             /*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[2]/H, ag::current_stream());
     cudaDeviceSynchronize();
     auto outa = out_gpu.to_cpu().transpose(1,2).flatten(2,3).clone();
+        // n->tape.clear();
+    n->tape[0]=std::make_shared<Tensor>(q_gpu); // [H,T,D]
+    n->tape[1]=std::make_shared<Tensor>(k_gpu); // [H,T,D]
+    n->tape[2]=std::make_shared<Tensor>(v_gpu); // [H,T,D]
 
 }
 
