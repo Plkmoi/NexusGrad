@@ -8,7 +8,48 @@
 #include "TensorLib.h" 
 #include <unordered_map>
 #include <cmath> 
+#include "ad/ag_all.hpp"
 
+float* append_to_kv_cache(void* new_data, size_t data_bytes, int id) {
+    // 1. Static arrays to hold state for multiple caches (e.g., K and V)
+    static ag::CudaInternal::CUdeviceptr base_ptrs[2] = {0, 0};
+    static size_t offsets[2] = {0, 0};
+    static size_t mapped_sizes[2] = {0, 0};
+
+    // Initialize reservation for this specific ID if not done
+    if (base_ptrs[id] == 0) {
+        size_t max_cache_size = 2ULL * 1024 * 1024 * 1024; // 2GB each
+        ag::CudaInternal::cuMemAddressReserve(&base_ptrs[id], max_cache_size, 0, 0, 0);
+    }
+
+    // 2. Grow physical memory for this ID 🏗️
+    if (offsets[id] + data_bytes > mapped_sizes[id]) {
+        size_t granularity;
+        ag::CudaInternal::CUmemAllocationProp prop = {};
+        prop.type = ag::CudaInternal::CU_MEM_ALLOCATION_TYPE_PINNED;
+        prop.location.type = ag::CudaInternal::CU_MEM_LOCATION_TYPE_DEVICE;
+        prop.location.id = 0; 
+        ag::CudaInternal::cuMemGetAllocationGranularity(&granularity, &prop, ag::CudaInternal::CU_MEM_ALLOC_GRANULARITY_MINIMUM);
+
+        size_t needed = (offsets[id] + data_bytes) - mapped_sizes[id];
+        size_t padded_size = ((needed + granularity - 1) / granularity) * granularity;
+
+        ag::CudaInternal::CUmemGenericAllocationHandle handle;
+        ag::CudaInternal::cuMemCreate(&handle, padded_size, &prop, 0);
+        ag::CudaInternal::cuMemMap(base_ptrs[id] + mapped_sizes[id], padded_size, 0, handle, 0);
+
+        ag::CudaInternal::CUmemAccessDesc access = {{ag::CudaInternal::CU_MEM_LOCATION_TYPE_DEVICE, 0}, ag::CudaInternal::CU_MEM_ACCESS_FLAGS_PROT_READWRITE};
+        ag::CudaInternal::cuMemSetAccess(base_ptrs[id] + mapped_sizes[id], padded_size, &access, 1);
+
+        mapped_sizes[id] += padded_size;
+    }
+
+    // 3. Copy new data to the correct offset for this ID
+    cudaMemcpy((void*)(base_ptrs[id] + offsets[id]), new_data, data_bytes, cudaMemcpyDeviceToDevice);
+    offsets[id] += data_bytes;
+
+    return (float*)base_ptrs[id];
+}
 
 
 
@@ -533,7 +574,7 @@ std::shared_ptr<Node> sqrt_nodeops(const std::shared_ptr<Node>& x) {
 // alibiatt_nodeops
 // ===================================================================
 
-std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d, int& H)  {
+std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d, int& H, bool w)  {
 
 
     Tensor q = matmul(a->value, b->value.t()).unflatten(2, Shape({H, (b->value.shape().dims[1]/H)})).transpose(1,2).clone();
@@ -549,12 +590,28 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
     // ag::debug::print_tensor("Key Kentucky hero", k.to_cpu());
     // ag::debug::print_tensor("Value Florida girl", v.to_cpu());
     // ag::debug::print_tensor("Out Based", out_gpu.to_cpu());
+    // std::cout<<w;
+
+    if(w)
+    {
+
+        // std::cout<<"We win!\n";
     
+    float* k_cache_ptr = append_to_kv_cache(k_gpu.data(), k_gpu.nbytes(), 0); // index 0 = K
+    float* v_cache_ptr = append_to_kv_cache(v_gpu.data(), v_gpu.nbytes(), 1); // index 1 = V
+    kernels::cuda().flashalide(q_gpu.data<float>(), k_cache_ptr, v_cache_ptr, out_gpu.data<float>(),
+            /*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[2]/H, ag::current_stream());
     
     // flash attention call (standard softmax)
-    kernels::cuda().flashali(q_gpu.data<float>(), k_gpu.data<float>(), v_gpu.data<float>(), out_gpu.data<float>(),
+    cudaDeviceSynchronize();
+    }
+
+    else{
+
+            kernels::cuda().flashali(q_gpu.data<float>(), k_gpu.data<float>(), v_gpu.data<float>(), out_gpu.data<float>(),
             /*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[2]/H, ag::current_stream());
     cudaDeviceSynchronize();
+    }
     auto y = out_gpu.transpose(1,2).flatten(2,3).clone();
  // ag::debug::print_tensor("Out Really Based", out_gpu.to_cpu());
     // 6) Build Node, save tape for VJP
@@ -580,35 +637,35 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
             .with_device(Device::CPU)
     );
 
-    {
-        float slope_start = 1.0f / std::pow(2.0f, 8.0f / H);
+    // {
+    //     float slope_start = 1.0f / std::pow(2.0f, 8.0f / H);
 
-        dispatch_by_dtype(bias_cpu.dtype(), [&](auto dummy) {
-            using Tval = decltype(dummy);
-            Tval* data = bias_cpu.data<Tval>();
+    //     dispatch_by_dtype(bias_cpu.dtype(), [&](auto dummy) {
+    //         using Tval = decltype(dummy);
+    //         Tval* data = bias_cpu.data<Tval>();
 
-            for (int b = 0; b < B; ++b) {
-                for (int h = 0; h < H; ++h) {
-                                    float slope = std::pow(slope_start, h + 1);
+    //         for (int b = 0; b < B; ++b) {
+    //             for (int h = 0; h < H; ++h) {
+    //                                 float slope = std::pow(slope_start, h + 1);
 
-                for (int i = 0; i < T; ++i) {
+    //             for (int i = 0; i < T; ++i) {
 
-                    for (int j = 0; j < T; ++j) {
-                        float v;
-                        if (j > i) {
-                            v = -std::numeric_limits<float>::infinity(); // causal mask
-                        } else {
-                            v = -static_cast<float>(j - i) * slope;  // ALiBi penalty
-                        }
+    //                 for (int j = 0; j < T; ++j) {
+    //                     float v;
+    //                     if (j > i) {
+    //                         v = -std::numeric_limits<float>::infinity(); // causal mask
+    //                     } else {
+    //                         v = -static_cast<float>(j - i) * slope;  // ALiBi penalty
+    //                     }
 
-                        const int idx = j + T*i + T*T*h + H*T*T*b;
-                        data[idx] = static_cast<Tval>(v);
-                    }
-                }
-            }
-            }
-        });
-    }
+    //                     const int idx = j + T*i + T*T*h + H*T*T*b;
+    //                     data[idx] = static_cast<Tval>(v);
+    //                 }
+    //             }
+    //         }
+    //         }
+    //     });
+    // }
 
     
 

@@ -28,9 +28,13 @@ public:
     void to(Device dev);
     void zero_grad();
     void save(const std::string& path);
-
+    virtual void setinflag(bool q) { 
+        this->inflag = q; 
+    }
 protected:
     std::vector<Value> params_;
+    bool inflag=false;
+
 };
 
 
@@ -48,6 +52,12 @@ class ResidualBlock : public Layer {
 public:
     ResidualBlock(const std::vector<Layer*>& Layers);
     Value operator()(Value x) override;
+    void setinflag(bool q) override {
+    this->inflag = q;              // Set my flag
+    for (auto* layer : Layers_) { 
+        layer->setinflag(q);       // Tell my children (like Alibi)
+    }
+}
 
 private:
     std::vector<Layer*> Layers_;
@@ -59,6 +69,15 @@ public:
     Traverse(const std::vector<Layer*>& Layers);
     Value operator()(Value x) override;
     const std::vector<Layer*>& get_layers() const { return layers_; }
+
+void setinflag(bool q) override {
+    this->inflag = q;              // Set my flag
+    for (auto* layer : layers_) { 
+        layer->setinflag(q);       // Tell my children (like Alibi)
+    }
+}
+
+
 private:
     std::vector<Layer*> layers_;
 };

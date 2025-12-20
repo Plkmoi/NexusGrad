@@ -54,6 +54,13 @@ AlibiAttention::AlibiAttention(int batch, int in_features, int out_features, int
 
 
 Value AlibiAttention::operator()(Value input) {
+    // std::cout<<"\n"<<this->inflag<<" Yeah \n";
+
+    if(this->inflag)
+    {
+        // std::cout<<"Hi!";
+        return alibiatt(input, Wq_, Wk_, Wv_, heads, true);
+    }
     return alibiatt(input, Wq_, Wk_, Wv_, heads);
 }
 

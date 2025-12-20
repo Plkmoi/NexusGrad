@@ -125,6 +125,7 @@ Traverse::Traverse(const std::vector<Layer*>& Layers)
 
 
 Value Traverse::operator()(Value x) {
+    // inflag = m;
     for (auto* layer : layers_) {
         x = (*layer)(x);
     }

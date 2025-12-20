@@ -125,7 +125,7 @@ void zero_val(const Value& root){
 
 Value shallow(const Value& q) {
     if (!q.node) throw std::runtime_error("shallow(): q.node is null");
-        std::cout<<"y\ngwehy\n"<<q.node->debug_name<<"\n";
+        // std::cout<<"y\ngwehy\n"<<q.node->debug_name<<"\n";
 
     auto n = std::make_shared<Node>();   // ← allocate a fresh Node
     n->value = q.node->value;            // copies Tensor handle (may alias storage)

@@ -445,7 +445,7 @@ __global__ void flash_aliforward_kernele(
             if (j_pos > row) {
                 s = -INFINITY;
             } else {
-                s += (float)(row - j_pos) * slope;
+                s -= (float)(row - j_pos) * slope;
             }
 
             P[tx * Bc + y] = s;
@@ -529,6 +529,192 @@ void run_flash_aliforward(const float* Q, const float* K, const float* V, float*
     );
 
 
+}
+// --------------------------------------------
+// Flash Attention Forward Kernel (Fixed Logic) - Updated for Prefill + Decode
+// --------------------------------------------
+__global__ void flash_aliforward_kernele(
+    const float* __restrict__ Q,
+    const float* __restrict__ K,
+    const float* __restrict__ V,
+    float* __restrict__ O,
+    int N, int d, int Bc, int Br,
+    float softmax_scale,
+    int query_pos_start) {  // NEW: Starting global position of the first query row
+    extern __shared__ float smem[]; // layout explained below
+    // smem layout:
+    // Qi: Br * d
+    // Kj: Bc * d
+    // Vj: Bc * d
+    // P : Br * Bc
+
+    float* Qi = smem;                                 // Br * d
+    float* Kj = Qi + Br * d;                          // Bc * d
+    float* Vj = Kj + Bc * d;                          // Bc * d
+    float* P  = Vj + Bc * d;                          // Br * Bc
+
+    int batch  = blockIdx.x;
+    int head   = blockIdx.y;
+    int tile_i = blockIdx.z; // i tile index
+
+    int tx = threadIdx.x; // 0..Br-1
+
+    int qkv_offset = ((batch * gridDim.y) + head) * N * d;
+
+    int local_row = tile_i * Br + tx;
+    int global_row = query_pos_start + local_row;
+    if (global_row >= N) return;
+
+    // load Q[local_row] into Qi[tx*d + ...]  (Q is shaped for num_queries, not N)
+    for (int x = 0; x < d; ++x) {
+        Qi[tx * d + x] = Q[qkv_offset + local_row * d + x];
+    }
+
+    // prefix stats
+    float m_prev = -INFINITY;
+    float l_prev = 0.0f;
+
+    // ALiBi slope: correct formula using nh = gridDim.y
+    float slope_start = powf(2.0f, -8.0f / (float)gridDim.y);
+    float slope = powf(slope_start, (float)head);
+    // float slope = alibi_slope(head, (float)gridDim.y);
+
+    int Tc = (N + Bc - 1) / Bc;
+
+    // For each K/V tile (sequentially!)
+    for (int t = 0; t < Tc; ++t) {
+        int col_base = t * Bc;
+
+        __syncthreads();
+
+        // load K/V tile into shared mem with strided loads so all entries are filled
+        // each thread loads multiple rows of K/V: idx ranges over [0, Bc)
+        for (int idx = tx; idx < Bc; idx += Br) {
+            int col = col_base + idx;
+            if (col < N) {
+                for (int x = 0; x < d; ++x) {
+                    Kj[idx * d + x] = K[qkv_offset + col * d + x];
+                    Vj[idx * d + x] = V[qkv_offset + col * d + x];
+                }
+            } else {
+                // pad zeros for out-of-range columns
+                for (int x = 0; x < d; ++x) {
+                    Kj[idx * d + x] = 0.0f;
+                    Vj[idx * d + x] = 0.0f;
+                }
+            }
+        }
+        __syncthreads();
+
+        // compute Q * K^T for this tile, store in P, track max
+        float m_curr = -INFINITY;
+        for (int y = 0; y < Bc; ++y) {
+            int j_pos = col_base + y;
+            float s = 0.0f;
+            // dot product Qi[tx,:] . Kj[y,:]
+            for (int x = 0; x < d; ++x) {
+                s += Qi[tx * d + x] * Kj[y * d + x];
+            }
+            s *= softmax_scale;
+
+            // causal mask + ALiBi - use global_row!
+            if (j_pos > global_row) {
+                s = -INFINITY;
+            } else {
+                s += (float)(global_row - j_pos) * slope;
+            }
+
+            P[tx * Bc + y] = s;
+            if (s > m_curr) m_curr = s;
+        }
+
+        // compute unnormalized probs for this tile and l_curr
+        float l_curr = 0.0f;
+        // If m_curr == -INFINITY (all masked) then all exps are 0 and l_curr stays 0
+        if (m_curr > -INFINITY/2.0f) {
+            for (int y = 0; y < Bc; ++y) {
+                float v = __expf(P[tx * Bc + y] - m_curr);
+                P[tx * Bc + y] = v;
+                l_curr += v;
+            }
+        } else {
+            // all masked -> set P entries to 0
+            for (int y = 0; y < Bc; ++y) P[tx * Bc + y] = 0.0f;
+            l_curr = 0.0f;
+        }
+
+        // prefix-merge in a numerically stable way
+        float m_new = fmaxf(m_prev, m_curr);
+        // handle m_prev == -INF case: exp(-INF - m_new) -> 0, fine
+        float l_new;
+        if (l_prev == 0.0f && l_curr == 0.0f) {
+            l_new = 0.0f;
+        } else {
+            l_new = ( (l_prev == 0.0f) ? 0.0f : __expf(m_prev - m_new) * l_prev )
+                  + ( (l_curr == 0.0f) ? 0.0f : __expf(m_curr - m_new) * l_curr );
+        }
+
+        // accumulate output for this tile: O_new = (exp(m_prev-m_new)*l_prev*old_O + exp(m_curr-m_new)*pv) / l_new
+        if (l_new == 0.0f) {
+            // nothing to accumulate (all masked). Keep O as-is or zero (O should be zero-initialized).
+            // For safety, write zero (this avoids any 0/0).
+            for (int x = 0; x < d; ++x) {
+                O[qkv_offset + local_row * d + x] = 0.0f;  // NOTE: use local_row for O (shaped for num_queries)
+            }
+        } else {
+            float coef_prev = (l_prev == 0.0f) ? 0.0f : __expf(m_prev - m_new) * l_prev / l_new;
+            float coef_curr = (l_curr == 0.0f) ? 0.0f : __expf(m_curr - m_new) * 1.0f / l_new; // multiply pv by l_curr inside acc
+            // compute pv = sum_y P[y] * Vj[y,:]  (note P[y] is already exp(S - m_curr))
+            for (int x = 0; x < d; ++x) {
+                float pv = 0.0f;
+                for (int y = 0; y < Bc; ++y) {
+                    pv += P[tx * Bc + y] * Vj[y * d + x];
+                }
+                float old = (coef_prev == 0.0f) ? 0.0f : O[qkv_offset + local_row * d + x];
+                float newO = coef_prev * old + coef_curr * pv * l_curr; // note coef_curr * pv * l_curr == exp(m_curr-m_new)*pv / l_new
+                O[qkv_offset + local_row * d + x] = newO;
+            }
+        }
+
+        // update prefix stats
+        m_prev = m_new;
+        l_prev = l_new;
+    } // for tiles
+}
+
+// --------------------------------------------
+// Host Launcher - For Decode (KV Cache)
+// --------------------------------------------
+void run_flash_aliforward_decode(
+    const float* Q,          // [B, H, 1, d] – query for the new token
+    const float* K,          // [B, H, seq_len, d] – full KV cache (past + current key)
+    const float* V,          // [B, H, seq_len, d] – full KV cache (past + current value)
+    float* O,                // [B, H, 1, d] – output
+    int B, int H, int seq_len, int d, ag_cuda_stream_t s)
+{
+    const int Br = 32;
+    const int Bc = 32;
+    float softmax_scale = 1.0f / sqrtf((float)d);
+
+    // Only 1 query row to process → grid.z = 1
+    dim3 grid(B, H, 1);       // one tile in the row dimension
+    dim3 block(Br);
+
+    // Zero the output – crucial for the online accumulation to start clean
+    size_t out_size = (size_t)B * H * 1 * d * sizeof(float);
+    cudaMemsetAsync(O, 0, out_size, (cudaStream_t)s);
+
+    // Shared memory size stays the same
+    int smem = (Br * d + Bc * d + Bc * d + Br * Bc) * sizeof(float);
+
+    // Pass seq_len as N (the current full context length)
+    flash_aliforward_kernele<<<grid, block, smem, (cudaStream_t)s>>>(
+        Q, K, V, O,
+        seq_len,          // N = current sequence length (including the new token)
+        d, Bc, Br,
+        softmax_scale,
+        seq_len - 1       // query_pos_start = position of the new query
+    );
 }
 
 __global__ void flash_reluforward_kernele(
