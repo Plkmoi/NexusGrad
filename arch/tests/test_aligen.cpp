@@ -19,10 +19,10 @@ int main() {
     // 1. --- Hyperparameters ---
     const int B = 8;            // batch size
     // const int vocab_size = 5000; // number of classes (logits dim)
-    const int num_layers = 3;    // (Attn + SWIGLU) block pairs
+    const int num_layers = 4;    // (Attn + SWIGLU) block pairs
     const float lr = 0.0000005f;
-    const int epochs = 5;
-    int vocab_size = 40000;      // integer tokens 0..19
+    const int epochs = 2100;
+    int vocab_size = 15000;      // integer tokens 0..19
     int Heads = 24;
 
     const int S = 512; // Sequence length (needs to be defined)
@@ -188,7 +188,7 @@ std::cout << "\n========================================\n";
 std::cout << "--- GENERATING TEXT (BPE) ---\n";
 std::cout << "========================================\n\n";
 
-const int GEN_STEPS =  5;
+const int GEN_STEPS =  2000;
 
 // 1. We use a vector to keep track of EVERY token generated so far
 std::vector<int> history_tokens; 

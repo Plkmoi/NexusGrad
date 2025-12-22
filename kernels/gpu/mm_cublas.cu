@@ -1191,7 +1191,7 @@ cudaMemcpy(d_act, act, N * sizeof(float), cudaMemcpyHostToDevice);
 
 __global__ void sigmoidline(float * val, float * sal, float j) {
     // Perform warp-level reduction for max operation
-    int i =  blockDim.x*blockDim.x + threadIdx.x ;
+    int i =  blockIdx.x*blockDim.x + threadIdx.x ;
     if(i<j)
      val[i] = (val[i] * sal[i] )/ (1.f + __expf(-val[i]));
 

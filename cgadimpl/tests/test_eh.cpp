@@ -481,6 +481,32 @@ ag::opti.SGD(w, 0.01);
 }
 
 
+void test_softmaxrow( int H, int B, int S, int D)
+{
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
+    ag::debug::print_tensor("Input Softmax Row", X);
+    auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
+
+    auto in_features = S;
+    auto batch = B;
+    auto out_features = D;
+
+    auto w = softmax_row(m);
+    
+    // auto w = sum(r);
+    ag::debug::print_tensor("Result Value Softmax Row", w.val());
+    backward(w);
+    ag::debug::print_tensor("Result Gradient Softmax Row", m.grad());
+ag::opti.SGD(w, 0.01);
+    for(int i=0;i<10;i++){
+        forward(w);
+        backward(w);
+                
+        opti.epoch();
+    }
+}
+
+
 void test_silu( int H, int B, int S, int D)
 {
     Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
@@ -914,6 +940,7 @@ test_relu(2, 4, 2, 4);
 test_softplus(2, 4, 2, 4);
 test_tanh(2, 4, 2, 4);
 test_leakyrelu(2, 4, 2, 4);
+test_softmaxrow(2, 4, 2, 4);
 
 // test_att(4, 11, 7, 12);
 test_swiglu(2, 4, 2, 4, 10);

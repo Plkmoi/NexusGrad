@@ -532,6 +532,233 @@ flow::opti.SGD(w, 0.01);
     }
 }
 
+
+void test_softmaxrow( int H, int B, int S, int D)
+{
+    Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
+    ag::debug::print_tensor("Input Softmax Row", X);
+    auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
+
+    auto in_features = S;
+    auto batch = B;
+    auto out_features = D;
+    Tensor oneho = Tensor::zeros(Shape({B, S, D}), TensorOptions().with_device(Device::CPU));
+    oneho.data<float>()[1] = 1.0f;
+    oneho.data<float>()[4] = 1.0f;
+    oneho.data<float>()[11] = 1.0f;
+    oneho.data<float>()[13] = 1.0f;
+    oneho.data<float>()[16] = 1.0f;
+    oneho.data<float>()[22] = 1.0f;
+    oneho.data<float>()[25] = 1.0f;
+    oneho.data<float>()[31] = 1.0f;
+    auto oneh = make_tensor(oneho.to_cuda());
+    auto w = softmax_row(m)*oneh;
+
+
+    
+    // auto w = sum(r);
+    ag::debug::print_tensor("Result Value Softmax Row", w.val());
+    backward(w);
+    ag::debug::print_tensor("Result Gradient Softmax Row", m.grad());
+flow::opti.SGD(w, 0.01);
+    for(int i=0;i<10;i++){
+        forward(w);
+        backward(w);
+                
+        opti.epoch();
+    }
+}
+
+
+Tensor masker(Tensor b)
+{
+
+auto f = reduce_argmax(b, {2});
+Tensor X = Tensor::zeros(b.shape(), TensorOptions().with_device(Device::CPU));
+    int num_tokens = b.shape().dims[0] * b.shape().dims[1];
+    int num_experts = b.shape().dims[2];
+
+    // 3. SCATTER: The Selector Loop
+    for (int j = 0; j < num_tokens; j++) {
+        // Find WHICH expert was chosen for this specific token
+        // f contains the expert ID (0 to E-1)
+        int selected_expert = (int)f.data<float>()[j];
+
+        // 4. ACTIVATE: Set that specific slot to 1.0
+        // Address calculation: (current_token * num_experts) + expert_offset
+        X.data<float>()[j * num_experts + selected_expert] = 1.0f;
+    }
+
+    return X.to(b.device());
+}
+
+
+
+
+std::vector<Tensor> get_top_k_iterative(Tensor b, int k_val) {
+    // 1. Create a workspace copy so we can "destroy" values to find the next best
+    Tensor workspace = b.clone().to_cpu(); 
+    
+    // 2. Prepare output tensors
+    // We assume b shape is [B, S, E]
+    int B = b.shape().dims[0];
+    int S = b.shape().dims[1];
+    int E = b.shape().dims[2];
+    
+    // Values and Indices will be [B, S, K]
+    Tensor out_values = Tensor::zeros(Shape({B, S, k_val}), TensorOptions().with_device(Device::CPU));
+    Tensor out_indices = Tensor::zeros(Shape({B, S, k_val}), TensorOptions().with_device(Device::CPU));
+    // Masker will be [B, S, E]
+    Tensor out_masker = Tensor::zeros(b.shape(), TensorOptions().with_device(Device::CPU));
+
+    int num_tokens = B * S;
+
+    // 3. Iterative Selection Loop
+    for (int k = 0; k < k_val; k++) {
+        // Find the current best expert for every token
+        // f shape: [B, S]
+        Tensor f = reduce_argmax(workspace, {2});
+
+        for (int j = 0; j < num_tokens; j++) {
+            int selected_expert = (int)f.data<float>()[j];
+
+            // A. Store Index
+            out_indices.data<float>()[j * k_val + k] = (float)selected_expert;
+
+            // B. Store Value from the ORIGINAL tensor b
+            float val = b.data<float>()[j * E + selected_expert];
+            out_values.data<float>()[j * k_val + k] = val;
+
+            // C. Build the Masker (Positive Selection)
+            out_masker.data<float>()[j * E + selected_expert] = 1.0f;
+
+            // D. DESTRUCTIVE STEP: Set this expert to "most negative" 
+            // in workspace so it isn't picked in the next k-iteration
+            workspace.data<float>()[j * E + selected_expert] = -1e9f;
+        }
+    }
+
+    return {out_values, out_indices, out_masker.to(b.device())};
+}
+
+
+
+
+
+// void test_moe( int H, int B, int S, int D, int E)
+// {
+//     Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
+//     ag::debug::print_tensor("Input Softmax Row", X);
+//     auto m = ag::Value(std::make_shared<ag::Node>(X, ag::Op::Leaf, true, "X"));
+//     Tensor ExpCh = Tensor::randn(Shape({B, E, D}), TensorOptions().with_device(Device::CUDA));
+
+//     auto in_features = S;
+//     auto batch = B;
+//     auto out_features = D;
+
+//     auto w = softmax_row(m);
+
+//     auto wa = get_top_k_iterative(w.val(), 2);
+//     Tensor sum_v = reduce_sum(wa[0], {2}, true);
+//     Tensor renormalized_max = wa[0] / sum_v;
+
+//     auto ee = std::vector<flow::SWIGLU>(50);
+
+// // 1. Get the raw data pointers
+// float* input_ptr = X.data<float>();
+// int* indices_ptr = wa[1].data<int>(); // The Argmax/Indices
+// float* weights_ptr = renormalized_max.data<float>(); // The 'damn' values
+
+// // 2. Prepare the Expert Inboxes (The 50 SwiGLUs)
+// // Assuming you have a way to store tokens for each expert
+// std::vector<std::vector<float>> expert_inputs(50);
+
+// // 1. First Pass: Count tokens per expert [O(B*S*K)]
+// std::vector<int> expert_counts(50, 0);
+// for(int i = 0; i < B * S * 2; i++) {
+//     expert_counts[indices_ptr[i]]++;
+// }
+
+// // 2. Track current write-offset for each expert inbox
+// std::vector<int> current_offset(50, 0);
+// std::vector<Value> inboxes(50);
+
+// // 3. SECOND PASS: Direct Dispatch 🚀
+// for(int i = 0; i < B * S; i++) {
+//     for(int k = 0; k < 2; k++) {
+//         int exp_id = indices_ptr[i * 2 + k];
+//         float weight = weights_ptr[i * 2 + k];
+        
+//         // Lazy-allocate the Tensor only when needed
+//         if(inboxes[exp_id].val().numel()<1) {
+//             inboxes[exp_id] = make_tensor(Tensor::zeros(Shape({expert_counts[exp_id], D}), TensorOptions()));
+//         }
+
+//         // Calculate destination in the expert's Tensor memory
+//         float* dest = inboxes[exp_id].val().data<float>() + (current_offset[exp_id] * D);
+//         float* src  = input_ptr + (i * D);
+
+//         // Optimized Block Copy + Weighting
+//         for(int d = 0; d < D; d++) {
+//             dest[d] = src[d] * weight;
+//         }
+//         current_offset[exp_id]++;
+//     }
+// }
+
+// // 4. THE RESURRECTION 🧟‍♂️🔥
+// std::vector<Value> results(50);
+// for(int exp_id = 0; exp_id < 50; exp_id++) {
+//     if(expert_counts[exp_id] > 0) {
+//         // Your resurrected SwiGLU kernel hits the GPU here!
+//         results[exp_id] = ee[exp_id](inboxes[exp_id]);
+//     }
+// }
+
+// // 1. Create the final output tensor [B, S, D]
+// Tensor final_output = Tensor::zeros(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
+// float* out_ptr = final_output.data<float>();
+
+// // Reset offsets to read from the results
+// std::vector<int> read_offset(50, 0);
+
+// // 2. The Reverse Dispatch (The Re-Assembler)
+// for(int i = 0; i < B * S; i++) {
+//     for(int k = 0; k < 2; k++) {
+//         int exp_id = indices_ptr[i * 2 + k];
+        
+//         // Get the naked pointer for this expert's processed results
+//         float* expert_res_ptr = results[exp_id].val().data<float>() + (read_offset[exp_id] * D);
+//         float* dest_ptr = out_ptr + (i * D);
+
+//         // Sum the expert's contribution into the main sequence
+//         for(int d = 0; d < D; d++) {
+//             dest_ptr[d] += expert_res_ptr[d];
+//         }
+//         read_offset[exp_id]++;
+//     }
+// }
+
+// auto moe_out = make_tensor(final_output); 
+
+
+
+    
+//     // auto w = sum(r);
+//     ag::debug::print_tensor("Result Value Softmax Row", w.val());
+//     backward(w);
+//     ag::debug::print_tensor("Result Gradient Softmax Row", m.grad());
+// flow::opti.SGD(w, 0.01);
+//     for(int i=0;i<10;i++){
+//         forward(w);
+//         backward(w);
+                
+//         opti.epoch();
+//     }
+// }
+
+
+
 void test_gelu( int H, int B, int S, int D)
 {
     Tensor X = Tensor::randn(Shape({B, S, D}), TensorOptions().with_device(Device::CUDA));
@@ -1004,6 +1231,7 @@ test_lisht(2, 4, 2, 4);
 test_relu(2, 4, 2, 4);
 test_softplus(2, 4, 2, 4);
 test_tanh(2, 4, 2, 4);
+test_softmaxrow(2, 4, 2, 4);
 test_leakyrelu(2, 4, 2, 4);
 
 // test_att(4, 11, 7, 12);

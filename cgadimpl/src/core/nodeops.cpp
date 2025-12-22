@@ -603,44 +603,44 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
     kernels::cuda().flashalide(q_gpu.data<float>(), k_cache_ptr, v_cache_ptr, out_gpu.data<float>(),
             /*batches=*/a->value.shape().dims[0], /*heads=*/H, /*M=*/a->value.shape().dims[1], /*N=*/a->value.shape().dims[2]/H, ag::current_stream());
     // Copy data from device to host
-    // 1. Allocate memory on the host (CPU)
-float* hk_data = (float*)calloc(70*k_gpu.numel(), sizeof(float));
+//     // 1. Allocate memory on the host (CPU)
+// float* hk_data = (float*)calloc(70*k_gpu.numel(), sizeof(float));
 
-// 2. Ensure memory is already allocated on the device (GPU) and contains valid data
-// float* d_data;
-// cudaMalloc((void**)&d_data, N * sizeof(float));
-// ... (some kernel execution or HtoD copy occurred previously to populate d_data)
+// // 2. Ensure memory is already allocated on the device (GPU) and contains valid data
+// // float* d_data;
+// // cudaMalloc((void**)&d_data, N * sizeof(float));
+// // ... (some kernel execution or HtoD copy occurred previously to populate d_data)
 
-cudaError_t err = cudaMemcpy(hk_data, k_cache_ptr, 70*k_gpu.numel() * sizeof(float), cudaMemcpyDeviceToHost);
-float ko=0.0f;
-std::cout<<"[";
-for(int i=0;i<70*k_gpu.numel();i++)
-ko=ko+hk_data[i];
-std::cout<<ko<<"]";
+// cudaError_t err = cudaMemcpy(hk_data, k_cache_ptr, 70*k_gpu.numel() * sizeof(float), cudaMemcpyDeviceToHost);
+// float ko=0.0f;
+// std::cout<<"[";
+// for(int i=0;i<70*k_gpu.numel();i++)
+// ko=ko+hk_data[i];
+// std::cout<<ko<<"]";
 
-// Optional: Check for errors
-if (err != cudaSuccess) {
-    fprintf(stderr, "cudaMemcpy failed: %s\n", cudaGetErrorString(err));
-}
+// // Optional: Check for errors
+// if (err != cudaSuccess) {
+//     fprintf(stderr, "cudaMemcpy failed: %s\n", cudaGetErrorString(err));
+// }
 
-float* hv_data = (float*)calloc(70*v_gpu.numel(), sizeof(float));
+// float* hv_data = (float*)calloc(70*v_gpu.numel(), sizeof(float));
 
-// 2. Ensure memory is already allocated on the device (GPU) and contains valid data
-// float* d_data;
-// cudaMalloc((void**)&d_data, N * sizeof(float));
-// ... (some kernel execution or HtoD copy occurred previously to populate d_data)
+// // 2. Ensure memory is already allocated on the device (GPU) and contains valid data
+// // float* d_data;
+// // cudaMalloc((void**)&d_data, N * sizeof(float));
+// // ... (some kernel execution or HtoD copy occurred previously to populate d_data)
 
-cudaError_t verr = cudaMemcpy(hv_data, v_cache_ptr, 70*v_gpu.numel() * sizeof(float), cudaMemcpyDeviceToHost);
-float vo=0.0f;
+// cudaError_t verr = cudaMemcpy(hv_data, v_cache_ptr, 70*v_gpu.numel() * sizeof(float), cudaMemcpyDeviceToHost);
+// float vo=0.0f;
 
-std::cout<<"[";
-for(int i=0;i<70*v_gpu.numel();i++)
-vo=vo+hv_data[i];
-std::cout<<vo<<"]";
-// Optional: Check for errors
-if (verr != cudaSuccess) {
-    fprintf(stderr, "cudaMemcpy failed: %s\n", cudaGetErrorString(verr));
-}
+// std::cout<<"[";
+// for(int i=0;i<70*v_gpu.numel();i++)
+// vo=vo+hv_data[i];
+// std::cout<<vo<<"]";
+// // Optional: Check for errors
+// if (verr != cudaSuccess) {
+//     fprintf(stderr, "cudaMemcpy failed: %s\n", cudaGetErrorString(verr));
+// }
 
 
 // flash attention call (standard softmax)
