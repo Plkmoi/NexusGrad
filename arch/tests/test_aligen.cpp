@@ -22,7 +22,7 @@ int main() {
     const int num_layers = 3;    // (Attn + SWIGLU) block pairs
     const float lr = 0.0000005f;
     const int epochs = 5;
-    int vocab_size = 15000;      // integer tokens 0..19
+    int vocab_size = 40000;      // integer tokens 0..19
     int Heads = 24;
 
     const int S = 512; // Sequence length (needs to be defined)
@@ -188,7 +188,7 @@ std::cout << "\n========================================\n";
 std::cout << "--- GENERATING TEXT (BPE) ---\n";
 std::cout << "========================================\n\n";
 
-const int GEN_STEPS =  2000;
+const int GEN_STEPS =  5;
 
 // 1. We use a vector to keep track of EVERY token generated so far
 std::vector<int> history_tokens; 
