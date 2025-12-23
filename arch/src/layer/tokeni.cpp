@@ -29,58 +29,42 @@ std::string load_text_file(const std::string& path) {
 
 // 2025 "Naked" CSV Loader for 1.9GB Datasets
 std::vector<int> load_and_encode_csv(const std::string& path, flow::Tokenizer& tok) {
-    std::ifstream file(path);
+    std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) throw std::runtime_error("CSV not found lol");
 
-    std::string line;
     std::vector<int> all_tokens;
-    
-    // 1. --- Memory Optimization ---
-    // 1.9GB of text is approx 2 Billion tokens. 
-    // Reserve space to avoid the "Reallocation Cry" 😭📉
-    all_tokens.reserve(500000000); // Start with 500M slots
+    all_tokens.reserve(500000000); // 500M slots is the target! 🎯
 
-    // 2. --- Skip the Header ---
-    std::getline(file, line); 
+    std::string story;
+    char ch;
+    bool in_quotes = false;
+    int last_mil = 0;
 
-    std::cout << "Starting the 1.9GB CSV Feast... 🥩⛽" << std::endl;
+    std::cout << "Starting the REAL 1.9GB CSV Feast... 🥩⛽" << std::endl;
 
-    // 3. --- The Streaming Loop ---
-    // We read one story at a time to keep RAM "Naked" and light 👗❌
-    while (std::getline(file, line)) {
-        if (line.empty()) continue;
-
-        // TinyStories CSV often looks like: "index","text"
-        // We need to find the text between the last quotes lol
-        size_t first_quote = line.find(",\"");
-        size_t last_quote = line.find_last_of("\"");
-
-        if (first_quote != std::string::npos && last_quote > first_quote) {
-            // Extract the "Naked" story text
-            std::string story = line.substr(first_quote + 2, last_quote - (first_quote + 2));
-
-            // 4. --- The Tokenizer Resurrection ---
-            // Encode the story into IDs 🎫
-            std::vector<uint32_t> ids = tok.encode(story);
-            
-            // Move IDs into the master vector
-            for (auto id : ids) {
-                all_tokens.push_back((int)id);
-            }
+    while (file.get(ch)) {
+        if (ch == '\"') {
+            in_quotes = !in_quotes; // Toggle quote state 👗✨
+            continue;
         }
 
-static float last_printed = 0.0f;
-float current_mil = all_tokens.size() / 1000000;
+        if (in_quotes) {
+            story += ch; // Keep adding everything, even newlines! ✅
+        } else if (ch == '\n' && !story.empty()) {
+            // We reached the actual end of a CSV row! 🏁
+            std::vector<uint32_t> ids = tok.encode(story);
+            for (auto id : ids) all_tokens.push_back((int)id);
+            story.clear();
 
-if (current_mil > last_printed) {
-    std::cout << "Tokens encoded: " << current_mil << " Million... 🏎️💨" << std::endl;
-    last_printed = current_mil;
-}
-
-
+            // "Brrr" Progress Update 🏎️💨
+            int current_mil = all_tokens.size() / 1000000;
+            if (current_mil > last_mil) {
+                std::cout << "Tokens encoded: " << current_mil << " Million... 🏎️💨" << std::endl;
+                last_mil = current_mil;
+            }
+        }
     }
-
-    std::cout << "Feast complete! Total Tokens: " << all_tokens.size() << " 🏆✨" << std::endl;
+    std::cout << "Feast complete! Total: " << all_tokens.size() << " 🏆✨" << std::endl;
     return all_tokens;
 }
 
