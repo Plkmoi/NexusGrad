@@ -31,6 +31,8 @@ public:
     virtual void setinflag(bool q) { 
         this->inflag = q; 
     }
+
+    virtual Value getembed() { return Value();};
 protected:
     std::vector<Value> params_;
     bool inflag=false;
@@ -45,6 +47,17 @@ public:
 private:
     Value W, b;
 };
+
+
+class EmbedLinear : public Layer {
+public:
+    EmbedLinear(int batch, int in_features, int out_features, Tensor Weight, Device dev = Device::CPU);
+    Value operator()(Value input) override;
+    Value getembed() {return W;};
+private:
+    Value W, b;
+};
+
 
 
 

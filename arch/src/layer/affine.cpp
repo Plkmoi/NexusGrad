@@ -109,6 +109,23 @@ Value Linear::operator()(Value input) {
     return linear(input, W, b);
 }
 
+EmbedLinear::EmbedLinear(int batch, int in_features, int out_features, Tensor Weight, Device dev) {
+    float scale = sqrtf(0.02f / in_features);
+    auto param_opts = OwnTensor::TensorOptions().with_device(dev).with_req_grad(true);
+    Tensor w_tensor = Weight.to(dev);
+    Tensor b_tensor = OwnTensor::Tensor::zeros(Shape{{1, in_features}}, param_opts);
+    W = Value(std::make_shared<Node>(w_tensor, Op::Leaf, true, "W"));
+    b = make_tensor(b_tensor, "b");
+    params_.push_back(W);
+    params_.push_back(b);
+}
+
+
+
+Value EmbedLinear::operator()(Value input) {   
+    return linear(input, W, b);
+}
+
 
 
 

@@ -21,8 +21,8 @@ int main() {
     // const int vocab_size = 5000; // number of classes (logits dim)
     const int num_layers = 4;    // (Attn + SWIGLU) block pairs
     const float lr = 0.0000005f;
-    const int epochs = 2100;
-    int vocab_size = 15000;      // integer tokens 0..19
+    const int epochs = 5;
+    int vocab_size = 40000;      // integer tokens 0..19
     int Heads = 24;
 
     const int S = 512; // Sequence length (needs to be defined)
@@ -91,6 +91,8 @@ vocab_size += 1;
     }
 };
 
+Tensor embedding_table =
+    flow::make_embedding_table(vocab_size, d_model);
 
     std::vector<flow::Layer*> layers;
     layers.reserve(num_layers * 2 + 2);
@@ -110,7 +112,7 @@ vocab_size += 1;
     }
 
     layers.push_back(new flow::RMSNorm());
-    layers.push_back(new flow::Linear(B, vocab_size, d_model, dev));
+    layers.push_back(new flow::EmbedLinear(B, vocab_size, d_model, embedding_table, dev));
 
     flow::Traverse model(layers);
 
@@ -118,8 +120,6 @@ vocab_size += 1;
               << " parameter tensors.\n\n";
 
 
-Tensor embedding_table =
-    flow::make_embedding_table(vocab_size, d_model);
 
 Tensor X_cpu_init(Shape{{B, S, d_model}}, OwnTensor::TensorOptions().with_device(Device::CPU));
 Tensor X_gpu_init = X_cpu_init.to(dev);
@@ -152,7 +152,7 @@ for (int epoch = 0; epoch < epochs; ++epoch) {
     }
 
     // --- EMBEDDING ---
-    Tensor X_cpu_new = flow::embed_tokens_3d(embedding_table, batch_sequences);
+    Tensor X_cpu_new = flow::embed_tokens_3d(layers.back()->getembed().val().to_cpu(), batch_sequences);
     X.node->value = (X_cpu_new.to(dev));
 
     // --- BUILD ONE-HOT TARGET ---
@@ -195,6 +195,8 @@ std::vector<int> history_tokens;
 int start_token = tok.encode(" ")[0];
 history_tokens.push_back(start_token);
 
+auto decoembe = layers.back()->getembed().val().to_cpu();
+
 
 for (int step = 0; step < GEN_STEPS; ++step)
 {
@@ -205,7 +207,7 @@ for (int step = 0; step < GEN_STEPS; ++step)
     std::vector<int> single_tok = { start_token };
     int T = single_tok.size();
     // std::cout<<flow::embed_tokens(embedding_table, history_tokens).shape().dims[0]<<"   "<<flow::embed_tokens(embedding_table, history_tokens).shape().dims[1]<<"\n";
-    Tensor emb_seq = flow::embed_tokens(embedding_table, single_tok).unflatten(0, Shape({1, T}));
+    Tensor emb_seq = flow::embed_tokens(decoembe, single_tok).unflatten(0, Shape({1, T}));
 
     // 2. Reshape to [Batch=1, SeqLen=T, Dim=D]
     // int T = history_tokens.size();
