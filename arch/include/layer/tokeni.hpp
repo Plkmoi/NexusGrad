@@ -10,6 +10,10 @@ namespace flow {
 // ----------------------------------------------------
 std::string load_text_file(const std::string& path) ;
 
+std::vector<int> load_and_encode_csv(const std::string& path, flow::Tokenizer& tok);
+
+std::string load_text_file_partial(const std::string& path, size_t bytes_to_read);
+
 // ----------------------------------------------------
 // Byte-level tokenize: each char → unsigned value 0..255
 // ----------------------------------------------------

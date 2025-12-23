@@ -19,10 +19,10 @@ int main() {
     // 1. --- Hyperparameters ---
     const int B = 8;            // batch size
     // const int vocab_size = 5000; // number of classes (logits dim)
-    const int num_layers = 4;    // (Attn + SWIGLU) block pairs
-    const float lr = 0.0000005f;
-    const int epochs = 5;
-    int vocab_size = 40000;      // integer tokens 0..19
+    const int num_layers = 3;    // (Attn + SWIGLU) block pairs
+    const float lr = 0.000005f;
+    const int epochs = 2100;
+    int vocab_size = 15000;      // integer tokens 0..19
     int Heads = 24;
 
     const int S = 512; // Sequence length (needs to be defined)
@@ -38,21 +38,18 @@ int main() {
 // -------------------------------------------
 // Load corpus + train tokenizer
 // -------------------------------------------
+
 flow::Tokenizer tok;
 
-std::string text =
-    flow::load_text_file("/home/blubridge-034/Downloads/Newf/cgadimpl/arch/src/layer/corpus.txt");
 
-std::vector<std::string> train_samples = { text };
+// 1. Train on a small "Naked" slice (50MB) to build the Vocab
 
-// Train tokenizer to target vocab size
-tok.train(train_samples, vocab_size);
+std::string csv_path = "/home/blubridge-034/Documents/archive/train.csv";
+std::string sample = flow::load_text_file_partial(csv_path, 50 * 1024 * 1024);
+tok.train({sample}, vocab_size);
 
-// -------------------------------------------
-// Encode the entire corpus
-// -------------------------------------------
-std::vector<uint32_t> all_tokens_u32 = tok.encode(text);
-std::vector<int> all_tokens(all_tokens_u32.begin(), all_tokens_u32.end());
+// 2. Stream the whole 1.9GB Beast!
+std::vector<int> all_tokens = load_and_encode_csv(csv_path, tok);
 
 // Adjust vocab_size to include merges
 for (int id : all_tokens) {
