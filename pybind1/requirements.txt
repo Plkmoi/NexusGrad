@@ -1,0 +1,13 @@
+# Build requirements for CGADImpl Python bindings
+
+# Core dependencies
+pybind11>=2.6.0
+numpy>=1.19.0
+
+# Optional: for building documentation
+sphinx>=4.0.0
+sphinx-rtd-theme>=1.0.0
+
+# Optional: for development
+pytest>=6.0.0
+pytest-cov>=2.12.0
