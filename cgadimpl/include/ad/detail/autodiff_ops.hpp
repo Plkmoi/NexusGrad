@@ -1,3 +1,6 @@
+// =============================================
+// cgadimpl/include/ad/detail/autodiff_ops.hpp
+// =============================================
 #pragma once
 #include <functional>
 #include "ad/graph.hpp"
@@ -13,9 +16,13 @@ using VjpFn = void(*)(Node* n, const Tensor& gy);
 // tangent_of(p) must return the tangent T[p] (same shape as p->value).
 using JvpFn = Tensor(*)(Node* n, const std::function<const Tensor&(Node*)>& tangent_of);
 
+using FwdFn = void(*)(
+     std::shared_ptr<Node> n);
+
 // Lookup tables (one slot per Op value).
 VjpFn vjp_lookup(Op op);
 JvpFn jvp_lookup(Op op);
+FwdFn fwd_lookup(Op op);
 // Optional: expose per-op rule symbols to tests only.
 
 
@@ -25,7 +32,8 @@ namespace ag::detail {
   // Declare all rule functions via the registry
   #define OP(name, arity, str) \
     void   vjp_##name(Node* n, const Tensor& gy); \
-    Tensor jvp_##name(Node* n, const std::function<const Tensor&(Node*)>& tangent_of);
+    Tensor jvp_##name(Node* n, const std::function<const Tensor&(Node*)>& tangent_of); \
+    void node_##name(std::shared_ptr<Node> n);
   #include "ad/detail/ops.def"
   #undef OP
 } // namespace ag::detail
