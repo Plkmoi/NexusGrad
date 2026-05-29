@@ -1,563 +1,311 @@
-# Computational Graph & Autodifferentiation Framework (CGAD)
+# CGADIMPL: Custom GPU-Accelerated Deep Learning Framework
 
-A production-grade C++/CUDA deep learning framework from scratch, featuring a custom autodiff engine, computational graph compilation, and optimized kernel implementations for efficient neural network training and inference.
+A from-scratch implementation of a PyTorch-like deep learning framework with explicit control over the computational graph, custom autodiff engine, and optimized CUDA kernels for production workloads.
 
----
-
-## 🎯 Overview
-
-CGAD is a systems engineering project implementing the full stack of a neural network runtime: from Python-facing APIs (via pybind11) down through a C++ execution engine, custom autograd (VJP), and CUDA kernel execution. The framework demonstrates deep hardware awareness and memory optimization techniques essential to modern ML systems.
-
-**Why build from scratch?** To understand—not abstract away—the bottlenecks that matter in production ML systems:
-- How computational graphs lower to GPU memory hierarchies
-- Where kernel fusion saves memory bandwidth
-- How checkpointing trades recomputation for memory efficiency
-- Why autograd correctness verification matters
-
----
-
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│               Python Frontend (pybind11)                         │
-│         Model definition, training loops, validation             │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
-│          C++ Runtime Engine (cgadimpl_core)                      │
-│                                                                   │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │   Computational Graph Representation                     │   │
-│  │   - Node (compute vertex), Value (tensor wrapper)       │   │
-│  │   - Op enum (250+ operations)                           │   │
-│  │   - Topological sort for execution order                │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                           │                                      │
-│  ┌────────────────────────▼─────────────────────────────────┐   │
-│  │   Autograd Engine (Forward & Backward)                  │   │
-│  │   - Vector-Jacobian Product (VJP) for backprop          │   │
-│  │   - Jacobian-Vector Product (JVP) for forward mode      │   │
-│  │   - Op-specific gradient implementations (autodiff_ops) │   │
-│  └────────────────────────▼─────────────────────────────────┘   │
-│                           │                                      │
-│  ┌────────────────────────▼─────────────────────────────────┐   │
-│  │   Memory & Execution Optimization                       │   │
-│  │   - Activation Checkpointing (trade compute for memory) │   │
-│  │   - In-place Operations (versioning + alias tracking)   │   │
-│  │   - CUDA Graph Capture (reduce kernel launch overhead)  │   │
-│  │   - Careful Deletion (safe memory reclamation)          │   │
-│  └────────────────────────▼─────────────────────────────────┘   │
-│                           │                                      │
-│  ┌────────────────────────▼─────────────────────────────────┐   │
-│  │   Neural Network Layers & Operators                     │   │
-│  │   - Linear, Affine, RMSNorm, LayerNorm                  │   │
-│  │   - Multi-Head Attention, ALiBi Attention               │   │
-│  │   - Activation Functions (ReLU, GELU, SwiGLU, etc.)    │   │
-│  │   - Fusion ops (fused attention, fused linear)          │   │
-│  └──────────────────────────────────────────────────────────┘   │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
-│          Tensor Library + Device Abstraction                     │
-│  - Device-aware memory allocation (CPU/CUDA)                    │
-│  - Dtype support (Float32, Float64, Int32, etc.)               │
-│  - Strided tensor views (cache-friendly indexing)              │
-│  - Allocator registry (extensible to other accelerators)       │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
-│          Kernel Implementation Layer                             │
-│                                                                   │
-│  ┌────────────────────────┐  ┌─────────────────────────────┐    │
-│  │    CPU Kernels         │  │   CUDA/GPU Kernels          │    │
-│  │  - Basic arithmetic    │  │  - Element-wise ops         │    │
-│  │  - Matrix ops          │  │  - Matrix multiplication    │    │
-│  │  - Reductions          │  │  - Flash Attention forward  │    │
-│  │  - Activation funcs    │  │  - Fused linear ops        │    │
-│  │  (Threaded via OpenMP) │  │  (Optimized for A100/H100) │    │
-│  └────────────────────────┘  └─────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────┘
+[Python Frontend] ──► [pybind11 Bindings]
+        │
+        ▼
+[Computational Graph] ◄─ [C++ Runtime Engine]
+   (Dynamic DAG)            │
+        │                  ├─► [Custom Autograd VJP]
+        │                  │    (Reverse-Mode AD)
+        │                  │
+        ▼                  ▼
+[Layer Abstractions]    [Kernel Dispatch]
+  (Linear, Attention,      │
+   Embeddings, Norm,       ├─► [CPU Kernels: AVX2+OpenMP]
+   Activations)            │
+                           └─► [GPU Kernels: CUDA]
+                                (Flash Attention, GEMM, Activations)
 ```
 
----
+## Core Components
 
-## 🔧 Core Components
+### 1. **Tensor Library** (`tensor/`)
+Self-contained tensor abstraction with multi-device support:
+- **Device Management**: CPU & CUDA allocators with configurable memory strategies
+- **Operations**: 
+  - Arithmetic (add, sub, mul, div, pow)
+  - Reductions (sum, mean, max, min across axes)
+  - Unary ops (exp, log, tanh, sqrt, sin, cos, sinh, cosh)
+  - Matrix multiplication with tiling strategies
+- **Type System**: Support for float32, float64 with dtype casting
+- **CUDA Integration**: Device-aware execution with stream support
 
-### 1. **Computational Graph (`ad/graph.hpp`)**
-- **Node**: Compute vertex holding value, gradient, inputs, and operation metadata
-- **Value**: Wrapper around `Node` for ergonomic API and shape tracking
-- **Topological Sort**: `topo_from()` orders graph for efficient execution
-- **Op Enum**: 250+ registered operations with VJP implementations
+### 2. **Autodiff Engine** (`cgadimpl/src/autodiff/`)
+Custom reverse-mode automatic differentiation:
+- **Graph Construction**: Dynamic computational graph built during forward pass
+- **VJP Operators**: Vector-Jacobian products for all supported operations
+- **Broadcasting Support**: Automatic gradient reduction for broadcast operations
+- **Checkpoint System**: Memory-efficient gradient computation with checkpointing
+- **In-place Operations**: Version tracking and alias detection for memory optimization
+- **JVP Support**: Forward-mode differentiation for advanced use cases
 
-**Key Design**: Lazy evaluation—the graph is built dynamically during forward pass, enabling dynamic control flow and easy debugging.
+**Key VJP implementations:**
+- Elementwise: Add, Sub, Mul, Div with proper gradient accumulation
+- Matrix Operations: Matmul (FMA), reduce operations
+- Activations: ReLU, Tanh, Sigmoid, Exp, Log
+- Attention: Multi-head attention with gradient flow
 
----
+### 3. **Runtime & Graph Execution** (`cgadimpl/src/core/`)
+- **Dynamic Graph**: Nodes, edges, and topological sort for backward traversal
+- **Stream Management**: CUDA stream abstraction for async kernel execution
+- **Device Transfer**: Efficient host↔device tensor movement
+- **Compilation**: Trace→compile→replay for repeated execution patterns
 
-### 2. **Autograd Engine (`ad/autodiff.hpp`, `autodiff_*.cpp`)**
+### 4. **Layer API** (`cgadimpl/include/layer/`)
+PyTorch-inspired module interface:
 
-#### Forward Pass (`forward()`)
-- Executes nodes in topological order
-- Each node computes `output = op(inputs)`
-- Stores activations needed for backward pass
+**Base Abstractions:**
+- `Layer` base class with parameter management and device movement
+- `Linear`: Dense matrix transformation with bias
+- `Traverse`: Sequential layer composition
+- `ResidualBlock`: Skip connection support
 
-#### Backward Pass (`backward()`)
-- Vector-Jacobian Product (VJP) computes gradients via chain rule
-- Gradient flows from root back through DAG
-- Each op has a registered VJP implementation (e.g., `*_vjp_impl()`)
+**Activation Layers:**
+- ReLU, LeakyReLU, Swish, Softplus
+- Mish, GCU (Gated Cubic Unit)
+- Gaussian, ParCon (Parametric Concatenation)
+- Softmax with temperature scaling
 
-**File Structure**:
-- `ad/autodiff.hpp` — Public API declarations
-- `core/autodiff.cpp` — Forward/backward orchestration
-- `autodiff/autodiff_vjp_ops.cpp` — VJP implementations for 100+ ops
-- `autodiff/autodiff_jvp_ops.cpp` — JVP for forward-mode AD
-- `autodiff/autodiff_nodeops.cpp` — Node-level reduction logic
+**Advanced Layers:**
+- `Attention`: Standard scaled dot-product attention with multiple heads
+- `AlibiAttention`: Attention with ALiBi (Attention with Linear Biases) position encoding
+- `SWIGLU`: Gated linear activation (Swish + Linear)
 
-**Example: Matrix Multiply VJP**
-```cpp
-// Forward: C = A @ B
-// Backward: dA = dC @ B^T, dB = A^T @ dC
-```
+### 5. **Optimizer** (`cgadimpl/include/layer/optim.hpp`)
+- SGD with momentum support
+- Gradient-based parameter updates
+- Learning rate scheduling
+- Zero gradient utilities
 
----
+### 6. **Kernel Backend**
 
-### 3. **Memory Optimization Techniques**
+#### CPU Kernels (`kernels/cpu/src/agkernels_cpu.cpp`)
+AVX2 + OpenMP optimizations:
+- **ReLU**: 8-float vectorized (AVX2) with OpenMP parallelization
+- **Arithmetic**: Vectorized add, sub, mul, div with broadcasting
+- **Reductions**: Parallel sum/mean/max across axes
+- **Activations**: Vectorized implementations of standard activation functions
 
-#### **Activation Checkpointing** (`ad/checkpoint.hpp`)
-Trade memory for computation: recompute intermediate activations on backward instead of storing them all.
+#### GPU Kernels (`kernels/gpu/*.cu`)
+CUDA implementations for production workloads:
+- **Flash Attention**: Memory-efficient attention kernel (fused forward pass)
+- **GEMM**: Tiled matrix multiplication with coalesced memory access
+- **Elementwise**: Fused activation operations (add+relu, mul+tanh)
+- **Reductions**: Warp-level and block-level reductions
+- **VJP Kernels**: Backward pass implementations for GPU operations
 
-```cpp
-void auto_checkpoint_by_depth(const Value& root, int depth_threshold);
-```
+## High-Level Architecture Components (`arch/`)
 
-**Why it matters**: Training a 7B-parameter model with sequence length 2048 can exhaust GPU memory without checkpointing. This technique halves memory usage at <10% compute overhead.
+Layer implementations targeting transformer-style models:
+- **Attention Mechanisms**: Standard and ALiBi variants
+- **Tokenization**: Byte-level and text file loading utilities
+- **SafeTensors Support**: Model weight serialization/deserialization
+- **Text Processing**: Corpus loading with configurable encoding
 
-#### **In-Place Operations** (`ad/inplace.hpp`)
-Modify tensors directly without allocation overhead.
-
-```cpp
-// Instead of: C = A + B (allocates new tensor)
-// Do: A += B (reuses A's storage)
-```
-
-**Challenge**: In-place ops break saved activations → solution: version tracking + alias detection
-- **Versioning**: Each tensor gets a version number; bumped on modification
-- **Alias Tracking**: Detects when two nodes share memory
-
-#### **CUDA Graphs** (`ad/cuda_graphs.hpp`, `runtime/cuda_graphs.cpp`)
-Capture kernel launch sequences once, replay without CPU overhead.
-
-```cpp
-// Benefit: Eliminates per-kernel host-side launch latency (microseconds add up at 1000+ kernels/pass)
-```
-
-#### **Careful Deletion** (`ad/careful_deletion.hpp`)
-Safe memory reclamation during backward pass without premature deallocation.
-
----
-
-### 4. **Neural Network Layers**
-
-**High-Level API** (`layer/*.hpp`):
-```cpp
-class Linear : public Layer { /* y = x @ W + b */ };
-class Attention : public Layer { /* Multi-head self-attention */ };
-class AlibiAttention : public Layer { /* ALiBi positional bias */ };
-class RMSNorm : public Layer { /* Layer norm without centering */ };
-class SWIGLU : public Layer { /* Fused gated linear unit */ };
-// ... 20+ more
-```
-
-**Hardware-Aware Implementations**:
-- Linear layers use `gemm_cuda()` — cuBLAS-style matrix multiply
-- Attention uses `run_flash_forward()` — Flash Attention algorithm (Dao et al.)
-- Fusion kernels combine multiple ops to reduce memory bandwidth pressure
-
----
-
-### 5. **Operator Set** (`ad/ops.hpp`)
-
-**Arithmetic**: `add`, `sub`, `mul`, `div`, `pow`, `clip`
-
-**Element-wise Functions**:
-- **Activations**: `relu`, `gelu`, `silu`, `swish`, `tanh`, `sigmoid`, `softplus`
-- **Modern variants**: `mish`, `lisht`, `gcu`, `parcon`, `gaus`, `dyntanh`
-
-**Matrix Operations**: `matmul`, `transpose`, `fmab` (fused multiply-add)
-
-**Reductions**: `sum`, `rowsum`, `mean_all`, `rowmax`
-
-**Complex Patterns**:
-- `attention()` — Multi-head attention core
-- `alibiatt()` — Attention with ALiBi positional embeddings
-- `swiglu()` — Gated MLP with SwiGLU activation
-- `cross_entropy_with_logits()` — Combined softmax + CE loss
-- `kldivergence()` — KL divergence for distillation
-
-**Saturation/Sparsity**: `softmax_row`, `logsumexp_row`, `sign`, `moewe` (Mixture of Experts)
-
----
-
-### 6. **Tensor Library** (`tensor/`)
-
-**Device Abstraction**:
-```cpp
-// Single API, works on CPU or GPU
-Tensor t({32, 128, 512}, TensorOptions()
-    .with_device(DeviceIndex(Device::CUDA))
-    .with_dtype(Dtype::Float32)
-    .with_req_grad(true));
-```
-
-**Key Features**:
-- **Allocator Registry**: Pluggable allocators for different backends
-- **Stride Support**: Non-contiguous views without copying
-- **Type Safety**: Dtype checked at runtime
-- **Device Transfer**: `t.to(Device::CUDA)` seamlessly moves data
-
-**Supported Operations** (`tensor/ops/`):
-- Unary: exp, log, sqrt, sin, cos, tanh, sigmoid, gelu
-- Arithmetic: add, sub, mul, div, pow
-- Reductions: sum, mean, max, min
-- Linear algebra: matmul, transpose
-- Utilities: clone, cast, reshape, transpose
-
----
-
-## 🔬 Verification Against PyTorch
-
-The framework includes extensive testing to ensure correctness:
-
-```cpp
-// Forward pass verification
-Tensor expected = pytorch_reference(input);
-Tensor computed = framework_forward(input);
-assert(allclose(expected, computed, atol=1e-5));
-
-// Gradient verification (numerical + VJP)
-Tensor grad_numeric = numerical_gradient(output, wrt_input);
-Tensor grad_vjp = vjp_gradient(output, wrt_input);
-assert(allclose(grad_numeric, grad_vjp, atol=1e-4));
-```
-
-**Test Suite** (`cgadimpl/tests/`, `arch/tests/`):
-- `test_aliop.cpp` — Alibi attention correctness
-- `test_aliba.cpp` — Basic attention
-- `test_layer.cpp` — Layer composability
-- `test_newlay.cpp` — New layer implementations
-- `test_alimass.cpp` — Attention scaling properties
-- 12+ additional test modules
-
----
-
-## 📊 Hardware-Aware Design Decisions
-
-### Why Tiled GEMM Kernels?
-**Without tiling**: Threads fetch data from global VRAM → memory bandwidth bottleneck (100 GB/s)
-**With tiling**: Load blocks into fast shared memory (10 TB/s) → 100x speedup possible
-
-### Why Flash Attention?
-**Standard attention**: O(N²) memory requirement for attention matrix
-**Flash Attention**: Streaming algorithm, O(N) memory, no precision loss
-
-### Why Checkpointing?
-**Without**: Store 1000 layer activations → 100s of GB memory
-**With**: Store ~10 checkpoints → 1 GB memory, recompute as needed
-
-### Why Kernel Fusion?
-**Unfused**: Linear → write output → RMSNorm → read input → memory bandwidth wasted
-**Fused**: Linear + RMSNorm → output directly to next op → 30-50% speedup
-
----
-
-## 🚀 Getting Started
+## Building
 
 ### Prerequisites
-- **Linux** (CUDA toolkit 13.0+, or CPU-only)
-- **CMake** 3.20+
-- **CUDA Compute Capability** 8.6+ (A100, RTX 40-series, etc.)
-- **Python** 3.8+ with pybind11
+- CUDA 13.0 (set via `CUDACXX` environment variable)
+- C++20 compiler (g++)
+- OpenMP
+- Python 3.8+
+- pybind11
+- CMake 3.20+
 
-### Build & Test
-
+### Build Steps
 ```bash
-# Clone and enter workspace
-cd cgadimpl
+# 1. Build tensor library (dependency for everything else)
+cd tensor && make -j$(nproc)
 
-# Run the build script (handles tensor library, core, kernels, tests)
+# 2. Configure and build cgadimpl (core framework)
+cd ../cgadimpl
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build -j$(nproc)
+
+# 3. Build kernel plugins
+cd ../kernels
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug \
+    -DCGADIMPL_INCLUDE_DIR=../cgadimpl/include
+cmake --build build -j$(nproc)
+
+# 4. Build arch (high-level layers)
+cd ../arch
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build -j$(nproc)
+```
+
+**Or use the integrated build script:**
+```bash
 bash ztools/run.sh
 ```
 
-**What happens**:
-1. Builds `tensor/` library (custom tensor ops on CPU/GPU)
-2. Builds `cgadimpl_core` (autodiff engine + layers)
-3. Builds CUDA kernels (optimized implementations)
-4. Runs test suite to verify correctness
-5. Creates `cgadimpl.so` Python module
+## Testing
 
-### Python API Example
+Unit tests verify correctness against PyTorch:
 
-```python
-import cgadimpl as ag
+- **`test_layer.cpp`**: End-to-end training loop (forward, backward, SGD step)
+- **`test_aliba.cpp`**: Alibi attention mechanism
+- **`test_aligen.cpp`**: Standard attention layers
+- **`test_aliop.cpp`**: Attention operations
+- **`test_eh.cpp`**: Embedding and hash operations
+- **`test_keretu.cpp`**: Kernel execution unit tests
+- **`test_layalib.cpp`**: Layer API tests
+- **`test_neh.cpp`**: NLP-specific operations
 
-# Create model
-model = ag.Sequential([
-    ag.Linear(784, 512),
-    ag.ReLU(),
-    ag.Linear(512, 128),
-    ag.ReLU(),
-    ag.Linear(128, 10),
-])
-
-# Forward pass (dynamic graph)
-logits = model(x)  # x shape: (batch, 784)
-
-# Loss & backward
-loss = ag.cross_entropy_with_logits(logits, targets)
-loss.backward()  # Compute gradients
-
-# Optimizer step (custom)
-optimizer = ag.SGD(model.parameters(), lr=0.01)
-optimizer.step()
-optimizer.zero_grad()
+Run tests:
+```bash
+cd build && ctest --output-on-failure
 ```
 
----
+## Key Design Decisions
 
-## 📁 Project Structure
+### 1. **Explicit Computational Graph**
+Unlike eager-mode PyTorch, operations construct an explicit DAG. This enables:
+- Precise control over memory usage
+- Debugging and visualization of execution flow
+- Integration with compiler-style optimizations
+
+### 2. **Device-Aware Design**
+All tensors carry device metadata (CPU/CUDA) and enforce type correctness:
+- Gradients are computed on the same device as forward values
+- Automatic device transfer using `.to(device)` and `.to_cpu()` methods
+- Stream abstraction for future async scheduling
+
+### 3. **Verified VJP Operators**
+Each gradient operator is tested against numerical differentiation:
+- Broadcast reduction ensures gradients match tensor shapes
+- In-place modifications are tracked with versioning
+- Checkpointing allows selective gradient recomputation
+
+### 4. **Kernel Fusion**
+GPU kernels fuse multiple operations to reduce memory bandwidth:
+- Flash Attention combines softmax + GEMM in one pass
+- Activation fusion (e.g., add + ReLU) avoids intermediate tensor materialization
+
+### 5. **Performance Optimization Layers**
+- **CPU**: AVX2 vector instructions + OpenMP for parallel execution
+- **GPU**: CUDA shared memory for cache-locality, coalesced memory access
+- **Both**: Loop tiling and workload balancing for hardware efficiency
+
+## Code Structure
 
 ```
 cgadimpl/
 ├── include/
+│   ├── tensor.hpp             # Device-aware tensor wrapper
 │   ├── ad/
-│   │   ├── autodiff.hpp       # Forward/backward API
-│   │   ├── graph.hpp          # Node, Value, topological sort
-│   │   ├── ops.hpp            # 250+ operation definitions
-│   │   ├── checkpoint.hpp     # Activation checkpointing
-│   │   ├── inplace.hpp        # In-place op safety
-│   │   ├── cuda_graphs.hpp    # CUDA graph capture
-│   │   └── detail/
-│   │       ├── autodiff_ops.hpp   # VJP implementations
-│   │       └── ops.def            # Op registry
+│   │   ├── graph.hpp          # Computational graph nodes/values
+│   │   ├── autodiff.hpp       # Public autodiff API
+│   │   ├── ops.hpp            # Operation declarations
+│   │   ├── detail/
+│   │   │   └── autodiff_ops.hpp   # VJP implementations
+│   │   ├── runtime.hpp        # CUDA stream management
+│   │   ├── checkpoint.hpp     # Memory-efficient gradient computation
+│   │   └── inplace.hpp        # In-place operation tracking
 │   ├── layer/
-│   │   ├── attention.hpp      # Attention layers
-│   │   ├── affine.hpp         # Linear, SWIGLU
-│   │   ├── norm.hpp           # RMSNorm, LayerNorm
-│   │   ├── activation.hpp     # Activation functions
-│   │   └── ...                # 20+ layer types
-│   ├── nn/
-│   │   └── nn.hpp             # Module, Sequential, Linear
-│   └── tensor.hpp             # Tensor wrapper
+│   │   ├── affine.hpp         # Linear, ResidualBlock, Traverse
+│   │   ├── activation.hpp     # Activation layers
+│   │   ├── attention.hpp      # Attention mechanisms
+│   │   ├── norm.hpp           # Normalization layers
+│   │   └── optim.hpp          # Optimizers
+│   └── nn/nn.hpp              # Module base class
 ├── src/
-│   ├── core/
-│   │   ├── autodiff.cpp       # Core AD logic
-│   │   ├── graph.cpp          # Graph construction
-│   │   ├── ops.cpp            # Op implementations
-│   │   └── nodeops.cpp        # Node reductions
 │   ├── autodiff/
-│   │   ├── autodiff_vjp_ops.cpp    # Gradient computations
-│   │   ├── autodiff_jvp_ops.cpp    # Forward-mode AD
-│   │   └── ...                     # Op-specific code
+│   │   ├── autodiff_vjp_ops.cpp    # VJP operator implementations
+│   │   ├── autodiff_jvp_ops.cpp    # JVP implementations
+│   │   └── autodiff_nodeops.cpp    # Node-level operations
+│   ├── core/
+│   │   ├── autodiff.cpp       # Backward pass, zero_grad
+│   │   ├── graph.cpp          # Graph construction and traversal
+│   │   ├── checkpoint.cpp     # Checkpointing logic
+│   │   └── ops.cpp            # Operation implementations
 │   ├── layer/
-│   │   ├── attention.cpp
-│   │   ├── affine.cpp
-│   │   ├── norm.cpp
-│   │   └── ...                # Layer implementations
+│   │   ├── affine.cpp         # Layer implementations
+│   │   └── activation.cpp     # Activation implementations
+│   ├── kernel_stuff/
+│   │   ├── kernels_loader.cpp # Dynamic kernel plugin loading
+│   │   └── runtime.cpp        # Runtime initialization
 │   └── tools/
-│       ├── binder.cpp         # pybind11 bindings
-│       └── debug.cpp          # Debugging utilities
-└── tests/
-    ├── test_layer.cpp         # Layer composability
-    ├── test_aliop.cpp         # Attention ops
-    └── ...                    # 12+ test suites
+│       └── binder.cpp         # pybind11 Python module definition
+
+arch/
+├── include/layer/
+│   ├── activation.hpp         # Activation variants
+│   ├── attention.hpp          # Attention modules
+│   ├── tokeni.hpp             # Tokenization utilities
+│   └── archlist.hpp           # Layer compositions
+└── src/layer/
+    ├── attention.cpp          # ALiBi attention implementation
+    └── corpus.txt             # Example corpus for tokenization
+
+kernels/
+├── cpu/
+│   ├── src/agkernels_cpu.cpp  # AVX2 + OpenMP implementations
+│   └── benchmark/             # Kernel microbenchmarks
+└── gpu/
+    ├── entry.cu               # Kernel declarations and exports
+    ├── eltwise.cu             # Elementwise operations (kernels)
+    ├── mm_cublas.cu           # cuBLAS integration
+    ├── vjp.cu                 # Gradient computation kernels
+    └── zero.cu                # Initialization kernels
 
 tensor/
 ├── include/
 │   ├── TensorLib.h            # Public API
-│   ├── core/
-│   │   ├── Tensor.h           # Core tensor class
-│   │   ├── TensorDispatch.h   # Backend dispatch
-│   │   └── ...
-│   ├── device/
-│   │   ├── Device.h           # Device abstraction
-│   │   ├── Allocator.h        # Memory allocation
-│   │   ├── CPUAllocator.cpp
-│   │   └── CUDAAllocator.cpp
-│   ├── dtype/
-│   │   └── Dtype.h            # Type system
-│   └── ops/
-│       ├── Kernels.h          # Kernel interface
-│       ├── TensorOps.h        # Tensor operations
-│       └── UnaryOps/          # Element-wise ops
+│   ├── core/Tensor.h          # Core tensor class
+│   ├── device/Device.h        # Device abstraction
+│   ├── dtype/Dtype.h          # Type system
+│   └── ops/TensorOps.h        # Operation signatures
 └── src/
-    ├── device/                # Allocator implementations
-    ├── core/                  # Tensor core ops
-    └── TensorOps/             # Kernel implementations
-
-kernels/
-├── cpu/
-│   ├── src/agkernels_cpu.cpp  # OpenMP-threaded kernels
-│   └── benchmark/             # Perf testing suite
-└── gpu/
-    ├── entry.cu               # Kernel dispatch
-    ├── eltwise.cu             # Element-wise ops
-    ├── mm_cublas.cu           # Matrix multiply (cuBLAS)
-    ├── vjp.cu                 # Gradient kernels
-    └── zero.cu                # Memory operations
-
-arch/
-├── include/cgad.hpp           # High-level API
-└── layer/                     # Architecture-specific layers
-
-tests/
-├── test_aliba.cpp             # Attention correctness
-├── test_layer.cpp             # Composability
-└── ...                        # 12 test modules
+    ├── core/Tensor.cpp        # Tensor implementation
+    ├── device/                # CPU/CUDA allocators
+    ├── Kernels/               # Kernel implementations
+    └── TensorOps/             # Operation implementations
 ```
 
----
+## Integration with Python
 
-## 🧠 Key Technical Insights
+The framework exposes C++ via pybind11:
+```python
+import cgadimpl as cg
 
-### 1. Dynamic vs. Static Graphs
-**CGAD Design**: Dynamic graphs (like PyTorch)
-- Graphs built at runtime
-- Supports dynamic control flow
-- Easier debugging (can inspect nodes)
-- Trade-off: Slightly more overhead per node
+# Create tensors
+x = cg.Tensor.randn([2, 4], device='cuda')
+w = cg.Tensor.randn([4, 3], requires_grad=True, device='cuda')
 
-### 2. VJP Implementation Strategy
-Each op stores minimal "saved tensors" needed for gradient:
-```cpp
-// Forward: y = op(x)
-// Backward (VJP): dx = vjp_op(dy, saved_tensors)
+# Build graph
+y = cg.matmul(x, w)
+loss = cg.sum(y)
+
+# Backward pass
+cg.backward(loss)
+
+# Access gradients
+dw = w.grad()
 ```
 
-Example (ReLU):
-```cpp
-// Forward: y = max(0, x)
-// Backward: dx = dy * (x > 0)  [only need saved input mask]
-```
+## Known Limitations & Future Work
 
-### 3. Memory Hierarchy Exploitation
-- **Shared Memory** (96 KB): Block-local fast storage
-- **L1/L2 Cache**: Automatic (8 MB L2 on A100)
-- **Global Memory**: 40-80 GB/s bandwidth (vs 10+ TB/s shared)
+1. **Distributed Training**: No multi-GPU/multi-node support yet
+2. **Advanced Schedulers**: Only basic SGD with momentum
+3. **Quantization**: No mixed precision or INT8 support
+4. **Sparse Tensors**: Dense tensors only
+5. **Dynamic Shapes**: Graph compiled at first pass, then replayed with same shape
 
-Strategy: Tile matrix multiplies so products stay in shared memory
+## Debugging & Profiling
 
-### 4. Gradient Correctness
-Verified at three levels:
-1. **Numerical Gradient**: `(f(x+ε) - f(x-ε)) / 2ε`
-2. **VJP Computation**: Backprop via VJP rules
-3. **Tolerance Checking**: `allclose(numerical, vjp, atol=1e-4, rtol=1e-3)`
+Debug utilities in `include/ad/debug.hpp`:
+- `print_tensor(label, tensor)`: Pretty-print tensor contents
+- `print_all_values(root)`: Dump entire graph structure
+- `check_tensors_nangrad(node)`: Validate gradients are finite
 
----
+## References & Credits
 
-## 🔗 Integration Points
-
-**For Production Deployment**:
-1. **Python API** (pybind11) — Already built; expose to serving stack
-2. **ONNX Export** (future) — Graph serialization
-3. **Kernel Pluggability** — Add custom ops via `kernels/cpu` or `kernels/gpu`
-4. **Device Abstraction** — Extend `Allocator` for TPU/custom accelerators
-
----
-
-## 📚 Further Reading
-
-**On the Algorithms**:
-- **Autograd**: Griewank & Walther (2008), "Evaluating Derivatives"
-- **Checkpointing**: Griewank et al. (1992), "Algorithm 799"
-- **Flash Attention**: Dao et al. (2022), "FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness"
-- **ALiBi**: Press et al. (2022), "Train Short, Test Long"
-
-**On Systems Design**:
-- **CUDA Best Practices**: NVIDIA docs (occupancy, memory coalescing, warp efficiency)
-- **Graph Compilation**: TVM, TensorRT papers
-
----
-
-## 🎓 Learning Path
-
-To understand this codebase systematically:
-
-1. **Start**: Read `include/ad/graph.hpp` — understand Node/Value
-2. **Forward**: Read `core/autodiff.cpp:forward()` — execution order
-3. **Backward**: Read `autodiff/autodiff_vjp_ops.cpp` — chain rule
-4. **Kernels**: Study `kernels/gpu/eltwise.cu` — simple element-wise ops
-5. **Fusions**: Study `kernels/gpu/mm_cublas.cu` — tiled GEMM
-6. **Layers**: Read `layer/attention.cpp` — op composition
-7. **Optimize**: Read `ad/checkpoint.hpp` — memory techniques
-
----
-
-## ✅ Testing & Verification
-
-Run full test suite:
-```bash
-cd cgadimpl/build
-ctest --output-on-failure
-```
-
-**Key Test Suites**:
-- Autodiff correctness (numerical vs. VJP)
-- Layer composition (forward → backward → parameter updates)
-- Attention implementations (vs. reference)
-- Memory safety (no leaks, safe deletion)
-- Device transfers (CPU ↔ GPU)
-
----
-
-## 📝 Build Configuration
-
-**Key CMake Flags**:
-- `CMAKE_BUILD_TYPE=Debug|Release` — Optimization level
-- `CMAKE_CUDA_ARCHITECTURES=86` — SM version (A100: 80, H100: 90)
-- `CMAKE_CXX_STANDARD=20` — C++ standard
-
-**For Development**:
-```bash
-cmake -DCMAKE_BUILD_TYPE=Debug ..
-cmake --build . -- -j$(nproc)
-```
-
-**For Production**:
-```bash
-cmake -DCMAKE_BUILD_TYPE=Release ..
-cmake --build . -- -j$(nproc)
-```
-
----
-
-## 🤝 Contributing
-
-Areas for extension:
-- [ ] **Quantization kernels** (Int8, Float8 E4M3)
-- [ ] **Sparsity support** (pruned attention, sparse GEMM)
-- [ ] **Distributed training** (gradient accumulation, all-reduce fusion)
-- [ ] **Custom backends** (TPU, Cerebras, custom ASICs)
-- [ ] **Graph export** (ONNX, TensorRT)
-
----
-
-## 📄 License
-
-MIT License — See LICENSE file
-
----
-
-**Built to deeply understand modern ML systems, not to replace them.**
-
-For integration into production ML pipelines, consider this a reference implementation and educational resource. The architecture demonstrates the design decisions that power frameworks like PyTorch, JAX, and TensorFlow under the hood.
-
----
-
-## 📬 Questions?
-
-**Key Files to Explore**:
-- "How do gradients work?" → `include/ad/ops.hpp`, `autodiff/autodiff_vjp_ops.cpp`
-- "Why is checkpointing useful?" → `include/ad/checkpoint.hpp` (detailed comments)
-- "What kernels are optimized?" → `kernels/gpu/entry.cu` (dispatcher)
-- "How do layers compose?" → `include/layer/attention.hpp`, `src/layer/attention.cpp`
-- "What tensor ops exist?" → `tensor/include/ops/TensorOps.h`
+- VJP formulations inspired by PyTorch/JAX autodiff systems
+- CUDA optimization patterns from CuDNN, TensorRT documentation
+- CPU vectorization following modern SIMD best practices
