@@ -22,6 +22,36 @@ A from-scratch implementation of a PyTorch-like deep learning framework with exp
                                 (Flash Attention, GEMM, Activations)
 ```
 
+## Key Design Decisions
+
+### 1. **Explicit Computational Graph**
+Unlike eager-mode PyTorch, operations construct an explicit DAG. This enables:
+- Precise control over memory usage
+- Debugging and visualization of execution flow
+- Integration with compiler-style optimizations
+
+### 2. **Device-Aware Design**
+All tensors carry device metadata (CPU/CUDA) and enforce type correctness:
+- Gradients are computed on the same device as forward values
+- Automatic device transfer using `.to(device)` and `.to_cpu()` methods
+- Stream abstraction for future async scheduling
+
+### 3. **Verified VJP Operators**
+Each gradient operator is tested against numerical differentiation:
+- Broadcast reduction ensures gradients match tensor shapes
+- In-place modifications are tracked with versioning
+- Checkpointing allows selective gradient recomputation
+
+### 4. **Kernel Fusion**
+GPU kernels fuse multiple operations to reduce memory bandwidth:
+- Flash Attention combines softmax + GEMM in one pass
+- Activation fusion (e.g., add + ReLU) avoids intermediate tensor materialization
+
+### 5. **Performance Optimization Layers**
+- **CPU**: AVX2 vector instructions + OpenMP for parallel execution
+- **GPU**: CUDA shared memory for cache-locality, coalesced memory access
+- **Both**: Loop tiling and workload balancing for hardware efficiency
+
 ## Core Components
 
 ### 1. **Tensor Library** (`tensor/`)
@@ -162,35 +192,15 @@ Run tests:
 cd build && ctest --output-on-failure
 ```
 
-## Key Design Decisions
+## Mathematical Correctness & Verification
 
-### 1. **Explicit Computational Graph**
-Unlike eager-mode PyTorch, operations construct an explicit DAG. This enables:
-- Precise control over memory usage
-- Debugging and visualization of execution flow
-- Integration with compiler-style optimizations
-
-### 2. **Device-Aware Design**
-All tensors carry device metadata (CPU/CUDA) and enforce type correctness:
-- Gradients are computed on the same device as forward values
-- Automatic device transfer using `.to(device)` and `.to_cpu()` methods
-- Stream abstraction for future async scheduling
-
-### 3. **Verified VJP Operators**
-Each gradient operator is tested against numerical differentiation:
-- Broadcast reduction ensures gradients match tensor shapes
-- In-place modifications are tracked with versioning
-- Checkpointing allows selective gradient recomputation
-
-### 4. **Kernel Fusion**
-GPU kernels fuse multiple operations to reduce memory bandwidth:
-- Flash Attention combines softmax + GEMM in one pass
-- Activation fusion (e.g., add + ReLU) avoids intermediate tensor materialization
-
-### 5. **Performance Optimization Layers**
-- **CPU**: AVX2 vector instructions + OpenMP for parallel execution
-- **GPU**: CUDA shared memory for cache-locality, coalesced memory access
-- **Both**: Loop tiling and workload balancing for hardware efficiency
+> **Framework reliability is paramount.** All custom Vector-Jacobian Products (VJPs) and custom CUDA kernels are rigorously verified against PyTorch's eager-mode reference implementations. The testing suite asserts that both forward-pass activations and backward-pass gradient tensors match within a strict numerical tolerance ($atol = 10^{-5}$).
+>
+> This multi-layered verification approach includes:
+> - **Numerical gradient checking**: Custom VJP implementations validated via finite differences
+> - **Tensor shape verification**: Broadcast operations tested to ensure proper gradient dimensionality
+> - **Device consistency**: CPU and CUDA implementations produce identical numerical results
+> - **End-to-end training**: Full training loops with loss decrease validation
 
 ## Code Structure
 
