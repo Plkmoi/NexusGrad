@@ -1,8 +1,13 @@
-# MiniTorch CUDA: Production-Grade Custom Deep Learning Framework
+# NexusGrad
 
-**Custom CUDA Deep Learning Runtime** with Flash Attention, custom autograd, and verified correctness against PyTorch.
+A from-scratch C++/CUDA deep learning framework implementing:
 
-Build what NVIDIA builds—a from-scratch deep learning framework with explicit computational graphs, custom reverse-mode autodiff, and optimized GPU kernels. This is what ML infrastructure engineers actually do.
+- custom tensor runtime
+- reverse-mode autodiff
+- CUDA kernels
+- Flash Attention
+- explicit computational graphs
+- PyTorch correctness verification
 
 ---
 
@@ -60,18 +65,6 @@ print(w.grad())
         │                  ├─► [Custom Autograd VJP]
         │                  │    (Reverse-Mode AD)
         │                  │
-        ▼                  ▼
-[Layer Abstractions]    [Kernel Dispatch]
-  (Linear, Attention,      │
-   Embeddings, Norm,       ├─► [CPU Kernels: AVX2+OpenMP]
-   Activations)            │
-                           └─► [GPU Kernels: CUDA]
-                                (Flash Attention, GEMM, Activations)
-```
-
----
-
-## The Impressive Parts
         ▼                  ▼
 [Layer Abstractions]    [Kernel Dispatch]
   (Linear, Attention,      │
@@ -157,7 +150,7 @@ GPU kernels combine operations to reduce memory bandwidth:
 - **GPU**: Shared memory for cache-locality, coalesced memory access, warp synchronization
 - **Both**: Loop tiling and workload balancing
 
-**Real-world benefit:** Production-grade performance. This is what you do to meet inference SLAs.
+**Real-world benefit:** Production-level performance optimization for inference-heavy workloads.
 
 ---
 
