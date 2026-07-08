@@ -11,24 +11,23 @@ A from-scratch C++/CUDA deep learning framework implementing:
 
 ---
 
-## What You Get
+## Highlights
 
-- ✅ **Flash Attention Kernels** — Custom CUDA implementation (memory-efficient attention)
-- ✅ **Custom Autograd Engine** — Vector-Jacobian Products (VJP) verified against PyTorch  
-- ✅ **Multi-Device Tensors** — CPU (AVX2) + CUDA with automatic device transfer
-- ✅ **Production Verification** — All gradients tested with numerical differentiation
-- ✅ **Python Bindings** — pybind11 for seamless C++/Python interop
-- ✅ **Kernel Fusion** — Fused operations (add+ReLU, softmax+GEMM) for performance
-- ✅ **Attention Variants** — Standard scaled dot-product + ALiBi position encoding
+- Flash Attention CUDA implementation
+- Reverse-mode automatic differentiation
+- Dynamic computational graph execution
+- CUDA and AVX2 execution backends
+- pybind11 Python bindings
+- Numerical verification against PyTorch
 
-### Who should build this?
+### Scope
 
-**You're building this if you're interviewing for:**
-- AI Model Optimization Engineer
-- GPU Compute Engineer  
-- Infrastructure ML Engineer
-- Kernel Engineer
-- Deep Learning Systems Engineer
+This repository is intended for engineers working on:
+- GPU programming
+- Automatic differentiation
+- Deep learning runtimes
+- CUDA kernel development
+- Transformer implementation
 
 ---
 
@@ -76,7 +75,7 @@ print(w.grad())
 
 ---
 
-## The Impressive Parts
+## Design Highlights
 
 ### 1. Flash Attention (Custom CUDA)
 Memory-efficient attention that fuses softmax + GEMM in one kernel. Instead of materializing intermediate tensors, this computes attention in a single pass with shared memory optimization.
@@ -110,12 +109,12 @@ Not NumPy, not CuPy—a custom tensor abstraction with:
 
 ---
 
-## Why This Architecture?
+## Design Decisions
 
 ### 1. **Explicit Computational Graph**
 Instead of eager execution (PyTorch default), operations construct an explicit DAG.
 
-**Real-world benefit:** Enables compiler-style optimizations, memory profiling, and debugging. Production systems (TorchScript, JAX, TensorFlow) all use this internally.
+The explicit graph makes it possible to inspect intermediate values, profile memory use, and apply compiler-style optimizations.
 
 ### 2. **Device-Aware Design**
 All tensors track their device (CPU/CUDA) and enforce correctness:
@@ -126,7 +125,7 @@ Tensor w_cpu = w.to_cpu();
 // Gradients computed on same device as values
 ```
 
-**Real-world benefit:** Prevents common mistakes (mixing CPU/GPU operations). NVIDIA requires this for production ML systems.
+Device metadata ensures CPU/GPU consistency during graph execution.
 
 ### 3. **Verified VJP Operators**  
 Each gradient operator tested against numerical differentiation:
@@ -136,25 +135,25 @@ For every operation: f(x)
 Check: ∂f/∂x ≈ (f(x+ε) - f(x-ε)) / 2ε
 ```
 
-**Real-world benefit:** Catching NaN/gradient explosions before they break training. Infrastructure teams do this.
+Numerical verification helps catch gradient mismatches and unstable updates early.
 
 ### 4. **Kernel Fusion**
 GPU kernels combine operations to reduce memory bandwidth:
 - Flash Attention: softmax + GEMM → 1 kernel
 - Activation fusion: add + ReLU → 1 kernel
 
-**Real-world benefit:** 2-4× speedup on modern GPUs. cuDNN and TensorRT do this.
+Kernel fusion reduces memory traffic and can improve throughput for attention and activation-heavy workloads.
 
 ### 5. **Performance Optimization Layers**
 - **CPU**: AVX2 vector instructions + OpenMP parallelization
 - **GPU**: Shared memory for cache-locality, coalesced memory access, warp synchronization
 - **Both**: Loop tiling and workload balancing
 
-**Real-world benefit:** Production-level performance optimization for inference-heavy workloads.
+The implementation targets both vectorized CPU execution and tuned CUDA kernels.
 
 ---
 
-## Technical Skills This Demonstrates
+## Implementation Summary
 
 | Category | Technology | Evidence in Repo |
 |----------|-----------|------------------|
@@ -167,6 +166,10 @@ GPU kernels combine operations to reduce memory bandwidth:
 | **ML Theory** | Attention, activations, layer norms | Standard + ALiBi attention, Swish, Mish, etc. |
 
 ---
+
+## Project Status
+
+This repository represents an actively developed deep learning framework. Several components are implemented and verified against PyTorch, while others remain experimental or under active development. The project is intended to demonstrate systems design, CUDA kernel implementation, reverse-mode autodiff, and runtime architecture rather than serve as a production-ready ML framework.
 
 ## Core Components
 
@@ -206,10 +209,10 @@ Custom reverse-mode automatic differentiation:
 - **Compilation**: Trace→compile→replay for repeated execution patterns
 
 ### 4. **Layer API**
-The older layer headers under `cgadimpl/include/layer/` are now considered legacy and deprecated. The current main implementation for transformer-style layers lives in `arch/include/layer/` and `arch/src/layer/`.
+The legacy layer headers under `cgadimpl/include/layer/` are retained for compatibility, but the current main implementation for transformer-style layers lives in `arch/include/layer/` and `arch/src/layer/`.
 
 **Legacy / deprecated layer API:**
-- `cgadimpl/include/layer/` contains the older module-style abstractions retained for compatibility
+- `cgadimpl/include/layer/` contains the older module-style abstractions
 - This is no longer the primary development path
 
 **Current main layer stack (`arch/`):**
@@ -246,7 +249,7 @@ CUDA implementations for production workloads:
 
 ## High-Level Architecture Components (`arch/`)
 
-This is now the primary implementation path for transformer-oriented layers and utilities:
+This is the current main implementation path for transformer-oriented layers and utilities:
 - **Attention Mechanisms**: Standard and ALiBi variants
 - **Tokenization**: Byte-level and text file loading utilities
 - **SafeTensors Support**: Model weight serialization/deserialization
