@@ -205,25 +205,21 @@ Custom reverse-mode automatic differentiation:
 - **Device Transfer**: Efficient host↔device tensor movement
 - **Compilation**: Trace→compile→replay for repeated execution patterns
 
-### 4. **Layer API** (`cgadimpl/include/layer/`)
-PyTorch-inspired module interface:
+### 4. **Layer API**
+The older layer headers under `cgadimpl/include/layer/` are now considered legacy and deprecated. The current main implementation for transformer-style layers lives in `arch/include/layer/` and `arch/src/layer/`.
 
-**Base Abstractions:**
-- `Layer` base class with parameter management and device movement
-- `Linear`: Dense matrix transformation with bias
-- `Traverse`: Sequential layer composition
-- `ResidualBlock`: Skip connection support
+**Legacy / deprecated layer API:**
+- `cgadimpl/include/layer/` contains the older module-style abstractions retained for compatibility
+- This is no longer the primary development path
 
-**Activation Layers:**
-- ReLU, LeakyReLU, Swish, Softplus
-- Mish, GCU (Gated Cubic Unit)
-- Gaussian, ParCon (Parametric Concatenation)
-- Softmax with temperature scaling
-
-**Advanced Layers:**
-- `Attention`: Standard scaled dot-product attention with multiple heads
-- `AlibiAttention`: Attention with ALiBi (Attention with Linear Biases) position encoding
-- `SWIGLU`: Gated linear activation (Swish + Linear)
+**Current main layer stack (`arch/`):**
+- `Layer` base abstraction with parameter management and device movement
+- `Linear`: dense projection layer with bias
+- `Traverse`: sequential layer composition
+- `ResidualBlock`: residual skip-connection support
+- Activation layers: ReLU, LeakyReLU, Swish, Softplus, Mish, GCU, Gaussian, ParCon, Softmax
+- Advanced layers: `Attention`, `AlibiAttention`, and `SWIGLU`
+- Additional transformer-oriented utilities for tokenization, SafeTensors loading, and corpus processing
 
 ### 5. **Optimizer** (`cgadimpl/include/layer/optim.hpp`)
 - SGD with momentum support
@@ -250,11 +246,12 @@ CUDA implementations for production workloads:
 
 ## High-Level Architecture Components (`arch/`)
 
-Layer implementations targeting transformer-style models:
+This is now the primary implementation path for transformer-oriented layers and utilities:
 - **Attention Mechanisms**: Standard and ALiBi variants
 - **Tokenization**: Byte-level and text file loading utilities
 - **SafeTensors Support**: Model weight serialization/deserialization
 - **Text Processing**: Corpus loading with configurable encoding
+- **Layer Stack**: The active module interface and layer implementations used by the current architecture build
 
 ## Building
 
