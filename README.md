@@ -424,40 +424,6 @@ dw = w.grad()
 
 ---
 
-## Why This Project Matters for Your Career
-
-### Interview Talking Points
-
-1. **"Tell me about a time you optimized performance"**  
-   → Flash Attention kernel, kernel fusion reducing memory bandwidth by 2-4×
-
-2. **"How do you ensure correctness in systems code?"**  
-   → Numerical gradient checking, testing against PyTorch, device consistency verification
-
-3. **"Describe a complex C++ project you built"**  
-   → Custom allocators, pybind11 bindings, DAG construction, stream management
-
-4. **"What's your GPU experience?"**  
-   → CUDA shared memory optimization, coalesced memory access, warp synchronization, cuBLAS integration
-
-5. **"How would you build an autograd system?"**  
-   → Custom VJP for 30+ operations, graph-based execution, topological sort for backward pass
-
-### Companies That Hire For This
-
-These job descriptions match the skills in this repo:
-
-- **NVIDIA**: Infrastructure/ML framework teams
-- **OpenAI**: Model optimization, inference acceleration  
-- **Anthropic**: Custom ML systems, training infrastructure
-- **Meta**: ML Compiler, PyTorch optimization
-- **Google**: TensorFlow team, JAX development
-- **Apple**: Machine Learning Systems (inference on device)
-- **Databricks**: Ray tuning, distributed training
-- **Anduril**: Inference optimization, embedded ML
-
----
-
 ## Known Limitations & Future Work
 
 1. **Distributed Training**: No multi-GPU/multi-node support yet
