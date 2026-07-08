@@ -13,22 +13,13 @@ A from-scratch C++/CUDA deep learning framework implementing:
 
 ## Core Capabilities
 
-- ⚡ **Flash Attention** — custom CUDA implementation with memory-efficient attention kernels
-- ⚡ **Automatic Differentiation** — reverse-mode autodiff with custom Vector-Jacobian Products verified against PyTorch
-- ⚡ **Multi-Device Runtime** — CPU (AVX2/OpenMP) and CUDA execution with explicit device-aware tensors
-- ⚡ **Transformer Components** — attention, ALiBi, RMSNorm, SWIGLU, embeddings, and KV-cache inference
-- ⚡ **Kernel Optimization** — fused kernels, shared-memory optimizations, warp-level primitives, and reduction kernels
-- ⚡ **Python Integration** — pybind11 bindings exposing the runtime from Python
-- ⚡ **Verification Pipeline** — numerical gradient checking and PyTorch parity tests across forward and backward execution
-
-### Scope
-
-This repository is intended for engineers working on:
-- GPU programming
-- Automatic differentiation
-- Deep learning runtimes
-- CUDA kernel development
-- Transformer implementation
+- ✅ **Flash Attention Kernels** — custom CUDA implementation with memory-efficient attention kernels
+- ✅ **Custom Autograd Engine** — reverse-mode autodiff with custom Vector-Jacobian Products verified against PyTorch
+- ✅ **Multi-Device Tensor Runtime** — CPU (AVX2/OpenMP) and CUDA execution with explicit device-aware tensors
+- ✅ **Transformer Components** — attention, ALiBi, RMSNorm, SWIGLU, embeddings, and KV-cache inference
+- ✅ **Kernel Fusion** — fused kernels, shared-memory optimizations, warp-level primitives, and reduction kernels
+- ✅ **Python Bindings** — pybind11 interface exposing the runtime directly from Python
+- ✅ **PyTorch Verification** — numerical gradient checking and forward/backward parity tests
 
 ---
 
