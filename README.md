@@ -11,19 +11,18 @@ A from-scratch C++/CUDA deep learning framework implementing:
 
 ---
 
-## Features
+## Highlights
 
-- Flash Attention
-- Reverse-mode autodiff
-- CUDA tensor runtime
-- AVX2 CPU backend
-- pybind11 bindings
-- Dynamic computational graphs
-- PyTorch verification
+- Flash Attention CUDA implementation
+- Reverse-mode automatic differentiation
+- Dynamic computational graph execution
+- CUDA and AVX2 execution backends
+- pybind11 Python bindings
+- Numerical verification against PyTorch
 
-### Target Audience
+### Scope
 
-This repository is intended for engineers interested in:
+This repository is intended for engineers working on:
 - GPU programming
 - Automatic differentiation
 - Deep learning runtimes
@@ -110,7 +109,7 @@ Not NumPy, not CuPy—a custom tensor abstraction with:
 
 ---
 
-## Design Rationale
+## Design Decisions
 
 ### 1. **Explicit Computational Graph**
 Instead of eager execution (PyTorch default), operations construct an explicit DAG.
@@ -154,7 +153,7 @@ The implementation targets both vectorized CPU execution and tuned CUDA kernels.
 
 ---
 
-## Technical Skills This Demonstrates
+## Implementation Summary
 
 | Category | Technology | Evidence in Repo |
 |----------|-----------|------------------|
@@ -167,6 +166,10 @@ The implementation targets both vectorized CPU execution and tuned CUDA kernels.
 | **ML Theory** | Attention, activations, layer norms | Standard + ALiBi attention, Swish, Mish, etc. |
 
 ---
+
+## Project Status
+
+This repository represents an actively developed deep learning framework. Several components are implemented and verified against PyTorch, while others remain experimental or under active development. The project is intended to demonstrate systems design, CUDA kernel implementation, reverse-mode autodiff, and runtime architecture rather than serve as a production-ready ML framework.
 
 ## Core Components
 
